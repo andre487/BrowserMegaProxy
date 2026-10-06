@@ -1,20 +1,22 @@
 # MegaProxy
 
+[![CI](https://github.com/andre487/BrowserMegaProxy/actions/workflows/pr.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/pr.yml?query=branch%3Amain+event%3Apush)
+[![Firefox Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml?query=branch%3Amain+event%3Apush)
+[![Vivaldi Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml?query=branch%3Amain+event%3Apush)
+[![Release](https://img.shields.io/github/v/release/andre487/BrowserMegaProxy)](https://github.com/andre487/BrowserMegaProxy/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Chromium 120+](https://img.shields.io/badge/Chromium-120%2B-4285F4?logo=googlechrome&logoColor=white)](#build-and-install)
+[![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)](#build-and-install)
+
 Browser extensions for Chromium and Firefox.
 HTTP/HTTPS CONNECT, multiple profiles, authentication, knock hosts, domain exclusions,
 profile import/export, local-network bypass, connection checks, and light/dark themes
 (with automatic appearance in Firefox). The UI uses no external libraries or resources.
 
-## Releases
+MegaProxy manages proxies you provide; it does not include proxy servers or a VPN service.
+Safari and browsers without extension proxy APIs are not supported.
 
-Release PR preparation, checks, tagging and archive publication are documented in
-[RELEASING.md](RELEASING.md).
-
-## Store materials
-
-English and Russian listings, screenshots, icons and promotional materials for Chrome Web Store,
-Firefox Add-ons and Opera Add-ons are available in [store/](store/README.md).
-Regenerate images with `npm run store:assets`.
+[Development](docs/development.md) · [Tests and reports](docs/testing.md) · [Release automation](RELEASING.md) · [Privacy](store/PRIVACY.md) · [Permissions](store/PERMISSIONS.md)
 
 ## Build and install
 
@@ -26,7 +28,15 @@ npm run build
 ```
 
 - **Chromium 120+**: `chrome://extensions` → Developer mode → Load unpacked → `dist/chromium`.
-- **Firefox 140+**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `dist/firefox/manifest.json`. Allow private-window access in `about:addons`: Firefox requires it for `proxy.settings`. Permanent installation requires Mozilla signing.
+- **Firefox desktop 140+**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `dist/firefox/manifest.json`. Allow private-window access in `about:addons`: Firefox requires it for `proxy.settings`. Permanent installation requires Mozilla signing.
+
+On Android, Firefox requires **142+** and a signed package installed through Mozilla's
+add-on distribution; `about:debugging` is a desktop installation method. For development,
+see [Mozilla's Android extension guide](https://extensionworkshop.com/documentation/develop/developing-extensions-for-firefox-for-android/).
+The Chromium build is also tested in Vivaldi Android; ordinary Chrome Android cannot
+load it ([Google's installation guide](https://support.google.com/chrome_webstore/answer/2664769?hl=en)
+offers only Add to Desktop from a phone).
+See [mobile test coverage and limitations](docs/testing.md).
 
 Each PR's **Extension checks** workflow publishes two ZIP artifacts:
 **MegaProxy-chromium** and **MegaProxy-firefox**. Open the run from the PR checks,
@@ -39,11 +49,11 @@ including release PRs that merge before the publication job starts.
 Open Settings from the popup: profiles, import/export, routing, language and appearance
 are on a separate page. Add a profile with a server address, port, username and password.
 The popup provides quick actions to select and connect a profile, disconnect and knock.
-Disconnect restores the browser's previous settings. Changes to the active profile apply immediately.
+Disconnect selects System and releases MegaProxy's proxy control. Changes to the active profile apply immediately.
 Knock opens a separate background tab, which closes automatically after a successful load.
 Settings → Language offers Auto, Russian and English. Auto is the default:
 `i18n.getUILanguage()` selects Russian for `ru` and its regional variants, and English
-for other browser languages. Manual choices are saved locally and apply immediately,
+for other browser languages. Manual choices persist and apply immediately,
 including errors and hints. Profile names are not translated.
 Translations are in `extension/_locales/{en,ru}/messages.json`; the browser chooses the
 extension description language independently of the manual UI selection.
@@ -53,90 +63,44 @@ password sync can be disabled separately. MegaProxy does not encrypt them separa
 Chromium private-window access is disabled by default. Firefox requires private-window
 permission for `proxy.settings`; the active profile applies in those windows too.
 
-## Development launcher
+## Connection modes and network monitor
 
-Install a current regular Google Chrome and/or Firefox. macOS, Linux and Windows
-are supported; Node.js 22+ and `npm ci` are required.
+The popup and the top of Settings provide Proxy, Direct and System modes.
+The choice updates across all open extension pages through local browser storage.
+The selected profile remains selected when requests fail; there is no automatic
+profile switching. Legacy Fallback mode migrates to Proxy without changing the
+selected profile. Direct forces requests to connect without a proxy. System releases
+MegaProxy's control and uses existing browser/system proxy settings. Disconnect
+selects System. The connection mode stays local and is not synchronized or exported.
+Configs containing the unsupported `failover` field show the unknown-fields warning;
+that field is ignored and omitted from exports.
 
-```sh
-npm start             # Chrome by default
-npm start --chrome    # Chrome
-npm start --firefox   # Firefox
-npm start -- --watch  # Chrome with automatic rebuilds
-npm start -- --firefox --watch # Firefox with automatic rebuilds
-```
+Selective routing chooses between the active profile and DIRECT. It never selects
+another profile based on a domain. Browser authentication caches are tied to proxy
+endpoints; use distinct endpoints for different credentials.
 
-Some npm versions warn about unknown flags. The portable argument syntax is
-`npm start -- --chrome` and `npm start -- --firefox`.
+The icon shows the profile selected for the tab's top-level URL on a colored plate,
+with long names fading out at the right edge and the full name in its tooltip.
+Internal browser/extension pages show the active profile. Direct/System use DIR/SYS. Third-party resources follow the selected routing mode; their routes appear in the monitor.
+System means browser-managed routing, whose external proxy is not inferred.
+Badge updates run on navigation, activation and configuration changes rather
+than every resource request.
 
-`--watch` monitors `extension/` and `scripts/build.mjs`: changes rebuild and reload
-the extension without restarting the browser. Settings are preserved.
-Chrome also refreshes open extension tabs; Firefox extension pages may need to be
-reopened. Build errors appear in the terminal; watching continues until the next change.
+The network monitor in Settings lists recent HTTP(S) resources, including direct
+requests, optionally
+filtered to failures (network errors or HTTP status >= 400). Select failed
+domains and add them to the active manual domain list or Firefox tab-site list.
+The action is hidden in other routing modes and does not switch modes. Data stays in memory and is never sent
+anywhere. Only hostname, resource type, status/error, selected profile and time
+are retained, without URL paths, query strings, headers, bodies or credentials.
+Limits are 200 rows per tab and 50 tabs. Navigation, tab close, opt-out and
+background restart clear their relevant entries. The journal has no per-request
+storage writes, UI messages or badge changes. Refresh runs every five seconds
+only while the monitor is open and visible.
 
-Every launch rebuilds the extension and loads it automatically.
-Persistent, separate browser profiles live in `.browser-profiles/chrome` and
-`.browser-profiles/firefox`; this directory is excluded from Git. Proxy profiles,
-language, theme and other browser data survive restarts. Close the previous session
-before launching again. Exit by closing the browser or pressing Ctrl+C in the terminal.
+### Optional request statistics
 
-Chrome opens the extension UI in a tab. Current regular Chrome
-[disables `--load-extension`](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY),
-so the launcher uses DevTools Protocol with `--enable-unsafe-extension-debugging`
-only in its separate development profile.
-Firefox opens `about:addons` and installs a temporary add-on on every launch through
-the local Mozilla DevTools server. The add-on receives the private-window permission
-required for `proxy.settings` in its separate profile. Add-on data is preserved;
-Mozilla signing is not needed for this launch method.
-
-On macOS, Firefox is located in `/Applications/Firefox.app`; on Linux, as `firefox`
-in PATH; on Windows, in Program Files / Program Files (x86) / LocalAppData.
-Chrome is located in its standard installation directory. Linux requires a graphical
-session for `npm start`.
-
-## Authentication and probe resistance
-
-| Browser  | Credentials before 407                                                      | Knock                                                                                           |
-| -------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Firefox  | Saved credentials are supplied through `ProxyInfo.proxyAuthorizationHeader` | Opens on connection and browser startup without saved credentials; disabled when both are saved |
-| Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
-
-A knock host is optional: its absence does not prevent connecting a profile or show a warning.
-When configured, a normal HTTPS tab opens in the background. Without saved credentials,
-the browser displays its authentication dialog. Passwords entered there remain in the
-browser; the extension does not read them or copy them into a profile.
-Firefox disables the knock field and button when both username and password are saved,
-without deleting the saved knock host.
-After a successful HTTP response and completed load, the knock tab closes automatically.
-Load errors, cancellation or unsuccessful authentication leave it open.
-Repeated requests reuse an existing pending tab. Its state is retained in `storage.session`
-so closing still works after the background process restarts.
-
-Tests confirm credentials in Firefox's first CONNECT for HTTPS proxies.
-For HTTP proxies, Firefox may wait for 407. This logic does not support HTTP proxies
-with probe resistance and no challenge at the destination; use an HTTPS proxy for
-such servers. `browser.authMode` remains for legacy imports, but Firefox always
-requests immediate submission of saved credentials.
-
-The `onAuthRequired` handler responds only to the active proxy, matching host/port
-and `isProxy`. A repeated challenge for the same request is canceled. Credentials
-are never added to destination-site headers or used for its 401 response.
-
-For MegaProxyServer with `probe_resistance` enabled, add an allowed name to the
-server's `knock` setting and use the same name in the extension profile.
-That name needs a working HTTPS website for a successful page load after CONNECT;
-an allowed server-side knock hostname is sufficient to obtain the 407 itself.
-No public knock hosts are selected automatically. Knock must not be bypassed.
-Opening a tab alone does not verify successful authentication. Switching profiles
-may require a new knock because of browser authentication caches.
-
-HTTPS here means TLS **to the proxy**, regardless of the destination website's scheme.
-HTTP proxies transmit Basic credentials without TLS on the connection to the proxy.
-HTTPS proxy certificates are verified; disabling verification is unsupported.
-Use a certificate trusted by the browser.
-Bypass domains include their subdomains without requiring wildcards or PAC.
-Firefox returns a chain ending in `null` to prevent direct fallback.
-Chromium uses one fixed proxy.
+Statistics and network monitoring are enabled by default, with one local opt-out in Settings. Existing saved opt-out preferences remain respected. Counters track completed and failed MegaProxy requests. Direct requests are excluded. Statistics remain local in the browser and are never sent anywhere. Counters stay in memory, reset on opt-out or background-process restart, and never write storage per request. The statistics panel refreshes every five seconds only while its page is visible and statistics are enabled. Opting out removes the collecting listeners, clears the journal and counters, and hides both panels. The preference is local and is neither imported nor exported; no traffic-volume measurement is attempted.
 
 ## Profiles and routing
 
@@ -153,143 +117,15 @@ Full proxying routes requests through the selected profile, subject to exclusion
 Routing settings save automatically: toggles immediately, text fields on blur.
 The selected profile remains active after request failures; automatic failover is not supported.
 
-## Configuration compatibility
-
-The shared version 8 contract, English documentation, schemas and examples are in
-[MegaProxyConfig](https://github.com/andre487/MegaProxyConfig).
-The build generates a CSP-compatible validator from the local schema: version 8
-imports and exports use the same schema as the tests. Builds and tests never fetch schemas.
-
-```sh
-npm run renew-config-schema
-npm run renew-config-schema -- --ref=<full-commit>
-```
-
-This command updates `config-schema/`: both schemas, the license, commit and SHA-256
-values in the lock file. Review and commit schema copies and the lock file together.
-The formatter excludes this directory to preserve original bytes and checksums.
-
-Imports accept MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON (`https`/`ssl`,
-`hostname`/`address`), ProxyList and Android-compatible SuperProxy format.
-Supported HTTP profiles are accepted too. SSH, jump chains, PAC and disabled
-certificate verification are skipped with a warning. FoxyProxy URL rules are not
-transferred. Unknown or unsupported fields trigger one warning before applying:
-“Configuration contains unknown fields.” Those fields are neither retained nor
-exported. Limits are 1 MiB per file and 1000 profiles. Imported files may contain
-passwords; do not commit them.
-
-Import review shows new, updated and skipped profiles. Matching IDs update without
-duplicates or changing local order. A missing password preserves the local value;
-an explicit empty string clears it. Local profiles absent from the file remain,
-and can be selected for deletion. Import does not connect the file's active profile.
-Changes to an already active profile apply after confirming the import.
-
-Exports use MegaProxy JSON version 8. Passwords are included by default and can
-be excluded with a separate toggle. Unsupported Android fields are discarded on
-import with the general warning. Current Android does not support HTTP or IPv6
-literals in the proxy host field; exporting such profiles fails explicitly without
-changing their protocol. Android ignores new `browser` blocks but currently drops
-them on export: a complete round trip through Android requires the application to
-preserve unknown fields.
-
-## Connection checks
-
-Checks use the active connection and a normal background browser tab, closing it
-when complete. Stages follow Android: an HTTPS request to `example.com`, exit IP
-(`ifconfig.me`, `api.ipify.org`, `icanhazip.com`) and country (`ifconfig.co`,
-`ipapi.co`, `api.country.is`), with fallback between providers. Country is optional.
-The total timeout is 45 seconds; each attempt has a 10-second timeout. In Proxy
-mode, bypassed diagnostic hosts prevent the test so a direct request cannot be
-presented as a proxy check. Checks are also available in Direct and System modes.
-
-## Linting and formatting
-
-[Prettier](https://prettier.io/) is the only formatter for JS/MJS, HTML, CSS,
-JSON, Markdown and YAML. `.prettierrc.json` configures two-space indentation,
-single quotes, no unnecessary semicolons and a preferred line width of 100.
-Long expressions wrap automatically; string literals may exceed that width.
-
-[ESLint](https://eslint.org/) checks JavaScript using its recommended rules.
-Environments and additional rules are in `eslint.config.mjs`; extension globals
-are also declared in `/* global … */` comments.
-`eslint-config-prettier` disables rules that conflict with formatting.
-Tool versions are pinned in `package.json` and the lock file. `.gitignore` entries
-are excluded from formatting; `config-schema` is excluded separately to preserve
-source-file checksums.
-
-```sh
-npm run lint         # ESLint + Prettier formatting check
-npm run lint:fix     # ESLint fixes, then Prettier formatting
-npm run format       # Format the entire project with Prettier
-npm run format:check # Check formatting without changing files
-```
-
-In VS Code, install the recommended **Prettier** (`esbenp.prettier-vscode`) and
-**ESLint** (`dbaeumer.vscode-eslint`) extensions. Repository settings enable
-formatting and ESLint fixes on save.
-
-Separate functions with blank lines and distinguish logical blocks within functions.
-ESLint's `curly: all` requires braces for every `if`, `else` and loop; Prettier
-places block bodies on separate lines. Prettier preserves blank lines but does not
-automatically determine logical boundaries.
-
-## Checks and pull requests
-
-```sh
-# Requires Docker with a running daemon, uv, Git and OpenSSL.
-npx playwright install chromium firefox
-npm run check
-```
-
-[.github/workflows/pr.yml](.github/workflows/pr.yml) runs checks on every PR:
-
-- ESLint: code quality rules for all JS/MJS files; errors and warnings block the PR.
-- Prettier: consistent JS/MJS, HTML/CSS/JSON, Markdown and YAML formatting; differences block the PR.
-- Node: validation, Unicode Basic, routing, imports, retry limits and credential protection.
-- Playwright Chromium: installed MV3 extension, a real proxy challenge, knock, subsequent CONNECT and no credentials reaching the origin.
-- Playwright Firefox: temporary add-on installation through Mozilla DevTools Protocol; a test-only sidecar in a temporary copy invokes the normal background handler and is excluded from builds. Playwright checks real network requests; controlling `moz-extension` pages is unsupported.
-- MegaProxyServer: real GOST 3.3.0 and HAProxy in Docker, templates and exports from a pinned server commit; HTTPS/407, camouflage with and without knock, separate chain camouflage settings, direct and SNI-chain routes (including a server with no direct route), IP endpoints, invalid/empty credentials, no origin credential leaks, exit failure without direct fallback, split proxy, proxied subscriptions, diagnostics and request-statistics preferences.
-- Chrome development launcher: current code after relaunch and language persistence in a separate profile, when regular Chrome is installed.
-- Chromium and Firefox UI: create/edit/delete, imports, themes, keyboard access and mobile widths; automatic browser-language selection, persisted manual choices, translated errors and form preservation on language changes.
-
-## Code organization
-
-`extension/platform.js` contains the shared `BrowserPlatform` class and its
-`ChromiumPlatform` and `FirefoxPlatform` implementations. They handle native proxy
-settings, authentication and knock, tab routing, available UI capabilities and
-import compatibility. The concrete implementation is selected at startup; shared
-handlers and UI call its methods. Browser APIs and core functions are constructor
-arguments; operation-specific dependencies are method arguments, without a DI container.
-
-Run `npm run check` before changing adapter behavior: unit tests cover edge cases
-and settings restoration; Playwright checks real Chromium and Firefox, including
-MegaProxyServer interoperability.
-
-## References and assets
-
-- [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy): Basic credentials in the first CONNECT.
-- [MegaProxyServer](https://github.com/andre487/MegaProxyServer): JSON exports, SNI chains and knock with probe resistance.
-- [FoxyProxy](https://github.com/foxyproxy/browser-extension): matching proxy challengers and limiting retries.
-- [Mozilla ProxyInfo](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/ProxyInfo),
-  [proxy.onRequest](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/onRequest),
-  [Chrome webRequest](https://developer.chrome.com/docs/extensions/reference/api/webRequest),
-  [Playwright extensions](https://playwright.dev/docs/chrome-extensions).
-
-Code is written for this repository; source code from other extensions is not copied.
-The icon comes from [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy/blob/main/fastlane/metadata/android/en-US/images/icon.png)
-under MIT. The original PNG and browser sizes are in `extension/icons`, alongside
-the upstream license. The Android repository has no vector source.
-Toolbar icons are separate PNGs with rounded transparent corners at 16, 24, 32 and
-48 px. Regenerate them from the original logo with `node scripts/renew-toolbar-icons.mjs`
-(requires installed Playwright Chromium).
-
 ## Selective routing
 
 Full proxying is the default, keeping all eligible requests on the active proxy.
 Select a routing mode in Settings; manual lists accept one hostname pattern per line.
-Exact hostnames match only themselves; `*` matches any characters, including dots.
-For example, `*.example.com` selects subdomains, not `example.com`. Empty lists
-connect directly. Both modes respect local-network and profile bypass rules.
+For destination-domain rules, exact hostnames match only themselves; `*` matches
+any characters, including dots. `*.example.com` selects subdomains only, while
+`**.example.com` selects the domain and its subdomains. In Firefox tab routing,
+bare hostnames also include their subdomains. Empty lists connect directly.
+Both modes respect local-network and profile bypass rules.
 
 - **Destination domains (Chromium and Firefox):** only requests whose destination
   hostname matches the domain list use the proxy.
@@ -299,7 +135,7 @@ connect directly. Both modes respect local-network and profile bypass rules.
   tab and reload it; the override lasts until the tab closes or routing settings
   change. Previously opened connections are not migrated.
 
-The popup's **Add site to rules** action adds the current hostname to the current
+The popup's **Add site to rules** action adds the current hostname and its subdomains to the current
 mode's list and reloads that tab. Chromium hides tab routing and manual tab controls.
 Chromium PAC routing always bypasses
 localhost and link-local addresses; disabling local bypass cannot override this
@@ -347,7 +183,7 @@ Settings show the number of dropped rules: those domains connect directly unless
 covered by another rule. A failure to download any selected source preserves the
 entire last successful version. Download limits are 4 MiB and 200,000 lines per
 domain list, 32 MiB for the decompressed ranking, and 30 seconds per request.
-Lists and scores are cached locally; browsing history is never uploaded.
+Compiled rules and ranking scores are cached locally; browsing history is never uploaded.
 Rank matching runs during updates, not on every request.
 
 Subscription settings are in `browser.routing.subscriptions` and are exported;
@@ -365,104 +201,149 @@ Tranco: Victor Le Pochat et al. (2019), _Tranco: A Research-Oriented Top Sites
 Ranking Hardened Against Manipulation_, NDSS,
 [doi:10.14722/ndss.2019.23386](https://doi.org/10.14722/ndss.2019.23386).
 
-### Optional request statistics
+### Dynamic community-list catalog
 
-Statistics and network monitoring are enabled by default, with one local opt-out in Settings. Existing saved opt-out preferences remain respected. Counters track completed and failed MegaProxy requests. Direct requests are excluded. Statistics remain local in the browser and are never sent anywhere. Counters stay in memory, reset on opt-out or background-process restart, and never write storage per request. The statistics panel refreshes every five seconds only while its page is visible and statistics are enabled. Opting out removes the collecting listeners, clears the journal and counters, and hides both panels. The preference is local and is neither imported nor exported; no traffic-volume measurement is attempted.
+The available domain lists are discovered from the `itdoginfo/allow-domains`
+GitHub file tree. Services, categories and regional raw lists are supported;
+IP/subnet and generated non-domain formats are excluded. Existing source IDs
+remain stable. A generated bundled snapshot keeps the UI usable offline; renew
+it with `npm run renew-list-catalog` before a release.
 
-### Test runners and reports
+The catalog refreshes daily alongside active subscriptions, or when Routing mode
+is expanded and its cache is missing or stale, even with no selected lists.
+It follows the same direct/proxy update preference. Failed catalog
+refreshes retain the last successful data. Missing selected IDs stay visible and
+are preserved on save/import; a failed list update preserves the previous rules.
+Coverage warnings compare the selected source lists with hostname-suffix semantics
+before popularity truncation, independently for domain and Firefox tab modes.
+Downloads use at most four concurrent requests; source lists are not retained in
+storage. The local catalog and coverage cache are not exported or synchronized.
 
-`npm test` runs unit tests with Node's built-in test runner. Android suites use
-the same runner in `tests/android/*.test.mjs`, with named sequential scenarios,
-one browser setup per suite, and teardown that also runs after a failure.
-Scenario failures do not prevent the remaining scenarios from running; a failed
-setup prevents the suite from proceeding. Desktop browser tests use Playwright Test.
+Automatic list downloads run only when an active proxy uses selected lists in the
+current routing mode and automatic updates are enabled. Other connection/routing
+modes stop the background list alarm and make no subscription requests. Expanding
+Routing mode in Settings refreshes a missing or stale catalog and, if currently
+used, selected list contents. Fresh cached data makes no requests. Downloads exclude
+list sources belonging to inactive routing modes. Manual list updates remain available.
 
-All runners print named results and write JUnit XML under `test-results/`:
-`unit.xml`, `android-firefox.xml`, `android-vivaldi.xml`, or `playwright.xml`.
-Node suites also retain a text report with setup/teardown errors that their
-JUnit reporter may omit.
-Extra Node runner flags can be passed through npm, for example
-`npm test -- --test-name-pattern=knock`.
-Playwright also writes an HTML report; open it with `npx playwright show-report`.
+## Authentication and probe resistance
 
-Each GitHub Actions test job publishes a summary with counts and expandable
-results, even after failures. JUnit reports and browser evidence are retained
-as artifacts for seven days. Playwright failures also create GitHub annotations.
-These reports do not change the separate required test statuses.
+| Browser  | Credentials before 407                                                      | Knock                                                                                           |
+| -------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Firefox  | Saved credentials are supplied through `ProxyInfo.proxyAuthorizationHeader` | Opens on connection and browser startup without saved credentials; disabled when both are saved |
+| Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
 
-### Server integration tests
+A knock host is optional: its absence does not prevent connecting a profile or show a warning.
+When configured, a normal HTTPS tab opens in the background. Without saved credentials,
+the browser displays its authentication dialog. Passwords entered there remain in the
+browser; the extension does not read them or copy them into a profile.
+Firefox disables the knock field and button when both username and password are saved,
+without deleting the saved knock host.
+After a successful HTTP response and completed load, the knock tab closes automatically.
+Load errors, cancellation or unsuccessful authentication leave it open. Chromium
+retries a knock load once after `ERR_NETWORK_CHANGED`; subsequent errors leave
+the tab open. Each new knock URL gets a random `r` query parameter to avoid
+reusing a cached page; browser proxy-authentication caches still apply.
+Repeated requests reuse an existing pending tab. Its state is retained in `storage.session`
+so closing still works after the background process restarts.
 
-`npm run test:e2e` prepares the pinned MegaProxyServer checkout, its locked Python dependencies (using uv), and Docker images before running all Playwright tests. GitHub Actions runs this on every PR and push to `main`, and retains Playwright traces and server logs on failure. No remote server is provisioned: each test creates and removes its own Docker network, GOST entry/exit servers, HAProxy frontend, origin, certificates and browser profiles.
+Tests confirm credentials in Firefox's first CONNECT for HTTPS proxies.
+For HTTP proxies, Firefox may wait for 407. This logic does not support HTTP proxies
+with probe resistance and no challenge at the destination; use an HTTPS proxy for
+such servers. `browser.authMode` remains for legacy imports, but Firefox always
+requests immediate submission of saved credentials.
 
-Versions are pinned in `tests/megaproxy-server/versions.json`. To run only these tests locally:
+The `onAuthRequired` handler responds only to the active proxy, matching host/port
+and `isProxy`. A repeated challenge for the same request is canceled. Credentials
+are never added to destination-site headers or used for its 401 response.
+
+For MegaProxyServer with `probe_resistance` enabled, add an allowed name to the
+server's `knock` setting and use the same name in the extension profile.
+That name needs a working HTTPS website for a successful page load after CONNECT;
+an allowed server-side knock hostname is sufficient to obtain the 407 itself.
+No public knock hosts are selected automatically. Knock must not be bypassed.
+Opening a tab alone does not verify successful authentication. Switching profiles
+may require a new knock because of browser authentication caches.
+
+HTTPS here means TLS **to the proxy**, regardless of the destination website's scheme.
+HTTP proxies transmit Basic credentials without TLS on the connection to the proxy.
+HTTPS proxy certificates are verified; disabling verification is unsupported.
+Use a certificate trusted by the browser.
+Bypass domains include their subdomains without requiring wildcards or PAC.
+Firefox returns a chain ending in `null` to prevent direct fallback.
+Chromium uses one fixed proxy.
+
+## Configuration compatibility
+
+The shared version 8 contract, English documentation, schemas and examples are in
+[MegaProxyConfig](https://github.com/andre487/MegaProxyConfig).
+The build generates a CSP-compatible validator from the local schema: version 8
+imports and exports use the same schema as the tests. Builds and tests never fetch schemas.
 
 ```sh
-npm run build
-npm run prepare:server-e2e
-npx playwright test tests/server.spec.mjs
+npm run renew-config-schema
+npm run renew-config-schema -- --ref=<full-commit>
 ```
 
-The fixture renders the server's actual GOST and HAProxy templates and invokes its exporter for MegaProxy JSON, FoxyProxy JSON, ProxyList and SuperProxy. A test CA replaces ACME issuance; browser certificate exceptions are confined to isolated test profiles. The GOST chain validates the exit certificate against that CA. These are client interoperability tests, not Ansible provisioning or ACME renewal tests. SSH/SSH_JUMP profiles and unsafe self-signed-certificate flags are checked for rejection because the extension cannot implement SSH forwarding.
+This command updates `config-schema/`: both schemas, the license, commit and SHA-256
+values in the lock file. Review and commit schema copies and the lock file together.
+The formatter excludes this directory to preserve original bytes and checksums.
+The renewal command also applies the browser additions in
+`scripts/config-schema-overrides.mjs`; `schema-lock.json` records upstream and
+effective checksums. Review those overrides when adopting a newer upstream schema.
 
-The native proxy credential dialog is outside Playwright’s page API: tests verify that the browser opens a knock tab and the real server challenges it, but do not automate typing into that dialog.
+Imports accept MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON (`https`/`ssl`,
+`hostname`/`address`), ProxyList and Android-compatible SuperProxy format.
+Supported HTTP profiles are accepted too. SSH, jump chains, PAC and disabled
+certificate verification are skipped with a warning. FoxyProxy URL rules are not
+transferred. Unknown or unsupported fields trigger one warning before applying:
+“Configuration contains unknown fields.” Those fields are neither retained nor
+exported. Limits are 1 MiB per file and 1000 profiles. Imported files may contain
+passwords; do not commit them.
 
-Server tests record `network-start` before browser requests and `network-end` before
-removing their containers, on success or failure. Both timestamped snapshots appear
-in the CI log and as separate Playwright attachments for comparison.
-When available, `ip` (iproute2) reports addresses, IPv6 `tentative`/`dadfailed` flags,
-all routing tables and policy rules; `ss` reports TCP sockets and a socket summary.
-Linux runners also inspect each test container's network namespace through
-`sudo -n nsenter`, using host tools without modifying container images.
-Missing tools or permissions are recorded and do not replace the original test failure.
+Import review shows new, updated and skipped profiles. Matching IDs update without
+duplicates or changing local order. A missing password preserves the local value;
+an explicit empty string clears it. Local profiles absent from the file remain,
+and can be selected for deletion. Import does not connect the file's active profile.
+Changes to an already active profile apply after confirming the import.
 
-### Firefox Android integration tests
+Exports use MegaProxy JSON version 8. Passwords are included by default and can
+be excluded with a separate toggle. Unsupported Android fields are discarded on
+import with the general warning. The Android version 8 baseline used by the shared contract does not support HTTP
+or IPv6 literals in the proxy host field; exporting such profiles fails explicitly without
+changing their protocol. Android ignores new `browser` blocks but currently drops
+them on export: a complete round trip through Android requires the application to
+preserve unknown fields.
 
-See [Android automation notes](docs/android-testing.md) for launch requirements,
-known upstream problems and test limitations.
+## ZeroOmega import compatibility
 
-The separate **Firefox Android tests** GitHub Actions check runs on PRs,
-pushes to `main`, and manual dispatch. It is required for merging and releases.
-It uses an accelerated Android 15 / API 35 x86_64 emulator and pinned Firefox
-157.0 from Mozilla's APK archive.
+Import accepts ZeroOmega/SwitchyOmega settings JSON (`schemaVersion` 1 or 2,
+`+name` profiles), from files or the existing config URL importer. It transfers
+compatible HTTP/HTTPS fixed profiles, credentials, simple hostname bypasses,
+virtual-profile references and a selected switch profile's hostname rules.
+`*.example.com` becomes an apex-and-subdomains domain rule; exact hostnames remain
+exact. Per-domain profile choices are not imported and produce a review warning. Imported settings never activate a profile.
+A knock host is optional.
 
-The workflow caches a clean, booted AVD snapshot before installing Firefox or the
-extension. Cache keys include the emulator and system-image revisions and the AVD
-workflow configuration. Test runs restore the snapshot without saving changes;
-the current Firefox APK and extension build are installed afresh. A failed test
-does not prevent the clean snapshot from being cached.
+SOCKS, user PAC, downloaded rule lists, regex/full-URL/time conditions, unequal
+per-protocol endpoints or credentials, multiple switch trees and incompatible
+rule ordering produce review warnings or skipped profiles. A fixed switch
+default cannot activate a local connection automatically and is warned about.
+Unsupported settings are not retained. Arbitrary subscription URLs, user PAC
+scripts and a separate startup-profile selector remain deliberately out of scope.
 
-`npm run test:android` requires a running, root-capable **disposable emulator**,
-`adb`, `zip`, a built `dist/firefox`, and `.cache/firefox-android.apk`. Override the
-APK path with `FIREFOX_ANDROID_APK`, the adb binary with `ADB`, and the device serial
-with `ANDROID_SERIAL` (default `emulator-5554`). Do not run it against a personal
-device: the test clears Firefox app data, seeds test preferences and grants the
-extension private-window access. It launches Firefox with Mozilla's documented `automationtest` intent,
-explicitly resolving the launcher Activity, and disables repeated onboarding and
-default-browser prompts. Native UI automation is reserved for the extension's
-action popup and settings. A test-only bridge is added to an isolated extension copy, never to release
-archives.
+## Connection checks
 
-The tests exercise saved HTTP proxy authentication, manual domain rules and
-subdomains, tab routing with a third-party resource, Direct/System modes, and
-responsive popup/options pages in real Firefox Android. Screenshots, request
-records and logcat are uploaded as `firefox-android-results`. HTTPS/SOCKS proxies,
-unsaved-credential dialogs and the complete mobile feature set are not covered by
-this smoke test.
-
-### Chromium Android integration tests (Vivaldi)
-
-The separate **Vivaldi Android tests** check runs the production Chromium build
-in pinned Vivaldi 8.2.4147.130 on an accelerated API 35 x86_64 emulator, with a
-cached clean snapshot. It is required for merging and releases. It exercises saved HTTP proxy authentication, HTTPS knock
-success and failure, manual domain/subdomain routing, Direct/System and the native
-extension popup/settings. Screenshots, network snapshots and logcat are uploaded
-as `vivaldi-android-results`.
-
-`npm run test:android:chromium` needs a disposable root-capable emulator, `adb`,
-`openssl`, a built `dist/chromium` and `.cache/vivaldi-android.apk`. Override the APK
-with `VIVALDI_ANDROID_APK`, the adb binary with `ADB` and the serial with
-`ANDROID_SERIAL`. See [Vivaldi Android automation notes](docs/vivaldi-android-testing.md)
-for official documentation, community reports, local commands and limitations.
+Checks use the active connection and a normal background browser tab, closing it
+when complete. Stages follow Android: an HTTPS request to `example.com`, exit IP
+(`ifconfig.me`, `api.ipify.org`, `icanhazip.com`) and country (`ifconfig.co`,
+`ipapi.co`, `api.country.is`), with fallback between providers. Country is optional.
+The total timeout is 45 seconds; each attempt has a 10-second timeout. In Proxy
+mode, bypassed diagnostic hosts prevent the test so a direct request cannot be
+presented as a proxy check. Checks are also available in Direct and System modes
+without a profile. Results show the profile or connection mode, protocol, HTTPS
+page loading time, exit IP and, when available, a country flag, code and localized
+country name. Loading time is not a ping measurement.
 
 ## WebRTC, sync and routing tools
 
@@ -513,14 +394,7 @@ or closing a tab removes its marker; a failed knock does not schedule refreshes.
 Markers remain local in `storage.session`, survive service-worker suspension,
 and are cleared with the browser session. Firefox does not use this behavior.
 
-## Direct, System and network monitoring
-
-Automatic list downloads run only when an active proxy uses selected lists in the
-current routing mode and automatic updates are enabled. Other connection/routing
-modes stop the background list alarm and make no subscription requests. Expanding
-Routing mode in Settings refreshes a missing or stale catalog and, if currently
-used, selected list contents. Fresh cached data makes no requests. Downloads exclude
-list sources belonging to inactive routing modes. Manual list updates remain available.
+## Diagnostic log
 
 The Settings footer opens a separate diagnostic log page. Entries stay locally in
 IndexedDB, without storage.sync or network uploads. The log records startup,
@@ -536,78 +410,7 @@ while at the bottom, preserves the reading position after scrolling upwards,
 and resumes following when the user returns to the bottom. Export includes all
 retained entries; Clear removes the persisted log.
 
-The popup and the top of Settings provide Proxy, Direct and System modes.
-The choice updates across all open extension pages through local browser storage.
-The selected profile remains selected when requests fail; there is no automatic
-profile switching. Legacy Fallback mode migrates to Proxy without changing the
-selected profile. Direct forces requests to connect without a proxy. System releases
-MegaProxy's control and uses existing browser/system proxy settings. Disconnect
-selects System. The connection mode stays local and is not synchronized or exported.
-Configs containing the unsupported `failover` field show the unknown-fields warning;
-that field is ignored and omitted from exports.
-
-Selective routing chooses between the active profile and DIRECT. It never selects
-another profile based on a domain. Browser authentication caches are tied to proxy
-endpoints; use distinct endpoints for different credentials.
-
-The icon shows the profile selected for the tab's top-level URL on a colored plate,
-with long names fading out at the right edge and the full name in its tooltip.
-Internal browser/extension pages show the active profile. Direct/System use DIR/SYS. Third-party resources follow the selected routing mode; their routes appear in the monitor.
-System means browser-managed routing, whose external proxy is not inferred.
-Badge updates run on navigation, activation and configuration changes rather
-than every resource request.
-
-The network monitor in Settings lists recent HTTP(S) resources, optionally
-filtered to failures (network errors or HTTP status >= 400). Select failed
-domains and add them to the active manual domain list or Firefox tab-site list.
-The action is hidden in other routing modes and does not switch modes. Data stays in memory and is never sent
-anywhere. Only hostname, resource type, status/error, selected profile and time
-are retained, without URL paths, query strings, headers, bodies or credentials.
-Limits are 200 rows per tab and 50 tabs. Navigation, tab close, opt-out and
-background restart clear their relevant entries. The journal has no per-request
-storage writes, UI messages or badge changes. Refresh runs every five seconds
-only while the monitor is open and visible.
-
-## ZeroOmega import compatibility
-
-Import accepts ZeroOmega/SwitchyOmega settings JSON (`schemaVersion` 1 or 2,
-`+name` profiles), from files or the existing config URL importer. It transfers
-compatible HTTP/HTTPS fixed profiles, credentials, simple hostname bypasses,
-virtual-profile references and a selected switch profile's hostname rules.
-`*.example.com` becomes an apex-and-subdomains domain rule; exact hostnames remain
-exact. Per-domain profile choices are not imported and produce a review warning. Imported settings never activate a profile.
-A knock host is optional.
-
-SOCKS, user PAC, downloaded rule lists, regex/full-URL/time conditions, unequal
-per-protocol endpoints or credentials, multiple switch trees and incompatible
-rule ordering produce review warnings or skipped profiles. A fixed switch
-default cannot activate a local connection automatically and is warned about.
-Unsupported settings are not retained. Arbitrary subscription URLs, user PAC
-scripts and a separate startup-profile selector remain deliberately out of scope.
-
-### Dynamic community-list catalog
-
-The available domain lists are discovered from the `itdoginfo/allow-domains`
-GitHub file tree. Services, categories and regional raw lists are supported;
-IP/subnet and generated non-domain formats are excluded. Existing source IDs
-remain stable. A generated bundled snapshot keeps the UI usable offline; renew
-it with `npm run renew-list-catalog` before a release.
-
-The catalog refreshes daily alongside active subscriptions, or when Routing mode
-is expanded and its cache is missing or stale, even with no selected lists.
-It follows the same direct/proxy update preference. Failed catalog
-refreshes retain the last successful data. Missing selected IDs stay visible and
-are preserved on save/import; a failed list update preserves the previous rules.
-Coverage warnings compare the selected source lists with hostname-suffix semantics
-before popularity truncation, independently for domain and Firefox tab modes.
-Downloads use at most four concurrent requests; source lists are not retained in
-storage. The local catalog and coverage cache are not exported or synchronized.
-
-Until the updated schema is published in MegaProxyConfig, `renew-config-schema`
-applies the dynamic-ID and routing-strategy additions from `scripts/config-schema-overrides.mjs`.
-`schema-lock.json` records both original upstream and effective local checksums.
-The matching schema and English contract documentation are prepared in the local
-MegaProxyConfig checkout.
+## Interface and appearance
 
 The settings page uses native dialogs for profile editing and URL imports.
 A single mode selector shows the controls for manual domain rules, automatic
@@ -625,3 +428,29 @@ tab. Dialogs and forms reflow on narrow screens; controls use larger touch targe
 for coarse pointers. Modern desktop browsers supporting `appearance: base-select`
 use a CSS-styled native picker anchored to its control. Touch devices and browsers
 without that support keep their platform picker.
+
+## Releases
+
+Release PR preparation, checks, tagging and archive publication are documented in
+[RELEASING.md](RELEASING.md).
+
+## Troubleshooting
+
+- If a profile does not connect, check its host, port and protocol: HTTPS means
+  TLS to the proxy, not just an HTTPS destination. Check the proxy's certificate
+  and saved credentials; a probe-resistant server may require a configured knock host.
+- If a site connects directly, check the connection mode, selected routing mode,
+  local-network bypass and profile exclusions. Use the routing tester with the
+  destination URL, and a tab URL for Firefox tab routing. Automatic-list truncation
+  warnings are shown in Settings.
+- If the popup cannot contact the background process, open the extension's errors
+  in `chrome://extensions` or its debugger in `about:debugging`, then reload the
+  extension. Include the browser/version, reproduction steps and diagnostic log
+  in a [bug report](https://github.com/andre487/BrowserMegaProxy/issues), without
+  credentials or sensitive configuration exports.
+
+## Store materials
+
+English and Russian listings, screenshots, icons and promotional materials for Chrome Web Store,
+Firefox Add-ons and Opera Add-ons are available in [store/](store/README.md).
+Regenerate images with `npm run store:assets`.

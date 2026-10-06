@@ -4,6 +4,11 @@ Reviewed on 2026-10-06 for Firefox 157.0 and Android 15 / API 35.
 This is a review of relevant documented problems, not a guarantee that every
 device or Firefox release is covered.
 
+The sequential Node test suite is `tests/android/firefox.test.mjs`. See
+[local prerequisites, coverage and CI reports](testing.md#firefox-android-integration-tests)
+for how to run it, and [report navigation](testing.md#where-to-find-reports-in-github)
+for where to inspect results.
+
 ## Supported approaches
 
 For web applications, use Selenium/WebDriver with geckodriver on the host and
@@ -93,6 +98,9 @@ For startup failures, `startup-debug.json` records only the selected debugging
 preferences, debugger socket lines, and preference-file ownership/SELinux
 metadata. A missing value in `prefs.js` alone does not prove the runtime value:
 GeckoRuntime settings can supply preferences independently of that file.
+A listening socket does not prove that add-on installation completed. If the
+RDP install request times out, inspect the console report and logcat alongside
+these startup diagnostics before changing timeouts.
 
 ## Comparison with Mozilla's launchers
 

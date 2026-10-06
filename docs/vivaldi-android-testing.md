@@ -3,6 +3,9 @@
 Reviewed on 2026-10-06 for Vivaldi 8.2.4147.130, Chromium 152 and Android 15 / API 35.
 This check uses an installed Android APK, not desktop viewport emulation.
 
+The sequential Node test suite is `tests/android/vivaldi.test.mjs`. See
+[test runners and reports](testing.md) for scenario counts and report navigation.
+
 ## Automation approach
 
 Vivaldi documents Android extension installation through the Chrome Web Store or
@@ -91,7 +94,12 @@ exclusions or clear those variables before connecting to the local CDP endpoint.
 The separate **Vivaldi Android tests** CI job uses a pinned release and cached
 clean API 35 emulator. Evidence is uploaded as `vivaldi-android-results`.
 Coverage is a focused smoke test: authenticated HTTP proxying, HTTPS knock
-success/closure, domain/subdomain rules, Direct/System and mobile extension UI. Native popup geometry is measured through
+success/closure and HTTP 500 remaining open, domain/subdomain rules, Direct/System
+and mobile extension UI. Knock tests verify that tabs open inactive and identify
+them by creation ID rather than relying on an immediately updated URL. The fixture
+disables HTTP caching; cache-busting alone does not explain every tab-event failure.
+`browser-events.json` retains tab creation/update/removal and request-completion
+events for comparison after a failure. Native popup geometry is measured through
 its CDP target: Android API metadata alone does not reliably identify its surface.
 Popup content must not use its initially tiny viewport as a maximum height.
 It does not prove all Vivaldi/Android releases, SOCKS or every extension feature.

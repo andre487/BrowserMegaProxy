@@ -8,7 +8,7 @@ MegaProxy manages browser connections through a user-provided HTTP or HTTPS prox
 
 ## `proxy`
 
-Required to apply the selected HTTP/HTTPS proxy and its bypass rules, generate domain-based routing in Chromium, and restore Direct or System connection settings. In Firefox, it also makes per-request proxy decisions for the optional By tabs routing mode. These settings change how the browser connects to websites; they do not send browsing data to the developer.
+Required to apply the selected HTTP/HTTPS proxy and its bypass rules, generate domain-based routing in Chromium, and restore Direct or System connection settings. In Firefox, it also makes per-request proxy decisions for the optional By tabs routing mode. Firefox Android uses per-request decisions because it does not implement `proxy.settings`. These settings change how the browser connects to websites; they do not send browsing data to the developer.
 
 ## `storage`
 

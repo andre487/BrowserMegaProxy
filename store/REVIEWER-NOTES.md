@@ -12,14 +12,14 @@ There is no remote executable code. UI scripts and schema validation are package
 
 ## Review steps
 
-1. Install the browser-specific package. Chromium requires version 120+; Firefox requires 140+ (142+ on Android) and private-window access for `proxy.settings`.
+1. Install the browser-specific package. Chromium requires version 120+; Firefox requires 140+ (142+ on Android). Allow private-window access; desktop proxy control uses `proxy.settings`, while Android uses `proxy.onRequest`.
 2. Open settings. Add an HTTP or HTTPS CONNECT proxy you control. Save and select it. Test Proxy, Direct and System, then run a connection check.
 3. Expand Routing mode. Test manual domains and subdomain wildcards, rule testing and automatic list selection. Firefox additionally exposes By tabs. Chrome and Opera do not offer tab routing.
 4. Test import/export using a non-sensitive MegaProxy configuration. A complete configuration may also be imported from a URL you control.
 5. Inspect General preferences: theme, language, WebRTC, synchronization/password synchronization and request monitoring. Disable monitoring and confirm its UI disappears.
 6. Open the local diagnostic log from the settings footer; test size limit, clearing and file export.
 
-No MegaProxy account is required. An actual connection test needs a working proxy supplied by the reviewer. Do not treat the illustrative `.example` servers in store screenshots as usable credentials. The repository’s `tests/megaproxy-server` fixtures support real-proxy automated tests; see README for test setup.
+No MegaProxy account is required. A Proxy-mode connection test needs a working proxy supplied by the reviewer. Direct and System checks work without a configured profile. Do not treat the illustrative `.example` servers in store screenshots as usable credentials. The repository’s `tests/megaproxy-server` fixtures support real-proxy automated tests; see [test setup and reports](../docs/testing.md).
 
 ## Browser packages
 

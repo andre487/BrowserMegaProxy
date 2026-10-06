@@ -5,8 +5,8 @@ required checks → merge → tag → build and GitHub Release, all in one workf
 
 ## One-time setup
 
-1. Merge the PR containing `.github/workflows/prepare-release.yml` and `release.yml`
-   into `main`. The manual workflow appears in Actions after that merge.
+1. Ensure `.github/workflows/prepare-release.yml` and `release.yml` are present
+   on `main`. Run the release preparation workflow from that branch.
 2. Create a fine-grained GitHub PAT for BrowserMegaProxy with
    **Contents: Read and write**, **Pull requests: Read and write**,
    **Actions: Read-only**, and **Checks: Read-only**. Its owner must be able to
@@ -14,8 +14,9 @@ required checks → merge → tag → build and GitHub Release, all in one workf
 3. In **Settings → Secrets and variables → Actions → New repository secret**,
    save it as `RELEASE_BOT_TOKEN`, following AndroidMegaProxy.
    The normal `GITHUB_TOKEN` does not trigger CI for a PR it creates; [GitHub documents this limitation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
-4. Keep `Linters`, `Unit tests`, `Chromium tests`, and `Firefox tests` required for
-   `main`. These are already configured in the Protect Main ruleset.
+4. Keep all six checks required for `main`: `Linters`, `Unit tests`,
+   `Chromium tests`, `Firefox tests`, `Firefox Android tests` and
+   `Vivaldi Android tests`. These are already configured in the Protect Main ruleset.
 5. Create a separate API key in [OpenAI Platform → API keys](https://platform.openai.com/api-keys):
    select a project, click **Create new secret key**, and save the issued key.
    For a restricted key, enable **Model capabilities → Request** and
@@ -53,7 +54,7 @@ Android signing and store credentials are not needed for GitHub releases.
    another model identifier available to your project.
 4. Wait for completion. The workflow generates the EN/RU changelog, updates
    `package.json` and `package-lock.json`, creates `release/vX.Y.Z` and a PR,
-   waits for all four checks, merges the PR, and tags the merge commit.
+   waits for all six checks, merges the PR, and tags the merge commit.
    It does not bypass checks with `--admin`.
 5. The same run continues through **Verify CI, merge and tag** and **Publish release**.
    Publication checks out the exact tag and publishes archives with the committed EN/RU changelog.
@@ -72,7 +73,7 @@ inspect that PR rather than preparing the same version again over an existing br
   or submission to the appropriate store.
 - `MegaProxy-firefox-vX.Y.Z.zip` — unsigned Firefox package: temporary installation
   through `about:debugging` or submission to Mozilla for signing.
-- `MegaProxy-source-vX.Y.Z.zip` — source from the tagged commit for review and reproducible builds.
+- `MegaProxy-source-vX.Y.Z.zip` — source from the tagged commit for review and rebuilding.
 - `MegaProxy-store-materials-vX.Y.Z.zip` — fresh screenshots, icons, EN/RU listings
   and store submission documents.
 - `SHA256SUMS` — SHA-256 checksums for all four archives.
