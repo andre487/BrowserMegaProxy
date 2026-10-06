@@ -49,6 +49,7 @@ test.beforeEach(async ({ page, browserName, context }) => {
           location.href = new URL('options.html', location.href).href
         },
         sendMessage: async message => {
+          ;(globalThis.testCommands ||= []).push(message.command)
           Object.assign(state, JSON.parse(localStorage.getItem('testState')) || {})
           const M = globalThis.MegaProxy
           if (message.command === 'check') {
@@ -1576,6 +1577,22 @@ test('connection results localize country names and preserve missing-country out
   await page.evaluate('connectionCheck.countryCode = ""; renderCheck()')
   await expect(page.locator('#check-result')).toContainText('Country: —')
   await expect(page.locator('#check-result')).not.toContainText('undefined')
+})
+
+test('routing catalog refresh is requested on expansion rather than opening the settings page', async ({
+  page
+}) => {
+  const requests = () =>
+    page.evaluate(
+      () => (globalThis.testCommands || []).filter(command => command === 'routingOpened').length
+    )
+  expect(await requests()).toBe(0)
+  await page.locator('#routing-settings > summary').click()
+  await expect.poll(requests).toBe(1)
+  await page.locator('#routing-settings > summary').click()
+  expect(await requests()).toBe(1)
+  await page.locator('#routing-settings > summary').click()
+  await expect.poll(requests).toBe(2)
 })
 
 test('routing sections have one title and network actions follow the selected mode', async ({

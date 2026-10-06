@@ -178,7 +178,7 @@ function harness(target, initial, fetcher) {
   return { callbacks, proxy, alarms, send, flush: () => vm.runInContext('queue', context) }
 }
 
-test('proxy updates override selective routing, direct updates override all-site routing, failures retain the last successful snapshot', async () => {
+test('proxy updates override selective routing, direct updates override matching domain rules, failures retain the last successful snapshot', async () => {
   const p = M.profile({
     id: 'proxy',
     host: 'proxy.example',
@@ -194,9 +194,17 @@ test('proxy updates override selective routing, direct updates override all-site
         activeId: p.id,
         profiles: [p],
         browserRouting: M.routing({
-          enabled: throughProxy,
-          mode: target === 'firefox' ? 'tabs' : 'domains',
-          subscriptions: { domainSources: ['youtube'], throughProxy, autoUpdate: false }
+          enabled: true,
+          domains: throughProxy
+            ? []
+            : ['other.example', 'api.github.com', 'raw.githubusercontent.com', 'tranco-list.eu'],
+          mode: target === 'firefox' && throughProxy ? 'tabs' : 'domains',
+          subscriptions: {
+            domainSources: ['youtube'],
+            siteSources: target === 'firefox' ? ['youtube'] : [],
+            throughProxy,
+            autoUpdate: false
+          }
         })
       }
       let failure = false
@@ -230,12 +238,20 @@ test('proxy updates override selective routing, direct updates override all-site
       })
       const first = await h.send({ command: 'updateSubscriptions' })
       assert.equal(first.ok, true)
-      assert.deepEqual(Array.from(first.state.subscriptionCache.domains), ['**.example.com'])
+      assert.deepEqual(
+        Array.from(
+          first.state.subscriptionCache[target === 'firefox' && throughProxy ? 'sites' : 'domains']
+        ),
+        ['**.example.com']
+      )
       failure = true
       assert.equal((await h.send({ command: 'updateSubscriptions' })).ok, false)
       const retained = (await h.send({ command: 'get' })).state.subscriptionCache
       assert.equal(retained.updatedAt, first.state.subscriptionCache.updatedAt)
-      assert.deepEqual(Array.from(retained.domains), ['**.example.com'])
+      assert.deepEqual(
+        Array.from(retained[target === 'firefox' && throughProxy ? 'sites' : 'domains']),
+        ['**.example.com']
+      )
       assert.equal(retained.error, 'errorListDownload')
       assert.equal((await h.send({ command: 'get' })).connectionCheck, null)
       assert.equal((await h.send({ command: 'get' })).statistics, undefined)
@@ -253,7 +269,7 @@ test('daily refresh scheduling works without statistics and proxy downloads requ
   assert.equal((await h.send({ command: 'updateSubscriptions' })).error, 'errorListProxyInactive')
   h.callbacks.startup()
   await h.flush()
-  assert.equal(h.alarms[0][0], 'subscriptions')
+  assert.equal(h.alarms.length, 0)
   h.callbacks.alarm({ name: 'subscriptions' })
   await h.flush()
   assert.equal((await h.send({ command: 'get' })).statistics, undefined)
@@ -411,7 +427,105 @@ test('catalog-only background updates use the requested route and cache failures
   }
 })
 
-test('startup with no selected lists preserves System and defers catalog-only downloads to the alarm', async () => {
+test('inactive modes make no automatic downloads; opening routing refreshes only necessary data', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    for (const mode of ['direct', 'system', 'manual', 'tabs', 'all', 'lists']) {
+      const p = M.profile({ id: 'one', host: 'proxy.example', port: 443 })
+      const fetched = []
+      const initial = {
+        ...M.defaults(),
+        profiles: [p],
+        activeId: p.id,
+        connectionMode: ['direct', 'system'].includes(mode) ? mode : 'proxy',
+        browserRouting: M.routing({
+          enabled: mode !== 'all',
+          strategy: mode === 'lists' ? 'lists' : mode === 'tabs' ? 'tabs' : 'manual',
+          subscriptions: {
+            domainSources: ['youtube'],
+            siteSources: ['discord'],
+            autoUpdate: mode !== 'lists'
+          }
+        })
+      }
+      const h = harness(target, initial, async url => {
+        fetched.push(url)
+        return new Response(
+          url === S.catalogURL
+            ? JSON.stringify({
+                truncated: false,
+                tree: [
+                  { type: 'blob', path: 'Services/youtube.lst' },
+                  { type: 'blob', path: 'Services/discord.lst' }
+                ]
+              })
+            : 'example.com'
+        )
+      })
+      h.callbacks.startup()
+      await h.flush()
+      h.callbacks.alarm({ name: 'subscriptions' })
+      await h.flush()
+      assert.equal(fetched.length, 0)
+      assert.equal((await h.send({ command: 'routingOpened' })).ok, true)
+      assert.equal(fetched.filter(url => url === S.catalogURL).length, 1)
+      assert.equal(
+        fetched.some(url => url.endsWith('/discord.lst')),
+        false
+      )
+      assert.equal(
+        fetched.some(url => url.endsWith('/youtube.lst')),
+        mode === 'lists'
+      )
+      const count = fetched.length
+      await h.send({ command: 'routingOpened' })
+      assert.equal(fetched.length, count)
+    }
+  }
+})
+
+test('active automatic lists refresh once and stop requesting data after leaving the mode', async () => {
+  const p = M.profile({ id: 'one', host: 'proxy.example', port: 443 })
+  const initial = {
+    ...M.defaults(),
+    profiles: [p],
+    activeId: p.id,
+    browserRouting: M.routing({
+      enabled: true,
+      strategy: 'lists',
+      subscriptions: { domainSources: ['youtube'], siteSources: ['discord'] }
+    })
+  }
+  const urls = []
+  const h = harness('firefox', initial, async url => {
+    urls.push(url)
+    return new Response(
+      url === S.catalogURL
+        ? JSON.stringify({
+            truncated: false,
+            tree: [
+              { type: 'blob', path: 'Services/youtube.lst' },
+              { type: 'blob', path: 'Services/discord.lst' }
+            ]
+          })
+        : 'example.com'
+    )
+  })
+  h.callbacks.startup()
+  await h.flush()
+  assert.equal(urls.length, 2)
+  assert.equal(h.alarms[0][0], 'subscriptions')
+  h.callbacks.alarm({ name: 'subscriptions' })
+  await h.flush()
+  await h.send({ command: 'routingOpened' })
+  assert.equal(urls.length, 2)
+  await h.send({ command: 'connectionMode', mode: 'direct' })
+  await h.flush()
+  h.callbacks.alarm({ name: 'subscriptions' })
+  await h.flush()
+  assert.equal(urls.length, 2)
+})
+
+test('startup and alarms with no selected lists preserve System and make no downloads', async () => {
   for (const target of ['chromium', 'firefox']) {
     let calls = 0
     const h = harness(target, M.defaults(), async () => {
@@ -429,6 +543,10 @@ test('startup with no selected lists preserves System and defers catalog-only do
     assert.equal(h.proxy.length, 0)
     h.callbacks.alarm({ name: 'subscriptions' })
     await h.flush()
+    assert.equal(calls, 0)
+    await h.send({ command: 'routingOpened' })
+    assert.equal(calls, 1)
+    await h.send({ command: 'routingOpened' })
     assert.equal(calls, 1)
   }
 })

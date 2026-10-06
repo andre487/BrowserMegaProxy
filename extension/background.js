@@ -489,8 +489,28 @@ async function requestProfile(details, navigation = false) {
     : undefined
 }
 
-async function updateSubscriptions(forceCatalog = false) {
+function neededSubscriptions() {
   const config = state.browserRouting
+  if (!M.active(state) || !config.enabled || (config.strategy && config.strategy !== 'lists')) {
+    return false
+  }
+  return Boolean(
+    config.subscriptions[config.mode === 'tabs' ? 'siteSources' : 'domainSources'].length
+  )
+}
+
+async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
+  const original = state.browserRouting
+  const config = {
+    ...original,
+    subscriptions: {
+      ...original.subscriptions,
+      domainSources:
+        !catalogOnly && original.mode === 'domains' ? original.subscriptions.domainSources : [],
+      siteSources:
+        !catalogOnly && original.mode === 'tabs' ? original.subscriptions.siteSources : []
+    }
+  }
   const settings = config.subscriptions
 
   if (settings.throughProxy && !M.active(state)) {
@@ -518,13 +538,24 @@ async function updateSubscriptions(forceCatalog = false) {
       forceCatalog
     )
     state = { ...state, subscriptionCatalog }
+    if (catalogOnly) {
+      await api.storage.local.set({ state })
+      return { ok: true, state }
+    }
     const cache = await MegaSubscriptions.update(
       config,
       state.subscriptionCache,
       undefined,
       MegaSubscriptions.catalog(subscriptionCatalog)
     )
-    const next = { ...state, subscriptionCache: cache }
+    const next = {
+      ...state,
+      subscriptionCache: {
+        ...cache,
+        sourceKey: MegaSubscriptions.sourceKey(original.subscriptions),
+        mode: original.mode
+      }
+    }
     await platform.applyTransient(next)
     await api.storage.local.set({ state: next })
     state = next
@@ -550,7 +581,7 @@ async function scheduleSubscriptions() {
     return
   }
 
-  if (settings.autoUpdate) {
+  if (settings.autoUpdate && neededSubscriptions()) {
     // Check hourly; failed updates retry after an hour, successful snapshots last a day.
     if (!api.alarms.get || !(await api.alarms.get('subscriptions'))) {
       await api.alarms.create('subscriptions', { delayInMinutes: 60, periodInMinutes: 60 })
@@ -560,18 +591,25 @@ async function scheduleSubscriptions() {
   }
 }
 
-async function refreshSubscriptions(force = false) {
+async function refreshSubscriptions(force = false, panel = false) {
   const settings = state.browserRouting.subscriptions
+  const needed = neededSubscriptions()
+  if (!panel && (!needed || !settings.autoUpdate)) {
+    return
+  }
   const cache = state.subscriptionCache
-  const changed = cache?.sourceKey !== MegaSubscriptions.sourceKey(settings)
+  const changed =
+    cache?.sourceKey !== MegaSubscriptions.sourceKey(settings) ||
+    cache?.mode !== state.browserRouting.mode
   const due = Date.now() - (cache?.updatedAt || 0) >= 24 * 60 * 60 * 1000
   const retry = Date.now() - (cache?.attemptedAt || 0) >= 60 * 60 * 1000
   const catalog = state.subscriptionCatalog
   const catalogDue =
     Date.now() - (catalog?.updatedAt || 0) >= 24 * 60 * 60 * 1000 &&
-    Date.now() - (catalog?.attemptedAt || 0) >= 60 * 60 * 1000
-  if (settings.autoUpdate && (force || changed || (due && retry) || catalogDue)) {
-    await updateSubscriptions()
+    (panel || Date.now() - (catalog?.attemptedAt || 0) >= 60 * 60 * 1000)
+  const contentDue = needed && (force || changed || (due && (panel || retry)))
+  if (contentDue || catalogDue) {
+    await updateSubscriptions(false, !contentDue)
   }
 }
 
@@ -693,7 +731,12 @@ async function handle(message) {
   }
 
   if (message.command === 'updateSubscriptions') {
-    return updateSubscriptions(true)
+    return updateSubscriptions(true, !neededSubscriptions())
+  }
+
+  if (message.command === 'routingOpened') {
+    await refreshSubscriptions(false, true)
+    return { ok: true, state }
   }
 
   if (message.command === 'currentSite') {
@@ -930,11 +973,15 @@ async function handle(message) {
   }
 
   if (
-    JSON.stringify(old.browserRouting.subscriptions) !==
-    JSON.stringify(next.browserRouting.subscriptions)
+    JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting) ||
+    old.connectionMode !== next.connectionMode ||
+    old.activeId !== next.activeId
   ) {
     await scheduleSubscriptions()
-    queue = queue.then(() => refreshSubscriptions(true)).catch(() => {})
+    const settingsChanged =
+      JSON.stringify(old.browserRouting.subscriptions) !==
+      JSON.stringify(next.browserRouting.subscriptions)
+    queue = queue.then(() => refreshSubscriptions(settingsChanged)).catch(() => {})
   }
 
   // Authentication must restart when the active proxy or its credentials change.
@@ -947,15 +994,6 @@ async function handle(message) {
     await startKnock().catch(error => {
       startupError = error.message
     })
-  }
-
-  if (
-    state.browserRouting.subscriptions.throughProxy &&
-    state.browserRouting.subscriptions.autoUpdate &&
-    next.activeId &&
-    old.activeId !== next.activeId
-  ) {
-    queue = queue.then(() => refreshSubscriptions()).catch(() => {})
   }
 
   await publishSync()

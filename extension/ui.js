@@ -712,6 +712,14 @@ if (isOptions) {
     ? `MegaProxy ${globalThis.MegaBuild.version} · ${globalThis.MegaBuild.commit}`
     : ''
   $('#update-lists').onclick = () => action(() => send('updateSubscriptions'))
+  $('#routing-settings').addEventListener('toggle', () => {
+    if ($('#routing-settings').open) {
+      send('routingOpened').catch(error => {
+        $('#notice').textContent = error.message
+        $('#notice').className = 'error'
+      })
+    }
+  })
   $('#routing-mode').onchange = () => {
     routingDrafts[routingDraftMode] = $('#routing-list').value
     routingDraftMode = $('#routing-mode').value === 'tabs' ? 'tabs' : 'domains'

@@ -199,7 +199,9 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
       })
       const refreshed = await command({ command: 'updateSubscriptions' })
       expect(refreshed.ok, JSON.stringify(refreshed)).toBe(true)
-      expect(refreshed.state.subscriptionCache.domains).toEqual(['**.subscription.invalid'])
+      expect(refreshed.state.subscriptionCache[target === 'firefox' ? 'sites' : 'domains']).toEqual(
+        ['**.subscription.invalid']
+      )
       await page.goto('https://child.subscription.invalid/')
       await expect(page.locator('body')).toHaveText('MegaProxyServer origin')
       const checked = await command({ command: 'check' })

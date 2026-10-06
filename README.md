@@ -426,6 +426,13 @@ and are cleared with the browser session. Firefox does not use this behavior.
 
 ## Direct, System and network monitoring
 
+Automatic list downloads run only when an active proxy uses selected lists in the
+current routing mode and automatic updates are enabled. Other connection/routing
+modes stop the background list alarm and make no subscription requests. Expanding
+Routing mode in Settings refreshes a missing or stale catalog and, if currently
+used, selected list contents. Fresh cached data makes no requests. Downloads exclude
+list sources belonging to inactive routing modes. Manual list updates remain available.
+
 The Settings footer opens a separate diagnostic log page. Entries stay locally in
 IndexedDB, without storage.sync or network uploads. The log records startup,
 settings changes, connection checks and main-document/Fetch request errors; it
