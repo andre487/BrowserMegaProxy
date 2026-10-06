@@ -219,6 +219,7 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
           .toBeGreaterThan(0)
         if (scenario === 'challenge') {
           await command({ command: 'failover', mode: 'SELECTED', ids: [direct.id] })
+          await command({ command: 'connectionMode', mode: 'failover' })
           await page.goto('https://failure.invalid/failover', { timeout: 5000 }).catch(() => {})
           await expect
             .poll(async () => (await command({ command: 'get' })).state.activeId)
