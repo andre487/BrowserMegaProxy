@@ -231,7 +231,14 @@ try {
       globalThis.testCreated.push({ id: tab.id, active: tab.active })
     )
     chrome.webRequest.onCompleted.addListener(
-      d => globalThis.testCompleted.push({ url: d.url, type: d.type, statusCode: d.statusCode }),
+      d =>
+        globalThis.testCompleted.push({
+          url: d.url,
+          type: d.type,
+          statusCode: d.statusCode,
+          tabId: d.tabId,
+          fromCache: d.fromCache
+        }),
       { urls: ['<all_urls>'] }
     )
   })
@@ -265,7 +272,11 @@ try {
       key: await readFile(`${output}/test-key.pem`),
       cert: await readFile(`${output}/test-cert.pem`)
     },
-    (req, res) => res.writeHead(knockStatus).end('Knock response')
+    (req, res) => {
+      requests.push({ route: 'knock', url: req.url, statusCode: knockStatus })
+      // The next scenario changes this same URL from success to failure.
+      res.writeHead(knockStatus, { 'Cache-Control': 'no-store' }).end('Knock response')
+    }
   )
   servers.push(tlsOrigin)
   await new Promise(resolve => tlsOrigin.listen(0, '127.0.0.1', resolve))
@@ -390,7 +401,14 @@ try {
     )
     return (
       failedKnock &&
-      completed.some(r => r.url === 'https://knock.megaproxy.test/' && r.statusCode === 500)
+      completed.some(
+        r =>
+          r.tabId === failedKnock.id &&
+          r.type === 'main_frame' &&
+          r.url === 'https://knock.megaproxy.test/' &&
+          r.statusCode === 500 &&
+          !r.fromCache
+      )
     )
   }, 'failed knock remains open')
   assert.equal(failedKnock.active, false)
@@ -508,6 +526,12 @@ try {
 } finally {
   await snapshotNetwork('end').catch(() => {})
   await writeFile(`${output}/requests.json`, JSON.stringify(requests, null, 2))
+  if (worker) {
+    await worker
+      .evaluate(() => ({ completed: globalThis.testCompleted, created: globalThis.testCreated }))
+      .then(events => writeFile(`${output}/browser-events.json`, JSON.stringify(events, null, 2)))
+      .catch(() => {})
+  }
   await adb('exec-out', 'screencap', '-p')
     .then(r => writeFile(`${output}/final.png`, r.stdout))
     .catch(() => {})
