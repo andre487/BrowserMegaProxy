@@ -163,7 +163,7 @@ test('missing knock is optional and configured bypassed knock still rejects acti
   assert.equal(h.tabs.length, 0)
 })
 
-test('cloning, ordering and failover retain proxy routing after all candidates fail', async () => {
+test('cloning and ordering retain the selected profile', async () => {
   const h = harness('firefox', { username: 'user', password: 'secret' })
   const clone = await h.send({ command: 'clone', id: 'one', name: 'Copy' })
   const id = clone.state.profiles[1].id
@@ -175,35 +175,5 @@ test('cloning, ordering and failover retain proxy routing after all candidates f
   const invalid = await h.send({ command: 'move', id, position: 1.5 })
   assert.equal(invalid.ok, false)
   assert.equal((await h.send({ command: 'get' })).state.profiles[1].id, id)
-  await h.send({ command: 'failover', mode: 'ALL', ids: [] })
-  await h.send({ command: 'connectionMode', mode: 'failover' })
-  for (let i = 0; i < 3; i++) {
-    h.events.onErrorOccurred({
-      url: 'https://target.example/',
-      requestId: `first-${i}`,
-      tabId: 1,
-      type: 'main_frame',
-      error: 'NS_ERROR_PROXY_CONNECTION_REFUSED'
-    })
-    await h.flush()
-  }
-  await new Promise(resolve => setImmediate(resolve))
-  await h.flush()
-  assert.equal((await h.send({ command: 'get' })).state.activeId, id)
-  for (let i = 0; i < 3; i++) {
-    h.events.onErrorOccurred({
-      url: 'https://target.example/',
-      requestId: `second-${i}`,
-      tabId: 1,
-      type: 'main_frame',
-      error: 'NS_ERROR_PROXY_CONNECTION_REFUSED'
-    })
-    await h.flush()
-  }
-  await new Promise(resolve => setImmediate(resolve))
-  await h.flush()
-  const result = await h.send({ command: 'get' })
-  assert.equal(result.state.activeId, id)
-  assert.equal(result.warning, 'errorFailoverExhausted')
-  assert.equal(h.proxy.includes(null), false)
+  assert.equal((await h.send({ command: 'get' })).state.activeId, 'one')
 })

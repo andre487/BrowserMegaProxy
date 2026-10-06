@@ -20,7 +20,6 @@
         ><span data-i18n="connectionMode">Connection mode</span
         ><select id="connection-mode">
           <option value="proxy" data-i18n="modeProxy">Proxy</option>
-          <option value="failover" data-i18n="failover">Fallback profiles</option>
           <option value="direct" data-i18n="modeDirect">Direct</option>
           <option value="system" data-i18n="modeSystem">System</option>
         </select></label
@@ -124,19 +123,6 @@
       </dialog>
       <section aria-labelledby="extension-settings-title">
         <h2 id="extension-settings-title" data-i18n="extensionSettings">Extension preferences</h2>
-        <details id="failover-settings">
-          <summary data-i18n="failover">Fallback profiles</summary>
-          <form id="failover-form">
-            <select id="failover-mode" aria-label="Fallback profiles">
-              <option value="SELECTED" data-i18n="failoverSelected">Selected profiles</option>
-              <option value="ALL" data-i18n="failoverAll">All profiles</option>
-            </select>
-            <p class="hint preferences">
-              <span data-i18n="failoverModeHint"></span> <span data-i18n="failoverHint"></span>
-            </p>
-            <div id="failover-profiles"></div>
-          </form>
-        </details>
         <details id="routing-settings">
           <summary data-i18n="routingMode">Routing mode</summary>
           <form id="routing-form">

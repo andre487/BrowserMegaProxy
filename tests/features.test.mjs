@@ -898,92 +898,49 @@ test('Chromium migrates automatic themes to dark while Firefox retains automatic
   }
 })
 
-test('fallback settings are independent of routing and apply only in fallback connection mode', async () => {
-  const h = harness()
-  await profiles(h)
-  const routing = { enabled: true, strategy: 'manual', domains: ['example.com'] }
-  await h.send({ command: 'routing', routing, failover: { mode: 'ALL', ids: [] } })
-  const error = {
-    url: 'https://example.com/',
-    tabId: 1,
-    type: 'main_frame',
-    error: 'NS_ERROR_PROXY_CONNECTION_REFUSED',
-    proxyInfo: { host: 'proxy.example', port: 443, type: 'https' }
-  }
-  h.events.onErrorOccurred(error)
-  await h.flush()
-  assert.equal((await h.send({ command: 'get' })).state.activeId, 'one')
-  const invalid = await h.send({
-    command: 'routing',
-    routing,
-    failover: { mode: 'SELECTED', ids: ['missing'] }
-  })
-  assert.equal(invalid.ok, false)
-  assert.equal((await h.send({ command: 'get' })).state.browserRouting.strategy, 'manual')
-  await h.send({
-    command: 'routing',
-    routing,
-    failover: { mode: 'ALL', ids: [] }
-  })
-  await h.send({ command: 'connectionMode', mode: 'failover' })
-  for (let i = 0; i < 3; i++) {
-    h.events.onErrorOccurred(error)
-    await h.flush()
-  }
-  assert.equal((await h.send({ command: 'get' })).state.activeId, 'two')
-  assert.equal((await h.send({ command: 'get' })).state.connectionMode, 'failover')
-  assert.equal((await h.send({ command: 'get' })).state.browserRouting.strategy, 'manual')
-})
-
-test('successful proxy requests prevent failover on isolated, queued and stale resource errors', async () => {
-  const h = harness()
-  await profiles(h)
-  await h.send({ command: 'connectionMode', mode: 'failover' })
-  await h.send({ command: 'activate', id: 'two' })
-  const proxyInfo = { host: 'other.example', port: 443, type: 'https' }
-  const failure = {
-    url: 'https://yandex.ru/internet',
-    tabId: 1,
-    type: 'xmlhttprequest',
-    error: 'NS_ERROR_CONNECTION_REFUSED',
-    proxyInfo
-  }
-  const success = { ...failure, statusCode: 200, error: undefined }
-  for (const type of ['image', 'script', 'stylesheet', 'font', 'sub_frame', 'other']) {
-    for (let i = 0; i < 3; i++) {
-      h.events.onErrorOccurred({ ...failure, type })
-      await h.flush()
-    }
-  }
-  for (let i = 0; i < 3; i++) {
-    h.events.onErrorOccurred({ ...failure, tabId: -1 })
-    await h.flush()
-  }
-  assert.equal((await h.send({ command: 'get' })).state.activeId, 'two')
-  for (let i = 0; i < 5; i++) {
-    h.events.onErrorOccurred(failure)
-    await h.flush()
-    h.events.onCompleted(success)
-  }
-  h.events.onErrorOccurred(failure)
-  h.events.onCompleted(success)
-  await h.flush()
-  for (let i = 0; i < 3; i++) {
-    h.events.onErrorOccurred({
-      ...failure,
-      type: 'main_frame',
-      error: 'NS_ERROR_PROXY_CONNECTION_REFUSED',
-      proxyInfo: { ...proxyInfo, host: 'proxy.example' }
+test('removed failover mode migrates to Proxy and network errors never select another profile', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    const h = harness(target, {}, globalThis.fetch, {
+      state: {
+        profiles: [
+          { id: 'one', host: 'proxy.example', port: 443 },
+          { id: 'two', host: 'other.example', port: 443 }
+        ],
+        activeId: 'two',
+        connectionMode: 'failover',
+        failoverMode: 'ALL',
+        failoverProfileIds: ['one']
+      }
     })
     await h.flush()
-  }
-  assert.equal((await h.send({ command: 'get' })).state.activeId, 'two')
-  for (let i = 0; i < 3; i++) {
-    h.events.onErrorOccurred(failure)
+    let state = (await h.send({ command: 'get' })).state
+    assert.equal(state.connectionMode, 'proxy')
+    assert.equal(state.activeId, 'two')
+    assert.equal(Object.hasOwn(state, 'failoverMode'), false)
+    assert.equal(h.stored().state.connectionMode, 'proxy')
+    for (const type of ['main_frame', 'xmlhttprequest', 'image']) {
+      h.events.onErrorOccurred({
+        type,
+        tabId: 1,
+        url: 'https://yandex.ru/internet',
+        error: 'NS_ERROR_PROXY_CONNECTION_REFUSED'
+      })
+    }
     await h.flush()
-    h.events.onCompleted({ ...success, fromCache: true })
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(state.activeId, 'two')
+    assert.equal(state.connectionMode, 'proxy')
+    assert.equal((await h.send({ command: 'connectionMode', mode: 'failover' })).ok, false)
+    assert.equal((await h.send({ command: 'failover', mode: 'ALL', ids: [] })).ok, false)
+    const exported = (await h.send({ command: 'export', includePasswords: true })).config
+    const input = structuredClone(exported)
+    input.failover = { mode: 'ALL', profileIds: ['one'] }
+    const preview = await h.send({ command: 'previewImport', data: JSON.stringify(input) })
+    assert.equal(preview.unknownFields, true)
+    await h.send({ command: 'import', data: JSON.stringify(input) })
+    assert.equal((await h.send({ command: 'export' })).config.failover, undefined)
+    assert.equal((await h.send({ command: 'get' })).state.activeId, 'two')
   }
-  assert.equal((await h.send({ command: 'get' })).state.activeId, 'one')
 })
 
 test('stored legacy routing is normalized, persisted and reapplied before stale PAC can route another profile', async () => {

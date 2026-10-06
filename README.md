@@ -2,7 +2,7 @@
 
 Расширения для Chromium и Firefox.
 HTTP/HTTPS CONNECT, несколько профилей, авторизация, knock host, исключения доменов,
-импорт/экспорт профилей, локальный обход, failover, проверка подключения,
+импорт/экспорт профилей, локальный обход, проверка подключения,
 светлая/тёмная/системная тема. Интерфейс без внешних библиотек и ресурсов.
 
 ## Сборка и установка
@@ -426,21 +426,15 @@ and are cleared with the browser session. Firefox does not use this behavior.
 
 ## Direct, System and network monitoring
 
-The popup and the top of Settings provide Proxy, Fallback proxies, Direct and System modes.
+The popup and the top of Settings provide Proxy, Direct and System modes.
 The choice updates across all open extension pages through local browser storage.
-Fallback selection and candidate settings are independent of selective routing.
-Automatic switching on proxy failures runs only in Fallback proxies mode,
-keeps that mode after a switch, and never falls back to a direct connection. Direct forces all browser
-requests to connect without a proxy. System releases MegaProxy's control and
-uses existing browser/system proxy settings. Returning to Proxy restores the
-selected profile. Disconnect selects System. The connection mode stays local,
-like the active profile; it is not synchronized or exported.
-
-Fallback switching requires three consecutive proxy-related errors on main-document
-or Fetch/XMLHttpRequest requests belonging to a tab. Successful network responses
-on these requests reset the counter; cached responses do not. Errors from other
-resources, background requests and a different proxy are ignored. Browser error
-codes cannot always distinguish a failed CONNECT destination from a failed proxy.
+The selected profile remains selected when requests fail; there is no automatic
+profile switching. Legacy Fallback mode migrates to Proxy without changing the
+selected profile. Direct forces requests to connect without a proxy. System releases
+MegaProxy's control and uses existing browser/system proxy settings. Disconnect
+selects System. The connection mode stays local and is not synchronized or exported.
+Configs containing the unsupported `failover` field show the unknown-fields warning;
+that field is ignored and omitted from exports.
 
 Selective routing chooses between the active profile and DIRECT. It never selects
 another profile based on a domain. Browser authentication caches are tied to proxy
@@ -506,11 +500,10 @@ MegaProxyConfig checkout.
 
 The settings page uses native dialogs for profile editing and URL imports.
 A single mode selector shows the controls for manual domain rules, automatic
-lists or Firefox tabs. Fallback proxies have their own settings section. Inactive settings
+lists or Firefox tabs. Inactive settings
 are preserved, but only the selected strategy affects routing. The optional
 `browser.routing.strategy` is exported and synchronized; omitting it preserves
-legacy combined routing. Fallback settings remain in the common `failover`
-object. The connection check is available at the top for Proxy, Direct and
+legacy combined routing. The connection check is available at the top for Proxy, Direct and
 System; the footer shows the package version and Git commit (`+dirty` for
 modified working trees). Chromium defaults to dark and offers explicit light/dark
 themes; old `system` preferences migrate to dark. Firefox also supports automatic

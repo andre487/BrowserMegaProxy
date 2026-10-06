@@ -311,24 +311,6 @@
   "errorCheckIP": {
     "message": "Could not determine the exit IP"
   },
-  "failover": {
-    "message": "Profile failover"
-  },
-  "failoverDisabled": {
-    "message": "Disabled"
-  },
-  "failoverSelected": {
-    "message": "Selected profiles"
-  },
-  "failoverAll": {
-    "message": "All profiles"
-  },
-  "failoverHint": {
-    "message": "Switches on proxy connection errors, in the selected order. May change your exit IP and country. Exhausted profiles remain proxied; there is no direct fallback."
-  },
-  "errorFailoverExhausted": {
-    "message": "All fallback proxies have failed; direct fallback is disabled"
-  },
   "unknownConfigFields": {
     "message": "Configuration contains unknown fields"
   },
@@ -703,8 +685,5 @@
   },
   "routingDomainPatternsHint": {
     "message": "One pattern per line. *.example.com matches subdomains; **.example.com matches the domain and its subdomains; a bare name matches only that domain. Unmatched requests connect directly."
-  },
-  "failoverModeHint": {
-    "message": "To enable automatic switching on proxy failure, select “Fallback profiles” in Connection mode."
   }
 }

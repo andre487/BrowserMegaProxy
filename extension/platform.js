@@ -114,11 +114,7 @@
     }
 
     implicitBypass(hostname, state) {
-      return Boolean(
-        state.browserRouting?.enabled &&
-        state.browserRouting.strategy !== 'failover' &&
-        this.core.chromiumImplicitHost(hostname)
-      )
+      return Boolean(state.browserRouting?.enabled && this.core.chromiumImplicitHost(hostname))
     }
 
     downgradeRouting(routing) {

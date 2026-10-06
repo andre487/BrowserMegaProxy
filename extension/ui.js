@@ -154,14 +154,11 @@ function render() {
   MegaI18n.apply(state.language || 'auto')
   renderStatistics()
   if ($('#connection-mode')) {
-    $('#connection-mode').value =
-      state.connectionMode === 'failover'
-        ? 'failover'
-        : MegaProxy.active(state)
-          ? 'proxy'
-          : state.connectionMode === 'direct'
-            ? 'direct'
-            : 'system'
+    $('#connection-mode').value = MegaProxy.active(state)
+      ? 'proxy'
+      : state.connectionMode === 'direct'
+        ? 'direct'
+        : 'system'
   }
 
   if (isOptions) {
@@ -367,12 +364,7 @@ function profileDragHandle(card, profile) {
 }
 
 function routingSignature(config) {
-  return JSON.stringify([
-    config,
-    state.profiles.map(({ id, name, host }) => [id, name, host]),
-    state.failoverMode,
-    state.failoverProfileIds
-  ])
+  return JSON.stringify([config, state.profiles.map(({ id, name, host }) => [id, name, host])])
 }
 
 function renderRouting() {
@@ -397,22 +389,8 @@ function renderRouting() {
     return
   }
   renderedRoutingConfig = signature
-  $('#failover-mode').value = state.failoverMode === 'SELECTED' ? 'SELECTED' : 'ALL'
-  $('#failover-profiles').replaceChildren()
-  $('#failover-profiles').hidden = state.failoverMode !== 'SELECTED'
-  for (const p of state.profiles) {
-    const label = document.createElement('label')
-    label.className = 'checkbox preferences'
-    const checkbox = document.createElement('input')
-    checkbox.type = 'checkbox'
-    checkbox.value = p.id
-    checkbox.checked = (state.failoverProfileIds || []).includes(p.id)
-    label.append(checkbox, document.createTextNode(p.name || p.host))
-    $('#failover-profiles').append(label)
-  }
   $('#routing-mode').value = MegaProxy.routingStrategy(config)
   $('#routing-mode').setAttribute('aria-label', t('routingMode'))
-  $('#failover-mode').setAttribute('aria-label', t('failover'))
   routingDrafts = { domains: config.domains.join('\n'), tabs: config.sites.join('\n') }
   routingDraftMode = config.mode
   $('#routing-mode option[value="tabs"]').hidden = !platform.supportsTabRouting
@@ -831,12 +809,6 @@ if (isOptions) {
   }
   $('#new').onclick = () => edit({ color: state.profiles.length % MegaProxy.colors.length })
   $('#profile-form').addEventListener('input', syncKnock)
-  $('#failover-form').onsubmit = event => event.preventDefault()
-  $('#failover-form').onchange = () =>
-    savePreference('failover', {
-      mode: $('#failover-mode').value,
-      ids: [...$('#failover-profiles').querySelectorAll('input:checked')].map(input => input.value)
-    })
   $('#statistics-enabled').onchange = () =>
     action(async () => {
       await send('statistics', { enabled: $('#statistics-enabled').checked })

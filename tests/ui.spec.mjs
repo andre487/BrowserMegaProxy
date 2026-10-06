@@ -96,20 +96,11 @@ test.beforeEach(async ({ page, browserName, context }) => {
 
           if (message.command === 'connectionMode') {
             state.connectionMode = message.mode
-            if (['proxy', 'failover'].includes(message.mode)) {
+            if (message.mode === 'proxy') {
               state.activeId ||= state.profiles[0]?.id || null
             }
-            if (
-              message.mode === 'failover' &&
-              (!state.failoverMode || state.failoverMode === 'DISABLED')
-            ) {
-              state.failoverMode = 'ALL'
-            }
           }
-          if (message.command === 'failover') {
-            state.failoverMode = message.mode
-            state.failoverProfileIds = message.ids
-          }
+
           if (message.command === 'telemetry') {
             return { ok: true }
           }
@@ -159,10 +150,6 @@ test.beforeEach(async ({ page, browserName, context }) => {
           }
           if (message.command === 'routing') {
             state.browserRouting = M.routing(message.routing)
-            if (message.failover) {
-              state.failoverMode = message.failover.mode
-              state.failoverProfileIds = message.failover.ids
-            }
           }
           if (message.command === 'currentSite') {
             if (localStorage.getItem('noCurrentSite') === 'true') {
@@ -226,10 +213,7 @@ test.beforeEach(async ({ page, browserName, context }) => {
               state.profiles.splice(index, 1)[0]
             )
           }
-          if (message.command === 'failover') {
-            state.failoverMode = message.mode
-            state.failoverProfileIds = message.ids
-          }
+
           if (message.command === 'bypassLocalNetworks') {
             state.bypassLocalNetworks = message.enabled
           }
@@ -427,9 +411,6 @@ test('profile colors, cloning, order, local bypass and portable export/import re
   await expect(page.locator('#bypass-local')).toBeChecked()
   await page.locator('#bypass-local').uncheck()
   await page.locator('#routing-settings > summary').click()
-  await page.locator('#failover-settings > summary').click()
-  await page.locator('#failover-mode').selectOption('SELECTED')
-  await page.locator('#failover-profiles input').first().check()
   await page.locator('#routing-form').click({ position: { x: 1, y: 1 } })
   await page.evaluate('routingSaves')
   const download = page.waitForEvent('download')
@@ -439,8 +420,6 @@ test('profile colors, cloning, order, local bypass and portable export/import re
   const config = JSON.parse(await readFile(await file.path(), 'utf8'))
   expect(config.schema).toBe('net.megaproxy487.config')
   expect(config.routing.bypassLocalNetworks).toBe(false)
-  expect(config.failover.mode).toBe('SELECTED')
-  expect(config.failover.profileIds).toHaveLength(1)
   expect(config.profiles[0].countryCode).toBe('US')
   await expect(page.locator('#export-passwords')).toBeChecked()
   expect(config.profiles[0].proxy.password).toBe('export-secret')
@@ -1345,23 +1324,15 @@ test('single proxy-mode selector isolates controls and retains inactive settings
   await page.locator('#subscription-sources input[value=youtube]').check()
   await page.locator('#lists-auto').uncheck()
   await expect(page.locator('#routing-mode option[value=failover]')).toHaveCount(0)
-  await page.locator('#connection-mode').selectOption('failover')
+  await page.locator('#connection-mode').selectOption('proxy')
   await expect(page.locator('#routing-mode')).toHaveValue('lists')
-  await page.locator('#failover-settings > summary').click()
-  await expect(page.locator('#failover-settings')).toContainText('выберите «Резервные прокси»')
-  await page.locator('#failover-mode').selectOption('SELECTED')
-  await page.locator('#failover-profiles input').first().check()
   await page.evaluate('routingSaves')
   await page.reload()
-  await expect(page.locator('#connection-mode')).toHaveValue('failover')
+  await expect(page.locator('#connection-mode')).toHaveValue('proxy')
   await page.locator('#routing-settings > summary').click()
-  await page.locator('#failover-settings > summary').click()
   await expect(page.locator('#routing-mode')).toHaveValue('lists')
-  await expect(page.locator('#failover-mode')).toHaveValue('SELECTED')
-  await expect(page.locator('#failover-profiles input').first()).toBeChecked()
   await page.locator('#routing-mode').selectOption('manual')
   await expect(page.locator('#routing-list')).toHaveValue('manual.example')
-  await expect(page.locator('#failover-settings')).toBeVisible()
   await page.locator('#routing-form').click({ position: { x: 1, y: 1 } })
   await page.evaluate('routingSaves')
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('testState')))
@@ -1373,7 +1344,6 @@ test('single proxy-mode selector isolates controls and retains inactive settings
   await expect(page.locator('#manual-routing')).toBeHidden()
   await expect(page.locator('#list-routing')).toBeHidden()
   await expect(page.locator('#split-assignments')).toHaveCount(0)
-  await expect(page.locator('#failover-settings')).toBeVisible()
   await page.locator('#routing-form').click({ position: { x: 1, y: 1 } })
   await page.evaluate('routingSaves')
   await page.reload()
@@ -1584,7 +1554,6 @@ test('connection mode stays synchronized between popup and multiple settings pag
   for (const [source, mode] of [
     [popup, 'direct'],
     [second, 'system'],
-    [page, 'failover'],
     [popup, 'proxy']
   ]) {
     await source.locator('#connection-mode').selectOption(mode)
@@ -1616,12 +1585,6 @@ test('routing sections have one title and network actions follow the selected mo
   await page.locator('#routing-settings > summary').click()
   await expect(page.locator('#routing-settings > summary')).toHaveText('Режим маршрутизации')
   await expect(page.locator('#routing-mode-label')).toHaveCount(0)
-  await page.locator('#failover-settings > summary').click()
-  await expect(page.locator('#failover-form > select')).toHaveAccessibleName('Резервные прокси')
-  await expect(page.locator('#failover-form > label')).toHaveCount(0)
-  const select = await page.locator('#failover-mode').boundingBox()
-  const explanation = await page.locator('#failover-form > p').boundingBox()
-  expect(explanation.y).toBeGreaterThan(select.y + select.height)
   await page.locator('#network-panel > summary').click()
   for (const mode of ['all', 'manual', 'lists', ...(browserName === 'firefox' ? ['tabs'] : [])]) {
     await page.locator('#routing-mode').selectOption(mode)

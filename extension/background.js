@@ -15,9 +15,6 @@ const platform = MegaPlatform.create(MEGA_TARGET, api)
 const M = MegaProxy
 let state = { ...M.defaults(), theme: platform.defaultTheme }
 const attempts = new Set()
-const failedProfiles = new Set()
-let proxyFailures = 0
-let proxySuccesses = 0
 const tabUrls = new Map()
 const tabOverrides = new Map()
 const forcedTabs = new Set()
@@ -35,19 +32,20 @@ const ready = Promise.all([
   api.storage.local.get(['state', 'syncOptions']).then(data => {
     routingMigration =
       Boolean(data.state?.browserRouting?.assignments?.length) ||
-      ['profiles', 'failover'].includes(data.state?.browserRouting?.strategy)
+      ['profiles', 'failover'].includes(data.state?.browserRouting?.strategy) ||
+      data.state?.connectionMode === 'failover' ||
+      Object.hasOwn(data.state || {}, 'failoverMode')
     syncOptions = { ...syncOptions, ...data.syncOptions }
     state = {
       ...M.defaults(),
       ...data.state,
       theme: platform.themePreference(data.state?.theme),
-      ...(data.state?.browserRouting?.strategy === 'failover' &&
-      !['direct', 'system'].includes(data.state?.connectionMode)
-        ? { connectionMode: 'failover' }
-        : {}),
+      ...(data.state?.connectionMode === 'failover' ? { connectionMode: 'proxy' } : {}),
       browserRouting: M.routing(data.state?.browserRouting),
       profiles: (data.state?.profiles || []).map(M.profile)
     }
+    delete state.failoverMode
+    delete state.failoverProfileIds
   }),
   api.storage.session
     ?.get(['connectionCheck', 'knockRefresh', 'knockTabs', 'assignedKnockLease'])
@@ -489,10 +487,6 @@ async function requestProfile(details, navigation = false) {
     : undefined
 }
 
-async function requestUsesProxy(details, navigation = false) {
-  return Boolean(await requestProfile(details, navigation))
-}
-
 async function updateSubscriptions(forceCatalog = false) {
   const config = state.browserRouting
   const settings = config.subscriptions
@@ -579,21 +573,7 @@ async function refreshSubscriptions(force = false) {
   }
 }
 
-function configureFailover(next, config) {
-  if (
-    !config ||
-    !['DISABLED', 'SELECTED', 'ALL'].includes(config.mode) ||
-    !Array.isArray(config.ids) ||
-    config.ids.some(id => !next.profiles.some(p => p.id === id))
-  ) {
-    throw new Error('errorProfileFields')
-  }
-  next.failoverMode = config.mode
-  next.failoverProfileIds = [...new Set(config.ids)]
-  failedProfiles.clear()
-}
-
-async function handle(message, automatic = false) {
+async function handle(message) {
   await ready
   if (message.command === 'telemetry') {
     return { ok: true, ...(state.statisticsEnabled ? { statistics: { ...statistics } } : {}) }
@@ -812,8 +792,7 @@ async function handle(message, automatic = false) {
     }
 
     next.activeId = message.id
-    next.connectionMode =
-      message.id === null ? 'system' : state.connectionMode === 'failover' ? 'failover' : 'proxy'
+    next.connectionMode = message.id === null ? 'system' : 'proxy'
     const p = M.active(next)
     if (p?.knockHost && platform.needsKnock(p)) {
       if (M.bypassed(p.knockHost, p, next)) {
@@ -821,16 +800,13 @@ async function handle(message, automatic = false) {
       }
     }
   } else if (message.command === 'connectionMode') {
-    if (!['proxy', 'failover', 'direct', 'system'].includes(message.mode)) {
+    if (!['proxy', 'direct', 'system'].includes(message.mode)) {
       throw new Error('errorProfileFields')
     }
 
     next.connectionMode = message.mode
-    if (['proxy', 'failover'].includes(message.mode)) {
+    if (message.mode === 'proxy') {
       next.activeId ||= next.profiles[0]?.id || null
-      if (message.mode === 'failover' && next.failoverMode === 'DISABLED') {
-        next.failoverMode = 'ALL'
-      }
     }
   } else if (message.command === 'delete') {
     next.profiles = next.profiles.filter(p => p.id !== message.id)
@@ -845,9 +821,6 @@ async function handle(message, automatic = false) {
     message.unsupportedWebRTC = result.unsupportedWebRTC
   } else if (message.command === 'routing') {
     next.browserRouting = M.routing(message.routing)
-    if (message.failover !== undefined) {
-      configureFailover(next, message.failover)
-    }
 
     platform.validateRouting(next.browserRouting)
   } else if (message.command === 'addCurrentSite') {
@@ -873,8 +846,6 @@ async function handle(message, automatic = false) {
 
     p.bypass = [...new Set([...p.bypass, site.hostname])]
     message.reloadTabId = site.tabId
-  } else if (message.command === 'failover') {
-    configureFailover(next, message)
   } else if (message.command === 'bypassLocalNetworks') {
     if (typeof message.enabled !== 'boolean') {
       throw new Error('errorProfileFields')
@@ -905,9 +876,6 @@ async function handle(message, automatic = false) {
     throw new Error('errorCommand')
   }
 
-  next.failoverProfileIds = next.failoverProfileIds.filter(id =>
-    next.profiles.some(p => p.id === id)
-  )
   // Apply native settings and persist the same state; failures restore the previous state.
   const old = state
   next.theme = platform.themePreference(next.theme)
@@ -967,11 +935,6 @@ async function handle(message, automatic = false) {
     key => M.active(old)?.[key] !== M.active(next)?.[key]
   )
   if (message.command === 'activate' || message.command === 'connectionMode' || restarted) {
-    proxyFailures = 0
-    if (!automatic) {
-      failedProfiles.clear()
-    }
-
     connectionCheck = null
     await storeConnectionCheck()
     await startKnock().catch(error => {
@@ -988,9 +951,7 @@ async function handle(message, automatic = false) {
     queue = queue.then(() => refreshSubscriptions()).catch(() => {})
   }
 
-  if (!automatic) {
-    await publishSync()
-  }
+  await publishSync()
 
   await rebuildMenus()
   await refreshBadges()
@@ -1086,29 +1047,6 @@ api.webRequest.onAuthRequired.addListener(
   ['asyncBlocking']
 )
 
-async function failover(profileId) {
-  if (
-    state.activeId !== profileId ||
-    state.connectionMode !== 'failover' ||
-    state.failoverMode === 'DISABLED'
-  ) {
-    return
-  }
-
-  failedProfiles.add(profileId)
-  const ids =
-    state.failoverMode === 'ALL' ? state.profiles.map(p => p.id) : state.failoverProfileIds
-  const next = ids
-    .map(id => state.profiles.find(p => p.id === id))
-    .find(p => p && !failedProfiles.has(p.id))
-  if (!next) {
-    startupError = 'errorFailoverExhausted'
-    return // Keep the failed proxy selected; never fall back to a direct connection.
-  }
-
-  await handle({ command: 'activate', id: next.id }, true)
-}
-
 // Counters stay in memory; no storage writes or UI updates for each request.
 async function countRequest(details, failed) {
   const generation = statisticsGeneration
@@ -1186,31 +1124,6 @@ ready.then(configureStatistics)
 api.webRequest.onCompleted.addListener(
   details => {
     attempts.delete(details.requestId)
-    if (
-      state.connectionMode === 'failover' &&
-      ['main_frame', 'xmlhttprequest'].includes(details.type) &&
-      details.tabId >= 0 &&
-      !details.fromCache
-    ) {
-      const profile = M.active(state)
-      const proxy = details.proxyInfo
-      if (
-        profile &&
-        (proxy
-          ? proxy.host === profile.host &&
-            proxy.port === profile.port &&
-            proxy.type === profile.type
-          : M.routed(
-              details.url,
-              state,
-              tabUrls.get(details.tabId),
-              tabOverrides.get(details.tabId)
-            ))
-      ) {
-        proxyFailures = 0
-        proxySuccesses++
-      }
-    }
     if (details.type === 'main_frame') {
       queue = queue.then(() => updateKnockTab(details.tabId, details)).catch(() => {})
     }
@@ -1223,48 +1136,6 @@ api.webRequest.onErrorOccurred.addListener(
     if (details.type === 'main_frame') {
       queue = queue.then(() => updateKnockTab(details.tabId, { failed: true })).catch(() => {})
     }
-    if (!['main_frame', 'xmlhttprequest'].includes(details.type) || details.tabId < 0) {
-      return
-    }
-    // Firefox reports failed HTTP/2 CONNECT tunnels as a generic connection refusal.
-    const refusedOnProxy =
-      details.error === 'NS_ERROR_CONNECTION_REFUSED' &&
-      Boolean(details.proxyInfo?.host) &&
-      details.proxyInfo.type !== 'direct'
-    if (
-      !refusedOnProxy &&
-      !/ERR_(?:PROXY_CONNECTION_FAILED|TUNNEL_CONNECTION_FAILED|PROXY_CERTIFICATE_INVALID)|NS_ERROR_(?:PROXY_CONNECTION_REFUSED|UNKNOWN_PROXY_HOST|PROXY_BAD_GATEWAY)/.test(
-        details.error || ''
-      )
-    ) {
-      return
-    }
-
-    const failedProfile = M.active(state)
-    const successes = proxySuccesses
-    queue = queue
-      .then(async () => {
-        await ready
-        const p = await requestProfile(details)
-        if (
-          p &&
-          p === failedProfile &&
-          successes === proxySuccesses &&
-          p.id === state.activeId &&
-          (!details.proxyInfo ||
-            (details.proxyInfo.host === p.host &&
-              details.proxyInfo.port === p.port &&
-              details.proxyInfo.type === p.type)) &&
-          (await requestUsesProxy(details))
-        ) {
-          if (state.connectionMode === 'failover' && ++proxyFailures >= 3) {
-            await failover(p.id)
-          }
-        }
-      })
-      .catch(error => {
-        startupError = error.message
-      })
   },
   { urls: ['<all_urls>'] }
 )
@@ -1474,9 +1345,7 @@ async function publishSync() {
         language: state.language,
         webRTC: state.webRTC,
         bypassLocalNetworks: state.bypassLocalNetworks,
-        routing: M.routing(state.browserRouting),
-        failoverMode: state.failoverMode,
-        failoverProfileIds: state.failoverProfileIds
+        routing: M.routing(state.browserRouting)
       }
     })
     if (new TextEncoder().encode(text).length > 45000) {
@@ -1605,14 +1474,6 @@ async function receiveSync() {
     }
 
     if (
-      !['DISABLED', 'ALL', 'SELECTED'].includes(preferences.failoverMode || 'DISABLED') ||
-      !Array.isArray(preferences.failoverProfileIds || []) ||
-      (preferences.failoverProfileIds || []).some(id => !next.profiles.some(p => p.id === id))
-    ) {
-      throw new Error('errorSync')
-    }
-
-    if (
       !['auto', 'ru', 'en'].includes(preferences.language) ||
       !['system', 'light', 'dark'].includes(preferences.theme) ||
       typeof preferences.bypassLocalNetworks !== 'boolean'
@@ -1623,8 +1484,6 @@ async function receiveSync() {
     next = {
       ...next,
       browserRouting: routing,
-      failoverMode: preferences.failoverMode || 'DISABLED',
-      failoverProfileIds: preferences.failoverProfileIds || [],
       theme: preferences.theme,
       language: preferences.language,
       bypassLocalNetworks: preferences.bypassLocalNetworks,

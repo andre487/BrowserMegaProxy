@@ -328,7 +328,6 @@ test('installed Chrome popup sizes correctly and profile dragging saves through 
     for (const [source, mode] of [
       [popup, 'direct'],
       [second, 'system'],
-      [page, 'failover'],
       [popup, 'proxy']
     ]) {
       await source.locator('#connection-mode').selectOption(mode)

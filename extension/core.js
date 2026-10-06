@@ -41,8 +41,6 @@
     connectionMode: 'proxy',
     webRTC: 'browser',
     bypassLocalNetworks: true,
-    failoverMode: 'DISABLED',
-    failoverProfileIds: [],
     browserRouting: routing()
   })
 
@@ -560,11 +558,9 @@ function FindProxyForURL(url, host) {
         'activeProfileId',
         'profiles',
         'routing',
-        'failover',
         'browser'
       ],
       '/routing': ['bypassLocalNetworks'],
-      '/failover': ['mode', 'profileIds'],
       '/browser': ['theme', 'language', 'routing', 'webRTC'],
       '/browser/routing': [
         'enabled',
@@ -738,10 +734,7 @@ function FindProxyForURL(url, host) {
         throw new Error('errorDuplicateIds')
       }
 
-      if (
-        (data.activeProfileId && !ids.has(data.activeProfileId)) ||
-        (data.failover?.profileIds || []).some(id => !ids.has(id))
-      ) {
+      if (data.activeProfileId && !ids.has(data.activeProfileId)) {
         throw new Error('errorProfileMissing')
       }
     }
@@ -1195,11 +1188,7 @@ function FindProxyForURL(url, host) {
             theme: result.config.browser?.theme || state.theme,
             language: result.config.browser?.language || state.language,
             webRTC: result.config.browser?.webRTC || state.webRTC || 'browser',
-            bypassLocalNetworks: result.bypassLocalNetworks,
-            failoverMode: result.config.failover?.mode || 'DISABLED',
-            failoverProfileIds: (result.config.failover?.profileIds || []).filter(id =>
-              profiles.some(p => p.id === id)
-            )
+            bypassLocalNetworks: result.bypassLocalNetworks
           }
         : {})
     }
@@ -1224,10 +1213,6 @@ function FindProxyForURL(url, host) {
       routing: {
         ...(state.portable?.routing || {}),
         bypassLocalNetworks: state.bypassLocalNetworks !== false
-      },
-      failover: {
-        mode: state.failoverMode || 'DISABLED',
-        profileIds: state.failoverProfileIds || []
       },
       browser: {
         theme: state.theme,
@@ -1257,10 +1242,7 @@ function FindProxyForURL(url, host) {
         }
       }))
     }
-    const validIds = new Set(state.profiles.map(p => p.id))
-    if (config.failover?.profileIds) {
-      config.failover.profileIds = config.failover.profileIds.filter(id => validIds.has(id))
-    }
+    delete config.failover
 
     function stripSecrets(object) {
       for (const key of Object.keys(object)) {

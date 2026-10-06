@@ -217,20 +217,7 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
         await expect
           .poll(async () => (await command({ command: 'get' })).statistics.failed)
           .toBeGreaterThan(0)
-        if (scenario === 'challenge') {
-          await command({ command: 'failover', mode: 'SELECTED', ids: [direct.id] })
-          await command({ command: 'connectionMode', mode: 'failover' })
-          for (let i = 0; i < 3; i++) {
-            await page
-              .goto(`https://failure.invalid/failover-${i}`, { timeout: 5000 })
-              .catch(() => {})
-          }
-          await expect
-            .poll(async () => (await command({ command: 'get' })).state.activeId)
-            .toBe(direct.id)
-        } else {
-          await command({ command: 'activate', id: direct.id })
-        }
+        await command({ command: 'activate', id: direct.id })
         const recoveredPage = await context.newPage()
         await recoveredPage.goto('https://target.invalid/direct-still-works')
         await expect(recoveredPage.locator('body')).toHaveText('MegaProxyServer origin')

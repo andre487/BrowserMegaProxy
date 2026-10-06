@@ -241,38 +241,6 @@ test('Chromium rejects tab controls and exposes the explicit import compatibilit
   )
 })
 
-test('Firefox HTTP/2 connection refusals fail over only when the reported proxy matches the active profile', async () => {
-  const h = harness('firefox')
-  await h.send({ command: 'routing', routing: { enabled: false } })
-  await h.send({ command: 'save', profile: { ...p, id: 'two', host: 'backup.example' } })
-  await h.send({ command: 'failover', mode: 'SELECTED', ids: ['two'] })
-  await h.send({ command: 'connectionMode', mode: 'failover' })
-  const details = {
-    requestId: 'failure',
-    url: 'https://site.example.com/',
-    tabId: 7,
-    type: 'xmlhttprequest',
-    error: 'NS_ERROR_CONNECTION_REFUSED'
-  }
-  for (const proxyInfo of [
-    undefined,
-    { type: 'direct' },
-    { type: p.type, host: 'other.example', port: p.port },
-    { type: p.type, host: p.host, port: 80 }
-  ]) {
-    h.events.onErrorOccurred({ ...details, proxyInfo })
-    assert.equal((await h.send({ command: 'theme', theme: 'dark' })).state.activeId, p.id)
-  }
-  for (let i = 0; i < 3; i++) {
-    h.events.onErrorOccurred({
-      ...details,
-      proxyInfo: { type: p.type, host: p.host, port: p.port }
-    })
-    const result = await h.send({ command: 'theme', theme: 'dark' })
-    assert.equal(result.state.activeId, i < 2 ? p.id : 'two')
-  }
-})
-
 test('exclusive strategies preserve inactive data and agree between Firefox decisions and Chromium PAC', () => {
   const secondary = M.profile({ id: 'two', host: 'second.example', port: 443 })
   const settings = globalThis.MegaSubscriptions.options({ domainSources: ['youtube'] })
