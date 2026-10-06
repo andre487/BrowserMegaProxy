@@ -38,11 +38,12 @@ load it ([Google's installation guide](https://support.google.com/chrome_webstor
 offers only Add to Desktop from a phone).
 See [mobile test coverage and limitations](docs/testing.md).
 
-Each PR's **Extension checks** workflow publishes two ZIP artifacts:
+Each PR's separate **Installation archives** workflow publishes two ZIP artifacts:
 **MegaProxy-chromium** and **MegaProxy-firefox**. Open the run from the PR checks,
 download the archive from **Artifacts**, and extract it. Its `manifest.json` is at the
 archive root; install the extracted directory as described above.
-Artifacts are retained for 14 days and uploaded immediately after building, before tests run.
+Artifacts are retained for 14 days. The archive workflow and PR-description update
+finish independently of browser tests.
 The latest archive links are maintained at the bottom of the PR description,
 including release PRs that merge before the publication job starts.
 

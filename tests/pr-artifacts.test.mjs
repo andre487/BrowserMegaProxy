@@ -13,6 +13,21 @@ const execute = new (Object.getPrototypeOf(async function () {}).constructor)(
   script
 )
 
+test('PR archive publication follows the archive workflow independently of tests', async () => {
+  const archives = await readFile(
+    new URL('../.github/workflows/archives.yml', import.meta.url),
+    'utf8'
+  )
+  const checks = await readFile(new URL('../.github/workflows/pr.yml', import.meta.url), 'utf8')
+  assert.match(archives, /^name: Installation archives$/m)
+  assert.match(workflow, /workflows: \[Installation archives\]/)
+  assert.match(workflow, /types: \[completed\]/)
+  assert.match(archives, /name: MegaProxy-chromium/)
+  assert.match(archives, /name: MegaProxy-firefox/)
+  assert.doesNotMatch(archives, /npm (?:test|run test:e2e)|needs:/)
+  assert.doesNotMatch(checks, /^ {2}archives:/m)
+})
+
 test('PR archive links replace their block, preserve prose and reject stale or incomplete builds', async () => {
   let body = 'Original description'
   let head = 'abcdef123'
