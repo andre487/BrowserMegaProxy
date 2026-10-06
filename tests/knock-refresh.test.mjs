@@ -162,7 +162,7 @@ test('Chromium retries a knock interrupted by proxy settings once, then closes o
     const error = {
       tabId: 99,
       type: 'main_frame',
-      url: 'https://knock.example/',
+      url: h.navigations[0].url,
       error: 'net::ERR_NETWORK_CHANGED'
     }
     h.events.onErrorOccurred(error)
