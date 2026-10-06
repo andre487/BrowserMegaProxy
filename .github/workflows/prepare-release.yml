@@ -61,7 +61,7 @@ jobs:
           git commit -m "Release v$RELEASE_VERSION"
           git push origin "release/v$RELEASE_VERSION"
           body="$RUNNER_TEMP/release-pr.md"
-          printf 'Update the extension version to %s. All required lint, unit, Chromium and Firefox checks must pass before merging. The merged commit will be tagged and published in this workflow.\n' "$RELEASE_VERSION" > "$body"
+          printf 'Update the extension version to %s. All required lint, unit, Chromium, Firefox and Firefox Android checks must pass before merging. The merged commit will be tagged and published in this workflow.\n' "$RELEASE_VERSION" > "$body"
           printf '\n' >> "$body"
           cat "releases/v$RELEASE_VERSION.md" >> "$body"
           pr="$(gh pr create --base main --head "release/v$RELEASE_VERSION" --title "Release v$RELEASE_VERSION" --body-file "$body")"
@@ -90,10 +90,10 @@ jobs:
           RELEASE_HEAD: ${{ needs.prepare.outputs.head }}
         run: |
           gh auth setup-git
-          # Wait for all four checks to register before asking gh to watch them.
+          # Wait for all five checks to register before asking gh to watch them.
           registered=false
           for attempt in $(seq 1 120); do
-            checks_registered="$(gh pr checks "$RELEASE_PR" --json name --jq 'map(.name) | contains(["Linters", "Unit tests", "Chromium tests", "Firefox tests"])' 2>/dev/null || true)"
+            checks_registered="$(gh pr checks "$RELEASE_PR" --json name --jq 'map(.name) | contains(["Linters", "Unit tests", "Chromium tests", "Firefox tests", "Firefox Android tests"])' 2>/dev/null || true)"
             if [ "$checks_registered" = true ]; then
               registered=true; break
             fi

@@ -394,9 +394,9 @@ Missing tools or permissions are recorded and do not replace the original test f
 
 ### Firefox Android integration tests
 
-The separate **Firefox Android tests (optional)** GitHub Actions check runs on PRs,
-pushes to `main`, and manual dispatch. It is intentionally not a required merge
-check. It uses an accelerated Android 15 / API 35 x86_64 emulator and pinned Firefox
+The separate **Firefox Android tests** GitHub Actions check runs on PRs,
+pushes to `main`, and manual dispatch. It is required for merging and releases.
+It uses an accelerated Android 15 / API 35 x86_64 emulator and pinned Firefox
 157.0 from Mozilla's APK archive.
 
 The workflow caches a clean, booted AVD snapshot before installing Firefox or the

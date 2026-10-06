@@ -11,8 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   android:
-    # Informational check: deliberately absent from the repository's required status checks.
-    name: Firefox Android tests (optional)
+    name: Firefox Android tests
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
