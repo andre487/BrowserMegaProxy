@@ -26,7 +26,7 @@ npm run build
 ```
 
 - **Chromium 120+**: `chrome://extensions` → Developer mode → Load unpacked → `dist/chromium`.
-- **Firefox 128+**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `dist/firefox/manifest.json`. Allow private-window access in `about:addons`: Firefox requires it for `proxy.settings`. Permanent installation requires Mozilla signing.
+- **Firefox 140+**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `dist/firefox/manifest.json`. Allow private-window access in `about:addons`: Firefox requires it for `proxy.settings`. Permanent installation requires Mozilla signing.
 
 Each PR's **Extension checks** workflow publishes two ZIP artifacts:
 **MegaProxy-chromium** and **MegaProxy-firefox**. Open the run from the PR checks,
