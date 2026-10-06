@@ -292,15 +292,22 @@ footer {
 }
 .options footer {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 .import-actions,
 .export-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 14px;
 }
 .import-actions {
+  grid-row: 1;
   flex-wrap: wrap;
+}
+.export-actions {
+  grid-row: 2;
+  flex-wrap: nowrap;
 }
 .export-actions > * {
   min-width: 0;

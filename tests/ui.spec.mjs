@@ -963,7 +963,10 @@ test('options reflow at 320 pixels with all sections expanded in both languages 
       const exportButton = await page.locator('#export').boundingBox()
       const passwords = await page.locator('#export-passwords').boundingBox()
       const imports = await page.locator('.import-actions').boundingBox()
+      const passwordLabel = await page.locator('.export-actions label').boundingBox()
       expect(exportButton.y).toBeGreaterThanOrEqual(imports.y + imports.height)
+      expect(exportButton.x).toBe(imports.x)
+      expect(passwordLabel.x - exportButton.x - exportButton.width).toBeCloseTo(14)
       expect(
         Math.abs(exportButton.y + exportButton.height / 2 - passwords.y - passwords.height / 2)
       ).toBeLessThan(1)
