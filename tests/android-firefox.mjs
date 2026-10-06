@@ -360,7 +360,23 @@ try {
   for (const page of ['popup', 'options']) {
     if (page === 'popup') {
       for (const label of ['More options', 'Extensions', 'MegaProxy']) {
-        await poll(async () => tapText(await nativeUI(), label), `Native control: ${label}`)
+        await poll(async () => {
+          const xml = await nativeUI()
+          // Dismiss emulator/onboarding overlays, never an ANR from Firefox itself.
+          if (xml.includes('Pixel Launcher') && xml.includes('responding')) {
+            await tapText(xml, 'Close app')
+            return false
+          }
+          if (xml.includes('Set Firefox as your default')) {
+            await tapText(xml, 'Cancel')
+            return false
+          }
+          if (xml.includes('MegaProxy was added')) {
+            await tapText(xml, 'OK')
+            return false
+          }
+          return tapText(xml, label)
+        }, `Native control: ${label}`)
       }
     } else {
       await poll(async () => tapText(await nativeUI(), 'Settings'), 'Popup settings action')
