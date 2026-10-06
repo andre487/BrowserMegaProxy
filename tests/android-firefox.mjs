@@ -208,13 +208,39 @@ try {
     '-n',
     activity
   )
-  await poll(
-    async () =>
-      (await adb('shell', 'cat', '/proc/net/unix')).stdout
-        .toString()
-        .includes(`${packageId}/firefox-debugger-socket`),
-    'Firefox remote debugger'
-  )
+  try {
+    await poll(
+      async () =>
+        (await adb('shell', 'cat', '/proc/net/unix')).stdout
+          .toString()
+          .includes(`${packageId}/firefox-debugger-socket`),
+      'Firefox remote debugger'
+    )
+  } catch (error) {
+    const fenix = (
+      await adb('shell', 'cat', `/data/data/${packageId}/shared_prefs/fenix_preferences.xml`)
+    ).stdout.toString()
+    const gecko = (await adb('shell', 'cat', `${profile}/prefs.js`)).stdout.toString()
+    const diagnostics = {
+      profile,
+      fenixRemoteDebugging:
+        fenix.match(/<boolean name="pref_key_remote_debugging"[^>]*>/)?.[0] || 'missing',
+      geckoRemoteDebugging:
+        gecko.match(/user_pref\("devtools\.debugger\.remote-enabled"[^;]*;/)?.[0] || 'missing',
+      files: (
+        await adb(
+          'shell',
+          'ls',
+          '-lZ',
+          `${profile}/user.js`,
+          `/data/data/${packageId}/shared_prefs/fenix_preferences.xml`
+        )
+      ).stdout.toString()
+    }
+    console.error('Firefox startup diagnostics:', diagnostics)
+    await writeFile(`${output}/startup-debug.json`, JSON.stringify(diagnostics, null, 2))
+    throw error
+  }
 
   const controlPort = await listen(async (req, res) => {
     if (req.method !== 'POST') {
