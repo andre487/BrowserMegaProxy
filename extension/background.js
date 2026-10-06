@@ -16,6 +16,8 @@ const M = MegaProxy
 let state = { ...M.defaults(), theme: platform.defaultTheme }
 const attempts = new Set()
 const failedProfiles = new Set()
+let proxyFailures = 0
+let proxySuccesses = 0
 const tabUrls = new Map()
 const tabOverrides = new Map()
 const forcedTabs = new Set()
@@ -965,6 +967,7 @@ async function handle(message, automatic = false) {
     key => M.active(old)?.[key] !== M.active(next)?.[key]
   )
   if (message.command === 'activate' || message.command === 'connectionMode' || restarted) {
+    proxyFailures = 0
     if (!automatic) {
       failedProfiles.clear()
     }
@@ -1183,6 +1186,31 @@ ready.then(configureStatistics)
 api.webRequest.onCompleted.addListener(
   details => {
     attempts.delete(details.requestId)
+    if (
+      state.connectionMode === 'failover' &&
+      ['main_frame', 'xmlhttprequest'].includes(details.type) &&
+      details.tabId >= 0 &&
+      !details.fromCache
+    ) {
+      const profile = M.active(state)
+      const proxy = details.proxyInfo
+      if (
+        profile &&
+        (proxy
+          ? proxy.host === profile.host &&
+            proxy.port === profile.port &&
+            proxy.type === profile.type
+          : M.routed(
+              details.url,
+              state,
+              tabUrls.get(details.tabId),
+              tabOverrides.get(details.tabId)
+            ))
+      ) {
+        proxyFailures = 0
+        proxySuccesses++
+      }
+    }
     if (details.type === 'main_frame') {
       queue = queue.then(() => updateKnockTab(details.tabId, details)).catch(() => {})
     }
@@ -1194,6 +1222,9 @@ api.webRequest.onErrorOccurred.addListener(
     attempts.delete(details.requestId)
     if (details.type === 'main_frame') {
       queue = queue.then(() => updateKnockTab(details.tabId, { failed: true })).catch(() => {})
+    }
+    if (!['main_frame', 'xmlhttprequest'].includes(details.type) || details.tabId < 0) {
+      return
     }
     // Firefox reports failed HTTP/2 CONNECT tunnels as a generic connection refusal.
     const refusedOnProxy =
@@ -1209,20 +1240,26 @@ api.webRequest.onErrorOccurred.addListener(
       return
     }
 
+    const failedProfile = M.active(state)
+    const successes = proxySuccesses
     queue = queue
       .then(async () => {
         await ready
         const p = await requestProfile(details)
         if (
           p &&
+          p === failedProfile &&
+          successes === proxySuccesses &&
           p.id === state.activeId &&
-          (!refusedOnProxy ||
+          (!details.proxyInfo ||
             (details.proxyInfo.host === p.host &&
               details.proxyInfo.port === p.port &&
               details.proxyInfo.type === p.type)) &&
           (await requestUsesProxy(details))
         ) {
-          await failover(p.id)
+          if (state.connectionMode === 'failover' && ++proxyFailures >= 3) {
+            await failover(p.id)
+          }
         }
       })
       .catch(error => {

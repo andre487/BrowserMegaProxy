@@ -436,6 +436,12 @@ uses existing browser/system proxy settings. Returning to Proxy restores the
 selected profile. Disconnect selects System. The connection mode stays local,
 like the active profile; it is not synchronized or exported.
 
+Fallback switching requires three consecutive proxy-related errors on main-document
+or Fetch/XMLHttpRequest requests belonging to a tab. Successful network responses
+on these requests reset the counter; cached responses do not. Errors from other
+resources, background requests and a different proxy are ignored. Browser error
+codes cannot always distinguish a failed CONNECT destination from a failed proxy.
+
 Selective routing chooses between the active profile and DIRECT. It never selects
 another profile based on a domain. Browser authentication caches are tied to proxy
 endpoints; use distinct endpoints for different credentials.

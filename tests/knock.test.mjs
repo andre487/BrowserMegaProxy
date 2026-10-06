@@ -177,19 +177,29 @@ test('cloning, ordering and failover retain proxy routing after all candidates f
   assert.equal((await h.send({ command: 'get' })).state.profiles[1].id, id)
   await h.send({ command: 'failover', mode: 'ALL', ids: [] })
   await h.send({ command: 'connectionMode', mode: 'failover' })
-  h.events.onErrorOccurred({
-    url: 'https://target.example/',
-    requestId: 'first',
-    error: 'NS_ERROR_PROXY_CONNECTION_REFUSED'
-  })
+  for (let i = 0; i < 3; i++) {
+    h.events.onErrorOccurred({
+      url: 'https://target.example/',
+      requestId: `first-${i}`,
+      tabId: 1,
+      type: 'main_frame',
+      error: 'NS_ERROR_PROXY_CONNECTION_REFUSED'
+    })
+    await h.flush()
+  }
   await new Promise(resolve => setImmediate(resolve))
   await h.flush()
   assert.equal((await h.send({ command: 'get' })).state.activeId, id)
-  h.events.onErrorOccurred({
-    url: 'https://target.example/',
-    requestId: 'second',
-    error: 'NS_ERROR_PROXY_CONNECTION_REFUSED'
-  })
+  for (let i = 0; i < 3; i++) {
+    h.events.onErrorOccurred({
+      url: 'https://target.example/',
+      requestId: `second-${i}`,
+      tabId: 1,
+      type: 'main_frame',
+      error: 'NS_ERROR_PROXY_CONNECTION_REFUSED'
+    })
+    await h.flush()
+  }
   await new Promise(resolve => setImmediate(resolve))
   await h.flush()
   const result = await h.send({ command: 'get' })

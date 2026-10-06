@@ -251,6 +251,7 @@ test('Firefox HTTP/2 connection refusals fail over only when the reported proxy 
     requestId: 'failure',
     url: 'https://site.example.com/',
     tabId: 7,
+    type: 'xmlhttprequest',
     error: 'NS_ERROR_CONNECTION_REFUSED'
   }
   for (const proxyInfo of [
@@ -262,8 +263,14 @@ test('Firefox HTTP/2 connection refusals fail over only when the reported proxy 
     h.events.onErrorOccurred({ ...details, proxyInfo })
     assert.equal((await h.send({ command: 'theme', theme: 'dark' })).state.activeId, p.id)
   }
-  h.events.onErrorOccurred({ ...details, proxyInfo: { type: p.type, host: p.host, port: p.port } })
-  assert.equal((await h.send({ command: 'theme', theme: 'dark' })).state.activeId, 'two')
+  for (let i = 0; i < 3; i++) {
+    h.events.onErrorOccurred({
+      ...details,
+      proxyInfo: { type: p.type, host: p.host, port: p.port }
+    })
+    const result = await h.send({ command: 'theme', theme: 'dark' })
+    assert.equal(result.state.activeId, i < 2 ? p.id : 'two')
+  }
 })
 
 test('exclusive strategies preserve inactive data and agree between Firefox decisions and Chromium PAC', () => {

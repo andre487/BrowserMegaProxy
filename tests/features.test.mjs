@@ -906,6 +906,7 @@ test('fallback settings are independent of routing and apply only in fallback co
   const error = {
     url: 'https://example.com/',
     tabId: 1,
+    type: 'main_frame',
     error: 'NS_ERROR_PROXY_CONNECTION_REFUSED',
     proxyInfo: { host: 'proxy.example', port: 443, type: 'https' }
   }
@@ -925,11 +926,64 @@ test('fallback settings are independent of routing and apply only in fallback co
     failover: { mode: 'ALL', ids: [] }
   })
   await h.send({ command: 'connectionMode', mode: 'failover' })
-  h.events.onErrorOccurred(error)
-  await h.flush()
+  for (let i = 0; i < 3; i++) {
+    h.events.onErrorOccurred(error)
+    await h.flush()
+  }
   assert.equal((await h.send({ command: 'get' })).state.activeId, 'two')
   assert.equal((await h.send({ command: 'get' })).state.connectionMode, 'failover')
   assert.equal((await h.send({ command: 'get' })).state.browserRouting.strategy, 'manual')
+})
+
+test('successful proxy requests prevent failover on isolated, queued and stale resource errors', async () => {
+  const h = harness()
+  await profiles(h)
+  await h.send({ command: 'connectionMode', mode: 'failover' })
+  await h.send({ command: 'activate', id: 'two' })
+  const proxyInfo = { host: 'other.example', port: 443, type: 'https' }
+  const failure = {
+    url: 'https://yandex.ru/internet',
+    tabId: 1,
+    type: 'xmlhttprequest',
+    error: 'NS_ERROR_CONNECTION_REFUSED',
+    proxyInfo
+  }
+  const success = { ...failure, statusCode: 200, error: undefined }
+  for (const type of ['image', 'script', 'stylesheet', 'font', 'sub_frame', 'other']) {
+    for (let i = 0; i < 3; i++) {
+      h.events.onErrorOccurred({ ...failure, type })
+      await h.flush()
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    h.events.onErrorOccurred({ ...failure, tabId: -1 })
+    await h.flush()
+  }
+  assert.equal((await h.send({ command: 'get' })).state.activeId, 'two')
+  for (let i = 0; i < 5; i++) {
+    h.events.onErrorOccurred(failure)
+    await h.flush()
+    h.events.onCompleted(success)
+  }
+  h.events.onErrorOccurred(failure)
+  h.events.onCompleted(success)
+  await h.flush()
+  for (let i = 0; i < 3; i++) {
+    h.events.onErrorOccurred({
+      ...failure,
+      type: 'main_frame',
+      error: 'NS_ERROR_PROXY_CONNECTION_REFUSED',
+      proxyInfo: { ...proxyInfo, host: 'proxy.example' }
+    })
+    await h.flush()
+  }
+  assert.equal((await h.send({ command: 'get' })).state.activeId, 'two')
+  for (let i = 0; i < 3; i++) {
+    h.events.onErrorOccurred(failure)
+    await h.flush()
+    h.events.onCompleted({ ...success, fromCache: true })
+  }
+  assert.equal((await h.send({ command: 'get' })).state.activeId, 'one')
 })
 
 test('stored legacy routing is normalized, persisted and reapplied before stale PAC can route another profile', async () => {
