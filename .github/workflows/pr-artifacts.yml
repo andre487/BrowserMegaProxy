@@ -1,7 +1,7 @@
 name: Update PR installation archives
 on:
   workflow_run:
-    workflows: [Extension checks]
+    workflows: [Installation archives]
     types: [completed]
 permissions:
   actions: read
@@ -36,7 +36,7 @@ jobs:
               '',
               ...archives.map(artifact => `- [${artifact.name === 'MegaProxy-chromium' ? 'Chromium' : 'Firefox'} ZIP](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${run.id}/artifacts/${artifact.id})`),
               '',
-              `Build: [${run.head_sha.slice(0, 7)}](${run.html_url}) · checks: ${run.conclusion}.`,
+              `Build: [${run.head_sha.slice(0, 7)}](${run.html_url}) · archives: ${run.conclusion}.`,
               'Extract the ZIP and load manifest.json. Firefox builds are unsigned temporary add-ons. Archives expire after 14 days; downloading requires signing in to GitHub.',
               end
             ].join('\n')
