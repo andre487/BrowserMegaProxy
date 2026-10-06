@@ -50,7 +50,7 @@ jobs:
           git switch -c "release/v$RELEASE_VERSION"
           node scripts/release.mjs notes "$RELEASE_VERSION"
           npx prettier --write "releases/v$RELEASE_VERSION.md"
-          npm version "$RELEASE_VERSION" --no-git-tag-version
+          npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package.json package-lock.json "releases/v$RELEASE_VERSION.md"

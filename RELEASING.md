@@ -47,7 +47,8 @@ Android signing and store credentials are not needed for GitHub releases.
 1. Merge the intended changes into `main`.
 2. Open **Actions → Prepare and merge release → Run workflow**.
 3. Select **main** and enter a new version without `v`, for example `0.1.1`.
-   It must be newer than `package.json`; three components from 0–65535 are allowed,
+   It must be at least the version in `package.json` and its release tag must not exist.
+   The current version can be used for its first release; three components from 0–65535 are allowed,
    without leading zeros or `beta`/`rc` suffixes.
    Leave **model** empty to use `OPENAI_RELEASE_MODEL` / `gpt-6-luna`, or specify
    another model identifier available to your project.

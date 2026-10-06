@@ -19,7 +19,7 @@ export function validateVersion(version, current) {
   if (current !== undefined) {
     const old = current.split('.').map(Number)
     const index = parts.findIndex((part, i) => part !== old[i])
-    assert.ok(index >= 0 && parts[index] > old[index], `Version must be newer than ${current}`)
+    assert.ok(index < 0 || parts[index] > old[index], `Version must be at least ${current}`)
   }
   return version
 }
