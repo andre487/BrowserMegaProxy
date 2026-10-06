@@ -150,6 +150,9 @@ try {
     ).catch(() => ({ stdout: Buffer.alloc(0) }))
     return stdout.toString().includes('prefs.js')
   }, 'Firefox profile creation')
+  // WorkManager can restart Firefox while its private preferences are being seeded.
+  // Disable the package until all files are ready, then allow a fresh process to read them.
+  await adb('shell', 'pm', 'disable-user', '--user', '0', packageId)
   await adb('shell', 'am', 'force-stop', packageId)
   const { stdout: profileFiles } = await adb(
     'shell',
@@ -170,10 +173,7 @@ try {
     '</map>'
   ].join('')
   await writeFile(`${output}/fenix_preferences.xml`, prefs)
-  await writeFile(
-    `${output}/user.js`,
-    'user_pref("devtools.debugger.remote-enabled", true);\nuser_pref("devtools.debugger.prompt-connection", false);\n'
-  )
+  await writeFile(`${output}/user.js`, 'user_pref("devtools.debugger.prompt-connection", false);\n')
   await writeFile(
     `${output}/extension-preferences.json`,
     JSON.stringify({
@@ -194,6 +194,15 @@ try {
       `rm -f '${destination}.bak'; cp /data/local/tmp/megaproxy-pref '${destination}'; chown $(stat -c %u:%g '${profile}') '${destination}'; chmod 600 '${destination}'`
     )
   }
+  await adb('shell', 'pm', 'enable', '--user', '0', packageId)
+  let startupLoaded = false
+  const startupPort = await listen((req, res) => {
+    startupLoaded = true
+    res.writeHead(200, { 'Content-Type': 'text/html' })
+    res.end('<!doctype html><title>MegaProxy Android startup</title>Ready')
+  })
+  // Fenix can leave Gecko's debugger uninitialized on its home screen.
+  // Use the web intent Activity to open a real tab before discovering RDP.
   await adb(
     'shell',
     'am',
@@ -201,20 +210,55 @@ try {
     '-a',
     'android.intent.action.VIEW',
     '-d',
-    'about:blank',
+    `http://127.0.0.1:${startupPort}/`,
     '--ez',
     'automationtest',
     'true',
-    '-n',
-    activity
+    '-p',
+    packageId
   )
-  await poll(
-    async () =>
-      (await adb('shell', 'cat', '/proc/net/unix')).stdout
+  const startupDiagnostics = async () => {
+    const fenix = (
+      await adb('shell', 'cat', `/data/data/${packageId}/shared_prefs/fenix_preferences.xml`)
+    ).stdout.toString()
+    const gecko = (await adb('shell', 'cat', `${profile}/prefs.js`)).stdout.toString()
+    const diagnostics = {
+      profile,
+      startupLoaded,
+      fenixRemoteDebugging:
+        fenix.match(/<boolean name="pref_key_remote_debugging"[^>]*>/)?.[0] || 'missing',
+      geckoRemoteDebugging:
+        gecko.match(/user_pref\("devtools\.debugger\.remote-enabled"[^;]*;/)?.[0] || 'missing',
+      sockets: (await adb('shell', 'cat', '/proc/net/unix')).stdout
         .toString()
-        .includes(`${packageId}/firefox-debugger-socket`),
-    'Firefox remote debugger'
-  )
+        .split('\n')
+        .filter(line => line.includes('firefox-debugger-socket')),
+      files: (
+        await adb(
+          'shell',
+          'ls',
+          '-lZ',
+          `${profile}/user.js`,
+          `/data/data/${packageId}/shared_prefs/fenix_preferences.xml`
+        )
+      ).stdout.toString()
+    }
+    console.log('Firefox startup diagnostics:', diagnostics)
+    await writeFile(`${output}/startup-debug.json`, JSON.stringify(diagnostics, null, 2))
+  }
+  try {
+    await poll(() => startupLoaded, 'Firefox startup document request')
+    await poll(
+      async () =>
+        (await adb('shell', 'cat', '/proc/net/unix')).stdout
+          .toString()
+          .includes(`${packageId}/firefox-debugger-socket`),
+      'Firefox remote debugger'
+    )
+  } catch (error) {
+    await startupDiagnostics()
+    throw error
+  }
 
   const controlPort = await listen(async (req, res) => {
     if (req.method !== 'POST') {
@@ -313,6 +357,7 @@ try {
   await exec('zip', ['-qr', `${output}/addon.xpi`, '.'], { cwd: addon })
   await adb('push', `${output}/addon.xpi`, '/data/local/tmp/megaproxy-android.xpi')
   await adb('forward', 'tcp:6000', `localabstract:${packageId}/firefox-debugger-socket`)
+  await startupDiagnostics()
   await installFirefoxAddon(6000, '/data/local/tmp/megaproxy-android.xpi', { wake: true })
   await tapText(await nativeUI(), 'OK')
   const capabilities = await command({ command: 'testPlatform' })

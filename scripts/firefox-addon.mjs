@@ -57,7 +57,9 @@ export async function installFirefoxAddon(port, addonPath, { wake = false } = {}
       await delay(100)
     }
 
-    throw new Error(`Firefox RDP response timed out: ${actor}`)
+    throw new Error(
+      `Firefox RDP response timed out: ${actor}; closed=${socket.destroyed}; buffered=${buffer.length}; packets=${JSON.stringify(packets.map(({ from, type, error }) => ({ from, type, error })))}`
+    )
   }
 
   async function request(to, type, args = {}) {

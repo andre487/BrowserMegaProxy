@@ -1475,6 +1475,20 @@ test('Android browser action popup fits the mobile viewport and keeps settings a
   }
 })
 
+test('Android popup content is not constrained by Vivaldi initial tiny viewport', async ({
+  page
+}) => {
+  await page.addInitScript(() => {
+    globalThis.chrome.tabs.getCurrent = async () => ({ id: 1 })
+    globalThis.chrome.runtime.getPlatformInfo = async () => ({ os: 'android' })
+  })
+  await page.setViewportSize({ width: 320, height: 74 })
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await expect(page.locator('html')).toHaveAttribute('data-surface', 'tab')
+  await expect(page.locator('main')).toHaveCSS('max-height', '600px')
+  expect(await page.locator('.popup-content').evaluate(e => e.clientHeight)).toBeGreaterThan(200)
+})
+
 test('routing autosaves consecutive changes without losing later edits and recovers after errors', async ({
   page
 }) => {
