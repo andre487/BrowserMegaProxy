@@ -200,9 +200,15 @@ async function retryKnock(details) {
   pending.loaded = false
   await api.storage.session?.set({ knockTabs })
   try {
-    await api.tabs.update(details.tabId, { url: details.url })
+    if (url === 'about:blank') {
+      await api.tabs.update(details.tabId, { url: details.url })
+    } else {
+      await api.tabs.reload(details.tabId, { bypassCache: true })
+    }
+    diagnosticLog?.write('knock_retried', { code: details.error })
     return true
-  } catch {
+  } catch (error) {
+    diagnosticLog?.write('knock_retry_failed', { code: error.message })
     return false
   }
 }

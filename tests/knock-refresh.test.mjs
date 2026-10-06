@@ -151,8 +151,13 @@ test('Chromium retries a knock interrupted by proxy settings once, then closes o
     }
     h.events.onErrorOccurred(error)
     await h.flush()
-    assert.equal(h.navigations.length, 2)
-    assert.deepEqual(h.navigations[0], h.navigations[1])
+    assert.equal(h.navigations.length, tabURL === 'about:blank' ? 2 : 1)
+    if (tabURL === 'about:blank') {
+      assert.deepEqual(h.navigations[0], h.navigations[1])
+      assert.deepEqual(h.reloaded, [])
+    } else {
+      assert.deepEqual(h.reloaded, [99])
+    }
     assert.equal(h.created.length, 1)
     assert.equal(h.session.knockTabs[0].retried, true)
     assert.ok(h.session.knockRefresh.pending)
@@ -162,12 +167,14 @@ test('Chromium retries a knock interrupted by proxy settings once, then closes o
       assert.equal(h.session.knockTabs.length, 0)
       assert.equal(h.opened.has(99), true)
     } else {
+      h.opened.get(99).url = error.url
       h.complete(200)
       h.events.updated(99, { status: 'complete' }, { url: error.url })
       await h.flush()
       assert.equal(h.opened.has(99), false)
     }
-    assert.equal(h.navigations.length, 2)
+    assert.equal(h.navigations.length, tabURL === 'about:blank' ? 2 : 1)
+    assert.equal(h.reloaded.length, tabURL === 'about:blank' ? 0 : 1)
   }
 })
 
