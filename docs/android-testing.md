@@ -70,6 +70,8 @@ Primary references:
   reports hangs around snapshot creation/termination on macOS. This is not proof
   of our Ubuntu failure; preserve evidence and check restored versus cold boots.
 
+The ADB restart race is also described in [Chromium's Android test fix](https://chromium.googlesource.com/chromiumos/platform/tast-tests/+/31a834f27ed1550110c7ddd5547f9b4100f070a3).
+
 ## Remaining limits
 
 Android documents that snapshots can be unreliable with software rendering and

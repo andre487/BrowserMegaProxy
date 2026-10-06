@@ -82,8 +82,18 @@ try {
     '1',
     'Use a disposable Android emulator, never a personal device'
   )
-  await adb('root')
-  await adb('wait-for-device')
+  await poll(async () => {
+    await adb('wait-for-device')
+    if ((await adb('shell', 'id', '-u')).stdout.toString().trim() === '0') {
+      return true
+    }
+    await adb('root').catch(error => {
+      if (!error.stderr?.toString().includes('unable to connect for root: closed')) {
+        throw error
+      }
+    })
+    return false
+  }, 'ADB daemon restarted with root privileges')
   await adb('logcat', '-c')
   await adb('shell', 'settings', 'put', 'global', 'adb_enabled', '1')
   // The Google APIs image's launcher can ANR after snapshot restore; it is unused here.
