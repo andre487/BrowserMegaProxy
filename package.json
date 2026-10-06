@@ -16,7 +16,8 @@
     "renew-config-schema": "node scripts/renew-config-schema.mjs",
     "prepare:server-e2e": "node scripts/prepare-server-e2e.mjs",
     "format:check": "prettier --ignore-path .gitignore --ignore-path .prettierignore --check .",
-    "renew-list-catalog": "node scripts/renew-list-catalog.mjs && prettier --write extension/subscription-catalog.js"
+    "renew-list-catalog": "node scripts/renew-list-catalog.mjs && prettier --write extension/subscription-catalog.js",
+    "store:assets": "npm run build && node scripts/store-assets.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
