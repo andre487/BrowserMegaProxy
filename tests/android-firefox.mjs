@@ -84,6 +84,8 @@ try {
   )
   await adb('root')
   await adb('wait-for-device')
+  await adb('logcat', '-c')
+  await adb('shell', 'settings', 'put', 'global', 'adb_enabled', '1')
   // The Google APIs image's launcher can ANR after snapshot restore; it is unused here.
   const launcher = 'com.google.android.apps.nexuslauncher'
   if (
@@ -93,6 +95,26 @@ try {
   }
   await adb('install', '-r', process.env.FIREFOX_ANDROID_APK || '.cache/firefox-android.apk')
   await adb('shell', 'pm', 'clear', packageId)
+  const activity = (
+    await adb(
+      'shell',
+      'cmd',
+      'package',
+      'resolve-activity',
+      '--brief',
+      '-a',
+      'android.intent.action.MAIN',
+      '-c',
+      'android.intent.category.LAUNCHER',
+      '-p',
+      packageId
+    )
+  ).stdout
+    .toString()
+    .trim()
+    .split('\n')
+    .at(-1)
+  assert.ok(activity.startsWith(`${packageId}/`), `Firefox launch activity not found: ${activity}`)
   await adb(
     'shell',
     'am',
@@ -100,9 +122,12 @@ try {
     '-a',
     'android.intent.action.VIEW',
     '-d',
-    'https://example.com',
-    '-p',
-    packageId
+    'about:blank',
+    '--ez',
+    'automationtest',
+    'true',
+    '-n',
+    activity
   )
   // Root access is confined to a disposable emulator; seed remote debugging and addon permissions.
   await poll(async () => {
@@ -135,11 +160,6 @@ try {
     '</map>'
   ].join('')
   await writeFile(`${output}/fenix_preferences.xml`, prefs)
-  // Match FenixOnboarding.finish() in the pinned Firefox 157 release's UI test setup.
-  await writeFile(
-    `${output}/fenix.onboarding.xml`,
-    '<map><int name="fenix.onboarding.last_version" value="1"/></map>'
-  )
   await writeFile(
     `${output}/user.js`,
     'user_pref("devtools.debugger.remote-enabled", true);\nuser_pref("devtools.debugger.prompt-connection", false);\n'
@@ -155,7 +175,6 @@ try {
   )
   for (const [source, destination] of [
     ['fenix_preferences.xml', `/data/data/${packageId}/shared_prefs/fenix_preferences.xml`],
-    ['fenix.onboarding.xml', `/data/data/${packageId}/shared_prefs/fenix.onboarding.xml`],
     ['user.js', `${profile}/user.js`],
     ['extension-preferences.json', `${profile}/extension-preferences.json`]
   ]) {
@@ -172,9 +191,12 @@ try {
     '-a',
     'android.intent.action.VIEW',
     '-d',
-    'https://example.com',
-    '-p',
-    packageId
+    'about:blank',
+    '--ez',
+    'automationtest',
+    'true',
+    '-n',
+    activity
   )
   await poll(
     async () =>
@@ -357,6 +379,9 @@ try {
     'android.intent.action.VIEW',
     '-d',
     `http://localhost:${directPort}/native-ui`,
+    '--ez',
+    'automationtest',
+    'true',
     '-p',
     packageId
   )
@@ -412,7 +437,10 @@ try {
   await adb('exec-out', 'screencap', '-p')
     .then(r => writeFile(`${output}/final.png`, r.stdout))
     .catch(() => {})
-  await adb('logcat', '-d', '-t', '2000')
+  await nativeUI()
+    .then(xml => writeFile(`${output}/final.xml`, xml))
+    .catch(() => {})
+  await adb('logcat', '-d')
     .then(r => writeFile(`${output}/logcat.txt`, r.stdout))
     .catch(() => {})
   for (const port of ports) {

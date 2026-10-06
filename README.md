@@ -394,6 +394,9 @@ Missing tools or permissions are recorded and do not replace the original test f
 
 ### Firefox Android integration tests
 
+See [Android automation notes](docs/android-testing.md) for launch requirements,
+known upstream problems and test limitations.
+
 The separate **Firefox Android tests** GitHub Actions check runs on PRs,
 pushes to `main`, and manual dispatch. It is required for merging and releases.
 It uses an accelerated Android 15 / API 35 x86_64 emulator and pinned Firefox
@@ -410,9 +413,9 @@ does not prevent the clean snapshot from being cached.
 APK path with `FIREFOX_ANDROID_APK`, the adb binary with `ADB`, and the device serial
 with `ANDROID_SERIAL` (default `emulator-5554`). Do not run it against a personal
 device: the test clears Firefox app data, seeds test preferences and grants the
-extension private-window access. Before launch, it marks Fenix onboarding complete
-using the pinned Firefox version's shared preferences and disables repeated onboarding
-and default-browser prompts. Native UI automation is reserved for the extension's
+extension private-window access. It launches Firefox with Mozilla's documented `automationtest` intent,
+explicitly resolving the launcher Activity, and disables repeated onboarding and
+default-browser prompts. Native UI automation is reserved for the extension's
 action popup and settings. A test-only bridge is added to an isolated extension copy, never to release
 archives.
 

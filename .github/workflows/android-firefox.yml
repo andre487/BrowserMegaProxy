@@ -96,5 +96,6 @@ jobs:
             test-results/android-firefox/*.json
             test-results/android-firefox/*.png
             test-results/android-firefox/*.txt
+            test-results/android-firefox/final.xml
           if-no-files-found: warn
           retention-days: 7
