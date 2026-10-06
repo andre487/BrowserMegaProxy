@@ -101,6 +101,7 @@ jobs:
           name: vivaldi-android-results
           path: |
             test-results/android-vivaldi.xml
+            test-results/android-vivaldi.txt
             test-results/android-vivaldi/*.json
             test-results/android-vivaldi/*.png
             test-results/android-vivaldi/*.txt

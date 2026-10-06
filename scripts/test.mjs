@@ -1,5 +1,8 @@
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
+import { createWriteStream } from 'node:fs'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { finished } from 'node:stream/promises'
 
 const suites = {
   unit: (await readdir('tests'))
@@ -13,7 +16,7 @@ if (!suites[suite]) {
   throw new Error(`Unknown test suite: ${suite}`)
 }
 await mkdir('test-results', { recursive: true })
-const result = spawnSync(
+const child = spawn(
   process.execPath,
   [
     '--test',
@@ -24,11 +27,16 @@ const result = spawnSync(
     ...process.argv.slice(3),
     ...suites[suite]
   ],
-  { stdio: 'inherit' }
+  { stdio: ['inherit', 'pipe', 'pipe'] }
 )
-if (result.error) {
-  throw result.error
-}
+const consoleReport = createWriteStream(`test-results/${suite}.txt`)
+child.stdout.pipe(process.stdout)
+child.stderr.pipe(process.stderr)
+child.stdout.pipe(consoleReport, { end: false })
+child.stderr.pipe(consoleReport, { end: false })
+const [status] = await once(child, 'close')
+consoleReport.end()
+await finished(consoleReport)
 if (suite === 'unit') {
   // Node emits ungrouped testcases directly under testsuites; JUnit consumers
   // expect them inside a testsuite (otherwise the summary reports zero tests).
@@ -41,4 +49,4 @@ if (suite === 'unit') {
       .replace('</testsuites>', '</testsuite></testsuites>')
   )
 }
-process.exitCode = result.status ?? 1
+process.exitCode = status ?? 1

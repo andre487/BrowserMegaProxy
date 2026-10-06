@@ -379,6 +379,8 @@ setup prevents the suite from proceeding. Desktop browser tests use Playwright T
 
 All runners print named results and write JUnit XML under `test-results/`:
 `unit.xml`, `android-firefox.xml`, `android-vivaldi.xml`, or `playwright.xml`.
+Node suites also retain a text report with setup/teardown errors that their
+JUnit reporter may omit.
 Extra Node runner flags can be passed through npm, for example
 `npm test -- --test-name-pattern=knock`.
 Playwright also writes an HTML report; open it with `npx playwright show-report`.

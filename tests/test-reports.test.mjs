@@ -43,6 +43,10 @@ test('test launcher retains named failures, later scenarios and cleanup in reada
     assert.match(xml, /<testcase name="intentional failure"/)
     assert.match(xml, /visible failure detail/)
     assert.match(xml, /<testcase name="later scenario still runs"[^>]*\/>/)
+    assert.match(
+      await readFile(path.join(cwd, 'test-results/unit.txt'), 'utf8'),
+      /visible failure detail/
+    )
     assert.equal(await readFile(path.join(cwd, 'cleanup.txt'), 'utf8'), 'done')
   } finally {
     await rm(cwd, { recursive: true, force: true })

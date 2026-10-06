@@ -84,7 +84,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: unit-test-report
-          path: test-results/unit.xml
+          path: |
+            test-results/unit.xml
+            test-results/unit.txt
           retention-days: 7
   browser:
     name: ${{ matrix.name }}
