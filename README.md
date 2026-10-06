@@ -392,6 +392,34 @@ Linux runners also inspect each test container's network namespace through
 `sudo -n nsenter`, using host tools without modifying container images.
 Missing tools or permissions are recorded and do not replace the original test failure.
 
+### Firefox Android integration tests
+
+The separate **Firefox Android tests (optional)** GitHub Actions check runs on PRs,
+pushes to `main`, and manual dispatch. It is intentionally not a required merge
+check. It uses an accelerated Android 15 / API 35 x86_64 emulator and pinned Firefox
+157.0 from Mozilla's APK archive.
+
+The workflow caches a clean, booted AVD snapshot before installing Firefox or the
+extension. Cache keys include the emulator and system-image revisions and the AVD
+workflow configuration. Test runs restore the snapshot without saving changes;
+the current Firefox APK and extension build are installed afresh. A failed test
+does not prevent the clean snapshot from being cached.
+
+`npm run test:android` requires a running, root-capable **disposable emulator**,
+`adb`, `zip`, a built `dist/firefox`, and `.cache/firefox-android.apk`. Override the
+APK path with `FIREFOX_ANDROID_APK`, the adb binary with `ADB`, and the device serial
+with `ANDROID_SERIAL` (default `emulator-5554`). Do not run it against a personal
+device: the test clears Firefox app data, seeds test preferences and grants the
+extension private-window access. A test-only bridge is added to an isolated extension copy, never to release
+archives.
+
+The tests exercise saved HTTP proxy authentication, manual domain rules and
+subdomains, tab routing with a third-party resource, Direct/System modes, and
+responsive popup/options pages in real Firefox Android. Screenshots, request
+records and logcat are uploaded as `firefox-android-results`. HTTPS/SOCKS proxies,
+unsaved-credential dialogs and the complete mobile feature set are not covered by
+this smoke test.
+
 ## WebRTC, sync and routing tools
 
 Settings provide browser-wide native WebRTC privacy controls. Chromium and Firefox

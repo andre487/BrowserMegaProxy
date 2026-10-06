@@ -1,0 +1,97 @@
+name: Firefox Android checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-firefox-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  android:
+    # Informational check: deliberately absent from the repository's required status checks.
+    name: Firefox Android tests (optional)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      FIREFOX_ANDROID_VERSION: '157.0'
+      ANDROID_SERIAL: emulator-5554
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Enable KVM
+        run: |
+          test -e /dev/kvm
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          "$ANDROID_HOME/emulator/emulator" -accel-check
+      - name: Install Android components and fingerprint snapshot dependencies
+        id: sdk
+        run: |
+          sdkmanager 'emulator' 'platform-tools' 'platforms;android-35' 'system-images;android-35;google_apis;x86_64'
+          snapshot_hash=$(cat "$ANDROID_HOME/emulator/source.properties" "$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties" | sha256sum | cut -d ' ' -f 1)
+          echo "snapshot-hash=$snapshot_hash" >> "$GITHUB_OUTPUT"
+      - name: Restore clean emulator snapshot
+        id: avd
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.android/avd/megaproxy.ini
+            ~/.android/avd/megaproxy.avd/
+          key: android-avd-v1-${{ runner.os }}-api35-google-apis-x86_64-${{ steps.sdk.outputs.snapshot-hash }}-${{ hashFiles('.github/workflows/android-firefox.yml') }}
+      - name: Generate clean snapshot on cache miss
+        if: steps.avd.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          avd-name: megaproxy
+          profile: pixel_5
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: false
+          script: adb shell input keyevent 82
+      - name: Save clean snapshot before installing Firefox or the extension
+        if: steps.avd.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.android/avd/megaproxy.ini
+            ~/.android/avd/megaproxy.avd/
+          key: ${{ steps.avd.outputs.cache-primary-key }}
+      - name: Download pinned Firefox APK
+        run: |
+          mkdir -p .cache
+          curl --fail --location --retry 3 --output .cache/firefox-android.apk "https://archive.mozilla.org/pub/fenix/releases/$FIREFOX_ANDROID_VERSION/android/fenix-$FIREFOX_ANDROID_VERSION-android-x86_64/fenix-$FIREFOX_ANDROID_VERSION.multi.android-x86_64.apk"
+      - name: Firefox Android integration tests
+        uses: reactivecircus/android-emulator-runner@v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          avd-name: megaproxy
+          profile: pixel_5
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: npm run test:android
+      - name: Upload Android evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: firefox-android-results
+          path: |
+            test-results/android-firefox/*.json
+            test-results/android-firefox/*.png
+            test-results/android-firefox/*.txt
+          if-no-files-found: warn
+          retention-days: 7
