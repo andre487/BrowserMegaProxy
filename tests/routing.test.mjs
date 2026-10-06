@@ -29,6 +29,47 @@ const state = {
   })
 }
 
+test('Firefox IPv6 knock hosts bypass selective inclusion rules but still honor explicit exclusions', () => {
+  for (const mode of ['domains', 'tabs']) {
+    const profile = M.profile({
+      id: 'ipv6',
+      host: 'proxy.example',
+      port: 443,
+      knockHost: '[2001:db8::1]'
+    })
+    const config = {
+      ...M.defaults(),
+      profiles: [profile],
+      activeId: profile.id,
+      bypassLocalNetworks: false,
+      browserRouting: M.routing({
+        enabled: true,
+        mode,
+        strategy: mode === 'tabs' ? 'tabs' : 'manual',
+        domains: ['other.example'],
+        sites: ['other.example']
+      })
+    }
+    assert.equal(M.routed('https://[2001:db8::1]/', config), true)
+    assert.equal(M.proxyInfo('https://[2001:db8::1]/', config).host, 'proxy.example')
+    assert.equal(M.routed('https://[2001:db8::2]/', config), false)
+    assert.equal(
+      M.routed('https://[2001:db8::1]/', {
+        ...config,
+        profiles: [{ ...profile, bypass: ['2001:db8::1'] }]
+      }),
+      false
+    )
+    assert.equal(
+      M.routed('https://[2001:db8::1]/', {
+        ...config,
+        profiles: [{ ...profile, username: 'user', password: 'secret' }]
+      }),
+      false
+    )
+  }
+})
+
 test('wildcards match whole hostnames, normalize IDNA and validate untrusted patterns', () => {
   for (const [hostname, expected] of [
     ['site.example.com', true],

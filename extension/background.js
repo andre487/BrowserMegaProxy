@@ -50,16 +50,22 @@ const ready = Promise.all([
     delete state.failoverProfileIds
   }),
   api.storage.session
-    ?.get(['connectionCheck', 'knockRefresh', 'knockTabs', 'assignedKnockLease'])
+    ?.get([
+      'connectionCheck',
+      'knockRefresh',
+      'knockTabs',
+      'assignedKnockLease',
+      'transientProxyLease'
+    ])
     .then(data => {
       knockTabs = data.knockTabs || []
       connectionCheck = data.connectionCheck || null
-      recoverAssignedKnock = data.assignedKnockLease === true
+      recoverTransientProxy = data.assignedKnockLease === true || data.transientProxyLease === true
       knockRefresh = platform.restoreKnockRefresh(data, knockRefresh)
     })
 ])
 let queue = Promise.resolve()
-let recoverAssignedKnock = false
+let recoverTransientProxy = false
 let startupError
 let downloadRouting
 let syncOptions = { enabled: true, includePasswords: true }
@@ -1560,7 +1566,7 @@ async function receiveSync() {
             .filter(p => !config.profiles.some(incoming => incoming.id === p.id))
             .map(p => p.id)
         )
-      : { ...M.defaults(), statisticsEnabled: state.statisticsEnabled }
+      : { ...state, profiles: [], activeId: null }
     if (imported) {
       const merged = new Map(next.profiles.map(p => [p.id, p]))
       next.profiles = imported.profiles.map(p => merged.get(p.id))
@@ -1632,6 +1638,10 @@ async function receiveSync() {
     await rebuildMenus()
     await refreshBadges()
     await scheduleSubscriptions()
+    const settingsChanged =
+      JSON.stringify(old.browserRouting.subscriptions) !==
+      JSON.stringify(next.browserRouting.subscriptions)
+    queue = queue.then(() => refreshSubscriptions(settingsChanged)).catch(() => {})
   } catch {
     syncError = 'errorSync'
   }
@@ -1737,9 +1747,9 @@ queue = queue
   .then(async () => {
     await ready
     diagnosticLog?.write('background_started', { mode: state.connectionMode })
-    if (recoverAssignedKnock || routingMigration) {
+    if (recoverTransientProxy || routingMigration) {
       await apply(state)
-      await api.storage.session?.set({ assignedKnockLease: false })
+      await api.storage.session?.set({ assignedKnockLease: false, transientProxyLease: false })
       if (routingMigration) {
         await api.storage.local.set({ state })
       }

@@ -144,6 +144,160 @@ async function profiles(h) {
   await h.send({ command: 'activate', id: 'one' })
 }
 
+test('Chromium restores an interrupted temporary PAC from saved state when its worker restarts', async () => {
+  for (const connectionMode of ['proxy', 'direct', 'system']) {
+    for (const temporary of [
+      { downloadRouting: { hosts: ['api.github.com'], throughProxy: false } },
+      { routingExtraDomains: ['example.com'] }
+    ]) {
+      const initial = {
+        session: {},
+        state: {
+          profiles: [{ id: 'one', host: 'proxy.example', port: 443 }],
+          activeId: 'one',
+          connectionMode
+        }
+      }
+      const original = harness('chromium', {}, undefined, initial)
+      await original.flush()
+      const set = original.api.proxy.settings.set
+      original.api.proxy.settings.set = async config => {
+        assert.equal(initial.session.transientProxyLease, true, 'Lease must precede native changes')
+        await set(config)
+      }
+      await vm.runInContext(
+        `platform.applyTransient({ ...state, ...${JSON.stringify(temporary)} })`,
+        original.context
+      )
+      assert.equal(initial.session.transientProxyLease, true)
+      const restarted = harness('chromium', {}, undefined, initial)
+      await restarted.flush()
+      const calls = restarted.calls.filter(([name]) => ['proxy', 'proxy-clear'].includes(name))
+      assert.equal(calls.length, 1)
+      if (connectionMode === 'system') {
+        assert.equal(calls[0][0], 'proxy-clear')
+      } else {
+        assert.equal(
+          calls[0][1].value.mode,
+          connectionMode === 'direct' ? 'direct' : 'fixed_servers'
+        )
+      }
+      assert.equal(initial.session.transientProxyLease, false)
+      const clean = harness('chromium', {}, undefined, initial)
+      await clean.flush()
+      assert.equal(
+        clean.calls.some(([name]) => ['proxy', 'proxy-clear'].includes(name)),
+        false
+      )
+    }
+  }
+})
+
+test('failed temporary proxy restoration keeps the lease until a later worker can restore routing', async () => {
+  const initial = {
+    session: {},
+    state: { profiles: [{ id: 'one', host: 'proxy.example', port: 443 }], activeId: 'one' }
+  }
+  const h = harness('chromium', {}, undefined, initial)
+  await h.flush()
+  await vm.runInContext(
+    'platform.applyTransient({ ...state, routingExtraDomains: ["example.com"] })',
+    h.context
+  )
+  h.api.proxy.settings.set = async () => {
+    throw new Error('native settings unavailable')
+  }
+  await assert.rejects(vm.runInContext('platform.applyTransient(state)', h.context), /unavailable/)
+  assert.equal(initial.session.transientProxyLease, true)
+  const restarted = harness('chromium', {}, undefined, initial)
+  await restarted.flush()
+  assert.equal(initial.session.transientProxyLease, false)
+  assert.equal(restarted.calls.find(([name]) => name === 'proxy')[1].value.mode, 'fixed_servers')
+})
+
+test('empty synced profiles preserve local connection mode and statistics preference', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    for (const connectionMode of ['direct', 'system']) {
+      const shared = {}
+      const receiver = harness(target, shared, undefined, {
+        state: {
+          profiles: [{ id: 'one', host: 'proxy.example', port: 443 }],
+          connectionMode,
+          statisticsEnabled: false
+        }
+      })
+      await receiver.flush()
+      const sender = harness(target, shared)
+      await sender.flush()
+      await sender.send({ command: 'sync', enabled: true, includePasswords: true })
+      await sender.send({ command: 'delete', id: 'one' })
+      receiver.calls.length = 0
+      receiver.events.changed({ megaConfig: {} }, 'sync')
+      await receiver.flush()
+      await receiver.flush()
+      const result = await receiver.send({ command: 'get' })
+      assert.equal(result.syncError, undefined)
+      assert.equal(result.state.profiles.length, 0)
+      assert.equal(result.state.activeId, null)
+      assert.equal(result.state.connectionMode, connectionMode)
+      assert.equal(result.state.statisticsEnabled, false)
+      assert.equal(
+        receiver.calls.some(([name]) => name === 'proxy-clear'),
+        connectionMode === 'system'
+      )
+    }
+  }
+})
+
+test('receiving synced lists refreshes active automatic routing immediately and leaves inactive modes offline', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    for (const connectionMode of ['proxy', 'direct', 'system']) {
+      const shared = {}
+      const profile = { id: 'one', host: 'proxy.example', port: 443 }
+      const sender = harness(target, shared, undefined, { state: { profiles: [profile] } })
+      await sender.flush()
+      const requests = []
+      const receiver = harness(
+        target,
+        shared,
+        async url => {
+          requests.push(url)
+          return new Response('youtube.com\ncdn.youtube.com\n')
+        },
+        { state: { profiles: [profile], activeId: 'one', connectionMode } }
+      )
+      await receiver.flush()
+      await receiver.flush()
+      assert.equal(requests.length, 0)
+      await sender.send({
+        command: 'routing',
+        routing: {
+          enabled: true,
+          strategy: 'lists',
+          mode: 'domains',
+          subscriptions: { domainSources: ['youtube'], autoUpdate: true }
+        }
+      })
+      receiver.events.changed({ megaConfig: {} }, 'sync')
+      await receiver.flush()
+      await receiver.flush()
+      const received = await receiver.send({ command: 'get' })
+      assert.equal(received.syncError, undefined)
+      assert.equal(received.state.connectionMode, connectionMode)
+      if (connectionMode === 'proxy') {
+        assert.ok(requests.some(url => url.includes('youtube')))
+        assert.equal(
+          vm.runInContext('M.routed("https://youtube.com/", state)', receiver.context),
+          true
+        )
+        assert.deepEqual(Array.from(received.state.subscriptionCache.domains), ['**.youtube.com'])
+      } else {
+        assert.equal(requests.length, 0)
+      }
+    }
+  }
+})
+
 test('browser proxy ownership and private access guards preserve state and native Direct/System behavior', async () => {
   for (const target of ['chromium', 'firefox']) {
     const h = harness(target)

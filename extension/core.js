@@ -256,7 +256,7 @@
 
   function routed(url, state, tabUrl = '', override) {
     const p = routeProfile(url, state, tabUrl, override)
-    const hostname = new URL(url).hostname
+    const hostname = host(new URL(url).hostname)
     if (state.downloadRouting?.hosts.includes(hostname)) {
       return Boolean(p && state.downloadRouting.throughProxy)
     }

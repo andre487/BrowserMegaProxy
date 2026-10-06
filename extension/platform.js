@@ -159,7 +159,14 @@
     }
 
     async applyTransient(state) {
+      const temporary = Boolean(state.downloadRouting || state.routingExtraDomains)
+      if (temporary) {
+        await this.api.storage.session?.set({ transientProxyLease: true })
+      }
       await this.apply(state)
+      if (!temporary) {
+        await this.api.storage.session?.set({ transientProxyLease: false })
+      }
     }
 
     isSubscriptionDownload(details, routing) {
