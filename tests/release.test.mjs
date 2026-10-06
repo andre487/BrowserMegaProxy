@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { generateNotes, responseNotes, validateVersion } from '../scripts/release.mjs'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import {
+  generateNotes,
+  prepareStoreMaterials,
+  responseNotes,
+  validateVersion
+} from '../scripts/release.mjs'
 
 test('release versions are browser-compatible and preparation accepts an unreleased current version but cannot downgrade', () => {
   for (const value of ['0.0.1', '0.1.0', '1.2.3', '65535.65535.65535']) {
@@ -93,4 +101,29 @@ test('release notes use the selected model and reject incomplete, refused or inv
       assert.fail('No request for oversized history')
     )
   )
+})
+
+test('store material generation preserves assets and renders all localized listings as Markdown', async () => {
+  const destination = await mkdtemp(path.join(tmpdir(), 'mega-store-materials-'))
+  try {
+    await prepareStoreMaterials(destination)
+    for (const shop of ['chrome', 'firefox', 'opera']) {
+      for (const locale of ['en', 'ru']) {
+        const file = path.join('store', 'listings', shop, locale)
+        const listing = JSON.parse(await readFile(`${file}.json`, 'utf8'))
+        const markdown = await readFile(path.join(destination, `${file}.md`), 'utf8')
+        assert.ok(markdown.includes(listing.summary))
+        assert.ok(markdown.includes(listing.description.replace(/^• /gm, '- ')))
+        assert.ok(markdown.includes(listing.homepage))
+        assert.ok(markdown.includes(listing.support))
+        for (const caption of listing.screenshotCaptions) {
+          assert.ok(markdown.includes(caption))
+        }
+      }
+    }
+    const asset = 'store/assets/shared/icon-128.png'
+    assert.deepEqual(await readFile(path.join(destination, asset)), await readFile(asset))
+  } finally {
+    await rm(destination, { recursive: true, force: true })
+  }
 })

@@ -6,18 +6,7 @@ Manage the browser’s connection through a user-provided HTTP/HTTPS proxy, incl
 
 ## Permissions justification
 
-| Permission                     | Purpose                                                                                                                                                                          |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `proxy`                        | Apply the selected proxy, Direct/System modes and selective routing. Firefox also uses per-request proxy decisions.                                                              |
-| `storage`                      | Save profiles, credentials, rules and preferences; optional browser sync; transient knock-tab state.                                                                             |
-| `webRequest`                   | Match proxy authentication, track knock/check navigation, and provide user-disableable local counters and network monitoring.                                                    |
-| `webRequestAuthProvider`       | Supply saved credentials to a matching proxy’s 407 authentication challenge.                                                                                                     |
-| `webRequestBlocking` (Firefox) | Firefox’s proxy authentication listener.                                                                                                                                         |
-| `scripting`                    | Read results from the temporary tabs created by the user-triggered connection check.                                                                                             |
-| `alarms`                       | Schedule updates for automatic domain lists when that routing mode is in use.                                                                                                    |
-| `contextMenus`                 | Add profile selection and routing actions to the page/action context menus.                                                                                                      |
-| `<all_urls>`                   | Proxy authentication and routing must work on arbitrary websites; the user may also import a configuration from an arbitrary URL. No webpage content is harvested for analytics. |
-| `privacy` (optional)           | Change WebRTC policy only when the user selects an extension-controlled policy.                                                                                                  |
+See [Permission justifications](PERMISSIONS.md) for a separate, ready-to-paste English justification for every requested API permission, host access and optional permission. The document also explains Firefox’s data-collection declaration.
 
 There is no remote executable code. UI scripts and schema validation are packaged locally. Downloaded domain lists and configurations are parsed as data. Browser-generated PAC configuration in Chromium is built from validated settings, not a user-supplied script.
 

@@ -1,6 +1,8 @@
 # MegaProxy store materials
 
-Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English and Russian copy is in `listings/{chrome,firefox,opera}/{en,ru}.json`: paste the name, summary and description into the corresponding store fields. Each summary is at most 132 characters. Screenshot captions are supplied for accessibility fields where available.
+Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English and Russian copy is in `listings/{chrome,firefox,opera}/{en,ru}.json`: paste the name, summary and description into the corresponding store fields. Each summary is at most 132 characters. Screenshot captions are supplied for accessibility fields where available. Release store-materials archives include readable Markdown copies beside the JSON listings.
+
+Run `npm run store:materials` to copy the current assets and generate all six Markdown listings in `dist/store-materials/store/`. JSON files remain the source of truth; release packaging runs this generation automatically.
 
 | Store            | Screenshots                                       | Icon                                                     | Promotion                                       |
 | ---------------- | ------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
@@ -25,7 +27,8 @@ The command builds the extension and regenerates all PNGs with the installed Pla
 ## Submission documents
 
 - [Privacy policy](PRIVACY.md): publish at a public URL and provide it to the stores.
-- [Reviewer notes](REVIEWER-NOTES.md): permission explanations, review steps and package selection.
+- [Permission justifications](PERMISSIONS.md): English text for each requested permission and host access.
+- [Reviewer notes](REVIEWER-NOTES.md): review steps and package selection.
 
 These materials do not publish the extension. The store dashboard’s current fields, release package and target-browser behavior still need to be checked at submission time. Prepared on 6 October 2026 using the official guidance:
 
