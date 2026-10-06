@@ -20,7 +20,8 @@
     "store:assets": "npm run build && node scripts/store-assets.mjs",
     "release:assets": "node scripts/release.mjs package",
     "store:materials": "node scripts/release.mjs store-materials",
-    "test:android": "node tests/android-firefox.mjs"
+    "test:android": "node tests/android-firefox.mjs",
+    "test:android:chromium": "node tests/android-vivaldi.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

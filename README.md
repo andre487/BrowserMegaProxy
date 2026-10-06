@@ -426,6 +426,21 @@ records and logcat are uploaded as `firefox-android-results`. HTTPS/SOCKS proxie
 unsaved-credential dialogs and the complete mobile feature set are not covered by
 this smoke test.
 
+### Chromium Android integration tests (Vivaldi)
+
+The separate **Vivaldi Android tests** check runs the production Chromium build
+in pinned Vivaldi 8.2.4147.130 on an accelerated API 35 x86_64 emulator, with a
+cached clean snapshot. It is required for merging and releases. It exercises saved HTTP proxy authentication, HTTPS knock
+success and failure, manual domain/subdomain routing, Direct/System and the native
+extension popup/settings. Screenshots, network snapshots and logcat are uploaded
+as `vivaldi-android-results`.
+
+`npm run test:android:chromium` needs a disposable root-capable emulator, `adb`,
+`openssl`, a built `dist/chromium` and `.cache/vivaldi-android.apk`. Override the APK
+with `VIVALDI_ANDROID_APK`, the adb binary with `ADB` and the serial with
+`ANDROID_SERIAL`. See [Vivaldi Android automation notes](docs/vivaldi-android-testing.md)
+for official documentation, community reports, local commands and limitations.
+
 ## WebRTC, sync and routing tools
 
 Settings provide browser-wide native WebRTC privacy controls. Chromium and Firefox
