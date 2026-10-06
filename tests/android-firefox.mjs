@@ -84,6 +84,13 @@ try {
   )
   await adb('root')
   await adb('wait-for-device')
+  // The Google APIs image's launcher can ANR after snapshot restore; it is unused here.
+  const launcher = 'com.google.android.apps.nexuslauncher'
+  if (
+    (await adb('shell', 'pm', 'list', 'packages', launcher)).stdout.toString().includes(launcher)
+  ) {
+    await adb('shell', 'pm', 'disable-user', '--user', '0', launcher)
+  }
   await adb('install', '-r', process.env.FIREFOX_ANDROID_APK || '.cache/firefox-android.apk')
   await adb('shell', 'pm', 'clear', packageId)
   await adb(

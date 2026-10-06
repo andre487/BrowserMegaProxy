@@ -42,7 +42,8 @@ export async function installFirefoxAddon(port, addonPath, { wake = false } = {}
   })
 
   async function receive(actor) {
-    for (let i = 0; i < 100; i++) {
+    const deadline = Date.now() + 30000
+    while (Date.now() < deadline) {
       const index = packets.findIndex(packet => packet.from === actor && !packet.type)
       if (index >= 0) {
         const [packet] = packets.splice(index, 1)
