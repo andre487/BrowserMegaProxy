@@ -89,7 +89,7 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
       expect(
         JSON.stringify((await command({ command: 'export', includePasswords: true })).config)
       ).not.toContain('machine-password-not-for-clients')
-      const page = await context.newPage()
+      let page = await context.newPage()
 
       // Chromium needs a challenge even with saved credentials. Masking without a knock
       // cannot bootstrap its proxy authentication and must not silently connect directly.
@@ -133,6 +133,17 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
                 ).length
             )
             .toBeGreaterThan(knockBefore)
+          // Knock success also closes its tab and can refresh a previously opened target tab.
+          // Finish that lifecycle before starting a new navigation on an unmarked page.
+          await expect
+            .poll(
+              () =>
+                context.pages().filter(tab => tab.url().startsWith('https://knock.invalid/')).length
+            )
+            .toBe(0)
+          const previousPage = page
+          page = await context.newPage()
+          await previousPage.close()
         }
         await page.goto(`https://target.invalid/${profile.id}`)
         await expect(page.locator('body')).toHaveText('MegaProxyServer origin')

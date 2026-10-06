@@ -1,292 +1,290 @@
 # MegaProxy
 
-Расширения для Chromium и Firefox.
-HTTP/HTTPS CONNECT, несколько профилей, авторизация, knock host, исключения доменов,
-импорт/экспорт профилей, локальный обход, проверка подключения,
-светлая/тёмная/системная тема. Интерфейс без внешних библиотек и ресурсов.
+Browser extensions for Chromium and Firefox.
+HTTP/HTTPS CONNECT, multiple profiles, authentication, knock hosts, domain exclusions,
+profile import/export, local-network bypass, connection checks, and light/dark themes
+(with automatic appearance in Firefox). The UI uses no external libraries or resources.
 
-## Выпуск
+## Releases
 
-Подготовка релизного PR, проверки, тег и публикация архивов описаны в
+Release PR preparation, checks, tagging and archive publication are documented in
 [RELEASING.md](RELEASING.md).
 
-## Материалы для магазинов
+## Store materials
 
-Описания на русском и английском, скриншоты, иконки и промоматериалы для Chrome Web Store,
-Firefox Add-ons и Opera Add-ons находятся в [store/](store/README.md).
-Перегенерация изображений: `npm run store:assets`.
+English and Russian listings, screenshots, icons and promotional materials for Chrome Web Store,
+Firefox Add-ons and Opera Add-ons are available in [store/](store/README.md).
+Regenerate images with `npm run store:assets`.
 
-## Сборка и установка
+## Build and install
 
-Нужны Node.js 22+ и npm.
+Requires Node.js 22+ and npm.
 
 ```sh
 npm ci
 npm run build
 ```
 
-- **Chromium 120+**: `chrome://extensions` → режим разработчика → загрузить распакованное расширение → `dist/chromium`.
-- **Firefox 128+**: `about:debugging#/runtime/this-firefox` → загрузить временное дополнение → `dist/firefox/manifest.json`. В `about:addons` разрешите работу в приватных окнах: это обязательное условие Firefox для `proxy.settings`. Для постоянной установки потребуется подпись Mozilla.
+- **Chromium 120+**: `chrome://extensions` → Developer mode → Load unpacked → `dist/chromium`.
+- **Firefox 128+**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `dist/firefox/manifest.json`. Allow private-window access in `about:addons`: Firefox requires it for `proxy.settings`. Permanent installation requires Mozilla signing.
 
-В каждом PR workflow **Extension checks** публикует два ZIP-артефакта:
-**MegaProxy-chromium** и **MegaProxy-firefox**. Откройте запуск из проверок PR,
-скачайте нужный архив в разделе **Artifacts** и распакуйте его. `manifest.json`
-находится в корне архива; установите распакованную папку по инструкции выше.
-Архивы доступны 14 дней и загружаются сразу после сборки, до запуска тестов.
+Each PR's **Extension checks** workflow publishes two ZIP artifacts:
+**MegaProxy-chromium** and **MegaProxy-firefox**. Open the run from the PR checks,
+download the archive from **Artifacts**, and extract it. Its `manifest.json` is at the
+archive root; install the extracted directory as described above.
+Artifacts are retained for 14 days and uploaded immediately after building, before tests run.
 
-Откройте «Настройки» из попапа: профили, импорт/экспорт, маршрутизация, язык и тема находятся на отдельной
-странице. Добавьте профиль с адресом сервера, портом, логином и паролем.
-В попапе доступны быстрые действия: выбор и подключение профиля, отключение и knock.
-Отключение возвращает управление прежним настройкам браузера. Изменение активного профиля применяется сразу.
-Knock открывает отдельную вкладку, которую можно закрыть после загрузки.
-В «Настройки» → «Язык» доступны «Авто», «Русский» и «English». По умолчанию «Авто»:
-язык интерфейса браузера определяется через `i18n.getUILanguage()` — русский для `ru`
-и его региональных вариантов, английский для остальных языков. Ручной выбор сохраняется
-локально и применяется сразу, включая ошибки и подсказки. Имена профилей не переводятся.
-Переводы находятся в `extension/_locales/{en,ru}/messages.json`; язык описания расширения
-в браузере определяется самим браузером независимо от ручного выбора в popup.
+Open Settings from the popup: profiles, import/export, routing, language and appearance
+are on a separate page. Add a profile with a server address, port, username and password.
+The popup provides quick actions to select and connect a profile, disconnect and knock.
+Disconnect restores the browser's previous settings. Changes to the active profile apply immediately.
+Knock opens a separate background tab, which closes automatically after a successful load.
+Settings → Language offers Auto, Russian and English. Auto is the default:
+`i18n.getUILanguage()` selects Russian for `ru` and its regional variants, and English
+for other browser languages. Manual choices are saved locally and apply immediately,
+including errors and hints. Profile names are not translated.
+Translations are in `extension/_locales/{en,ru}/messages.json`; the browser chooses the
+extension description language independently of the manual UI selection.
 
-Пароли сохраняются в `storage.local` и по умолчанию синхронизируются через `storage.sync`; синхронизацию паролей можно отключить отдельно. Само расширение их не шифрует.
-В Chromium приватный режим по умолчанию не включён. Firefox требует разрешения приватных окон для `proxy.settings`; активный профиль действует и в этих окнах.
+Passwords are stored in `storage.local` and synchronized through `storage.sync` by default;
+password sync can be disabled separately. MegaProxy does not encrypt them separately.
+Chromium private-window access is disabled by default. Firefox requires private-window
+permission for `proxy.settings`; the active profile applies in those windows too.
 
-## Запуск для разработки
+## Development launcher
 
-Установите обычный актуальный Google Chrome и/или Firefox. Поддерживаются macOS, Linux
-и Windows; нужны Node.js 22+ и `npm ci`.
+Install a current regular Google Chrome and/or Firefox. macOS, Linux and Windows
+are supported; Node.js 22+ and `npm ci` are required.
 
 ```sh
-npm start             # Chrome по умолчанию
+npm start             # Chrome by default
 npm start --chrome    # Chrome
 npm start --firefox   # Firefox
-npm start -- --watch  # Chrome с автоматической пересборкой
-npm start -- --firefox --watch # Firefox с автоматической пересборкой
+npm start -- --watch  # Chrome with automatic rebuilds
+npm start -- --firefox --watch # Firefox with automatic rebuilds
 ```
 
-Некоторые версии npm предупреждают о неизвестных флагах. Переносимый вариант передачи
-аргументов: `npm start -- --chrome` и `npm start -- --firefox`.
+Some npm versions warn about unknown flags. The portable argument syntax is
+`npm start -- --chrome` and `npm start -- --firefox`.
 
-`--watch` отслеживает `extension/` и `scripts/build.mjs`: после изменений выполняется
-сборка и перезагрузка расширения без перезапуска браузера. Настройки сохраняются.
-В Chrome также обновляются открытые вкладки расширения; в Firefox страницы
-расширения при необходимости нужно открыть заново. Ошибка сборки выводится в терминал,
-наблюдение продолжается до следующего изменения.
+`--watch` monitors `extension/` and `scripts/build.mjs`: changes rebuild and reload
+the extension without restarting the browser. Settings are preserved.
+Chrome also refreshes open extension tabs; Firefox extension pages may need to be
+reopened. Build errors appear in the terminal; watching continues until the next change.
 
-При каждом запуске расширение пересобирается и автоматически загружается в браузер.
-Постоянные отдельные профили находятся в `.browser-profiles/chrome` и
-`.browser-profiles/firefox`; каталог исключён из Git. Профили прокси, язык, тема
-и другие данные браузера сохраняются между запусками. Закройте предыдущую сессию
-перед повторным запуском. Завершение — закрыть браузер или нажать Ctrl+C в терминале.
+Every launch rebuilds the extension and loads it automatically.
+Persistent, separate browser profiles live in `.browser-profiles/chrome` and
+`.browser-profiles/firefox`; this directory is excluded from Git. Proxy profiles,
+language, theme and other browser data survive restarts. Close the previous session
+before launching again. Exit by closing the browser or pressing Ctrl+C in the terminal.
 
-Chrome открывает интерфейс расширения во вкладке. В актуальном обычном Chrome
-[`--load-extension` отключён](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY), поэтому используется DevTools Protocol с флагом
-`--enable-unsafe-extension-debugging` только в отдельном профиле разработки.
-Firefox открывает `about:addons` и устанавливает временное дополнение при каждом
-запуске через локальный Mozilla DevTools server; разрешение приватных окон,
-необходимое для `proxy.settings`, предоставляется этому дополнению в его отдельном профиле.
-Данные дополнения сохраняются, подпись Mozilla для такого запуска не нужна.
+Chrome opens the extension UI in a tab. Current regular Chrome
+[disables `--load-extension`](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY),
+so the launcher uses DevTools Protocol with `--enable-unsafe-extension-debugging`
+only in its separate development profile.
+Firefox opens `about:addons` and installs a temporary add-on on every launch through
+the local Mozilla DevTools server. The add-on receives the private-window permission
+required for `proxy.settings` in its separate profile. Add-on data is preserved;
+Mozilla signing is not needed for this launch method.
 
-На macOS Firefox ищется в `/Applications/Firefox.app`, на Linux — как `firefox` в PATH,
-на Windows — в Program Files / Program Files (x86) / LocalAppData. Chrome используется
-из стандартного расположения установленного браузера. На Linux для `npm start`
-нужна графическая сессия.
+On macOS, Firefox is located in `/Applications/Firefox.app`; on Linux, as `firefox`
+in PATH; on Windows, in Program Files / Program Files (x86) / LocalAppData.
+Chrome is located in its standard installation directory. Linux requires a graphical
+session for `npm start`.
 
-## Авторизация и probe resistance
+## Authentication and probe resistance
 
-| Браузер  | Отправка до 407                                                                  | Knock                                                                                             |
-| -------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Firefox  | Сохранённые логин и пароль передаются через `ProxyInfo.proxyAuthorizationHeader` | Без сохранённой пары открывается при подключении и запуске браузера; с сохранённой парой отключён |
-| Chromium | Первый CONNECT контролирует браузер, реквизиты передаются после 407              | Открывается при подключении и запуске даже с сохранёнными реквизитами                             |
+| Browser  | Credentials before 407                                                      | Knock                                                                                           |
+| -------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Firefox  | Saved credentials are supplied through `ProxyInfo.proxyAuthorizationHeader` | Opens on connection and browser startup without saved credentials; disabled when both are saved |
+| Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
 
-Knock host необязателен: его отсутствие не мешает включить профиль и не вызывает предупреждения.
-Если он настроен, в фоне откроется обычная HTTPS-вкладка: если реквизитов нет, браузер показывает свой диалог
-авторизации. Введённые там пароли остаются в браузере; расширение не читает их и
-не копирует в профиль. Поле и кнопка knock в Firefox отключаются, когда сохранены
-и логин, и пароль. Сохранённый knock host при этом не удаляется.
-После успешного HTTP-ответа и завершения загрузки вкладка knock host автоматически закрывается.
-При ошибке загрузки, отмене или неудачной авторизации вкладка остаётся открытой.
-Повторные запросы используют уже открытую ожидающую вкладку; её состояние хранится
-в storage.session, чтобы закрытие работало и после перезапуска фонового процесса.
+A knock host is optional: its absence does not prevent connecting a profile or show a warning.
+When configured, a normal HTTPS tab opens in the background. Without saved credentials,
+the browser displays its authentication dialog. Passwords entered there remain in the
+browser; the extension does not read them or copy them into a profile.
+Firefox disables the knock field and button when both username and password are saved,
+without deleting the saved knock host.
+After a successful HTTP response and completed load, the knock tab closes automatically.
+Load errors, cancellation or unsuccessful authentication leave it open.
+Repeated requests reuse an existing pending tab. Its state is retained in `storage.session`
+so closing still works after the background process restarts.
 
-В протестированном Firefox отправка в первом CONNECT подтверждена для HTTPS-прокси.
-Для HTTP-прокси Firefox может ждать 407; сочетание HTTP-прокси с probe resistance
-без challenge на целевом адресе не поддерживается этой логикой. Для такого сервера
-используйте HTTPS-прокси. Поле `browser.authMode` сохранено для старых импортов,
-но сохранённые реквизиты Firefox всегда запрашивает отправить сразу.
+Tests confirm credentials in Firefox's first CONNECT for HTTPS proxies.
+For HTTP proxies, Firefox may wait for 407. This logic does not support HTTP proxies
+with probe resistance and no challenge at the destination; use an HTTPS proxy for
+such servers. `browser.authMode` remains for legacy imports, but Firefox always
+requests immediate submission of saved credentials.
 
-Обработчик `onAuthRequired` отвечает только активному прокси, сверяя host/port и
-`isProxy`. Повторный challenge одного запроса отменяется. Реквизиты не добавляются
-к заголовкам целевого сайта и не используются для его 401.
+The `onAuthRequired` handler responds only to the active proxy, matching host/port
+and `isProxy`. A repeated challenge for the same request is canceled. Credentials
+are never added to destination-site headers or used for its 401 response.
 
-Для MegaProxyServer с включённым `probe_resistance` добавьте разрешённое имя в `knock`
-на сервере и укажите то же имя в профиле расширения. У этого имени должен быть рабочий
-HTTPS-сайт, если хотите видеть успешную загрузку после CONNECT; для получения самого
-407 достаточно разрешённого server-side knock hostname. Никакие публичные knock хосты
-не выбираются автоматически. Knock не должен входить в исключения. Открытие вкладки
-само по себе не является проверкой успешной авторизации. При переключении профилей
-браузерный кеш авторизации может потребовать нового knock.
+For MegaProxyServer with `probe_resistance` enabled, add an allowed name to the
+server's `knock` setting and use the same name in the extension profile.
+That name needs a working HTTPS website for a successful page load after CONNECT;
+an allowed server-side knock hostname is sufficient to obtain the 407 itself.
+No public knock hosts are selected automatically. Knock must not be bypassed.
+Opening a tab alone does not verify successful authentication. Switching profiles
+may require a new knock because of browser authentication caches.
 
-HTTPS здесь означает TLS **до прокси**, независимо от схемы целевого сайта.
-HTTP-прокси передаёт Basic реквизиты без TLS на участке до прокси. Сертификаты HTTPS
-прокси проверяются; отключение проверки не поддерживается. Используйте сертификат,
-которому доверяет браузер.
-Домены в исключениях применяются также к поддоменам, без wildcard/PAC.
-Firefox возвращает цепочку с завершающим `null`, чтобы запретить прямой fallback.
-Chromium использует один fixed proxy.
+HTTPS here means TLS **to the proxy**, regardless of the destination website's scheme.
+HTTP proxies transmit Basic credentials without TLS on the connection to the proxy.
+HTTPS proxy certificates are verified; disabling verification is unsupported.
+Use a certificate trusted by the browser.
+Bypass domains include their subdomains without requiring wildcards or PAC.
+Firefox returns a chain ending in `null` to prevent direct fallback.
+Chromium uses one fixed proxy.
 
-## Профили и маршрутизация
+## Profiles and routing
 
-Профили имеют стабильные ID, цвет, код страны, клонирование и порядок. Порядок меняется
-перетаскиванием за ручку мышью или касанием; с клавиатуры — стрелками вверх и вниз на ручке.
-Обход локальных
-сетей включён по умолчанию и отключается в настройках. Он включает частные IPv4,
-loopback, link-local, IPv6 ULA/link-local, localhost и локальные имена. Дополнительные
-доменные исключения применяются независимо от переключателя. В Chromium CIDR-правила
-работают для IP-литералов URL; частный адрес, скрытый за обычным DNS-именем, не гарантирует
-обход. Для такого имени добавьте доменное исключение.
+Profiles have stable IDs, colors, country codes, cloning and ordering.
+Reorder using the drag handle with a mouse or touch; keyboard users can press
+Up/Down while the handle has focus.
+Local-network bypass is enabled by default and can be disabled in Settings.
+It covers private IPv4, loopback, link-local, IPv6 ULA/link-local, localhost and
+local names. Additional domain exclusions apply independently of that toggle.
+Chromium CIDR rules work for IP literals in URLs; a private IP behind an ordinary
+DNS name does not guarantee bypass. Add a domain exclusion for that name.
 
-Режим «Все сайты» отправляет запросы через выбранный профиль с учётом исключений.
-Настройки маршрутизации сохраняются автоматически: переключатели сразу, текстовые поля при выходе из поля.
+Full proxying routes requests through the selected profile, subject to exclusions.
+Routing settings save automatically: toggles immediately, text fields on blur.
+The selected profile remains active after request failures; automatic failover is not supported.
 
-Failover можно отключить, использовать все профили или выбранные в заданном порядке.
-Переключение происходит при наблюдаемой ошибке соединения с прокси, а не при обычном
-HTTP-ответе сайта. IP и страна могут измениться. После исчерпания кандидатов текущий прокси сохраняется;
-прямого fallback нет. Ручное подключение начинает новую последовательность попыток.
+## Configuration compatibility
 
-## Совместимость конфигурации
-
-Общий контракт версии 8, его английская документация, схемы и примеры находятся в
-[MegaProxyConfig](https://github.com/andre487/MegaProxyConfig). При сборке из локальной
-схемы генерируется CSP-совместимый валидатор: импорт и экспорт версии 8 проверяются
-той же схемой, что и тесты. Никаких сетевых запросов за схемой при сборке или тестах нет.
+The shared version 8 contract, English documentation, schemas and examples are in
+[MegaProxyConfig](https://github.com/andre487/MegaProxyConfig).
+The build generates a CSP-compatible validator from the local schema: version 8
+imports and exports use the same schema as the tests. Builds and tests never fetch schemas.
 
 ```sh
 npm run renew-config-schema
-npm run renew-config-schema -- --ref=<полный-commit>
+npm run renew-config-schema -- --ref=<full-commit>
 ```
 
-Команда обновляет `config-schema/`: обе схемы, лицензию, commit и SHA-256 в lock-файле.
-Изменения копий схем и lock-файла нужно проверять и коммитить вместе. Форматтер
-исключает этот каталог, чтобы не менять исходные байты и контрольные суммы.
+This command updates `config-schema/`: both schemas, the license, commit and SHA-256
+values in the lock file. Review and commit schema copies and the lock file together.
+The formatter excludes this directory to preserve original bytes and checksums.
 
-Импортируются MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON (`https`/`ssl`, `hostname`/`address`),
-ProxyList и поддерживаемый Android формат SuperProxy. Поддерживаемые HTTP-профили
-также принимаются. SSH, jump-цепочки, PAC и отключение проверки сертификата пропускаются
-с предупреждением. URL-правила FoxyProxy не переносятся. Если поля неизвестны или не поддерживаются,
-перед применением показывается одно предупреждение «Конфигурация содержит неизвестные
-поля». Такие поля не сохраняются и не попадают в экспорт. Максимум файла — 1 МБ,
-профилей — 1000. Файлы импорта могут содержать пароли — не коммитьте их.
+Imports accept MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON (`https`/`ssl`,
+`hostname`/`address`), ProxyList and Android-compatible SuperProxy format.
+Supported HTTP profiles are accepted too. SSH, jump chains, PAC and disabled
+certificate verification are skipped with a warning. FoxyProxy URL rules are not
+transferred. Unknown or unsupported fields trigger one warning before applying:
+“Configuration contains unknown fields.” Those fields are neither retained nor
+exported. Limits are 1 MiB per file and 1000 profiles. Imported files may contain
+passwords; do not commit them.
 
-Перед применением показываются новые, обновляемые и пропускаемые профили. Совпадающие
-ID обновляются без дубликатов и изменения местного порядка. Отсутствующий в файле пароль
-сохраняется, явная пустая строка очищает его. Отсутствующие локальные профили остаются;
-их можно выбрать для удаления. Импорт не подключает указанный в файле активный профиль.
-Изменения уже активного профиля применяются после подтверждения импорта.
+Import review shows new, updated and skipped profiles. Matching IDs update without
+duplicates or changing local order. A missing password preserves the local value;
+an explicit empty string clears it. Local profiles absent from the file remain,
+and can be selected for deletion. Import does not connect the file's active profile.
+Changes to an already active profile apply after confirming the import.
 
-Экспорт — MegaProxy JSON версии 8. Пароли по умолчанию исключены, для включения есть
-отдельный переключатель. Неподдерживаемые Android-поля отбрасываются с общим предупреждением при импорте.
-Текущий Android не поддерживает HTTP и IPv6-литералы в поле хоста прокси; экспорт таких
-профилей явно отклоняется, без изменения протокола. Android игнорирует новые блоки
-`browser`, но при своём экспорте пока удаляет их: полный обратный перенос настроек
-расширения через Android потребует сохранения неизвестных полей в приложении.
+Exports use MegaProxy JSON version 8. Passwords are included by default and can
+be excluded with a separate toggle. Unsupported Android fields are discarded on
+import with the general warning. Current Android does not support HTTP or IPv6
+literals in the proxy host field; exporting such profiles fails explicitly without
+changing their protocol. Android ignores new `browser` blocks but currently drops
+them on export: a complete round trip through Android requires the application to
+preserve unknown fields.
 
-## Проверка подключения
+## Connection checks
 
-Проверка использует активный профиль и обычную неактивную вкладку браузера, закрывая
-её после завершения. Этапы как в Android: HTTPS-запрос к `example.com`, выходной IP
-(`ifconfig.me`, `api.ipify.org`, `icanhazip.com`) и страна (`ifconfig.co`, `ipapi.co`,
-`api.country.is`) с fallback между провайдерами. Страна необязательна. Таймаут всего
-теста 45 секунд, отдельной попытки — 10 секунд. Исключения для хостов диагностики
-запрещают тест, чтобы прямой запрос не выдавался за проверку прокси.
+Checks use the active connection and a normal background browser tab, closing it
+when complete. Stages follow Android: an HTTPS request to `example.com`, exit IP
+(`ifconfig.me`, `api.ipify.org`, `icanhazip.com`) and country (`ifconfig.co`,
+`ipapi.co`, `api.country.is`), with fallback between providers. Country is optional.
+The total timeout is 45 seconds; each attempt has a 10-second timeout. In Proxy
+mode, bypassed diagnostic hosts prevent the test so a direct request cannot be
+presented as a proxy check. Checks are also available in Direct and System modes.
 
-## Линтер и форматирование
+## Linting and formatting
 
-[Prettier](https://prettier.io/) — единственный форматтер для JS/MJS, HTML, CSS,
-JSON, Markdown и YAML. Настройки в `.prettierrc.json`: 2 пробела, одинарные кавычки,
-без лишних точек с запятой, предпочтительная ширина строки 100 символов. Длинные
-выражения переносятся автоматически; строковые литералы могут превышать эту ширину.
+[Prettier](https://prettier.io/) is the only formatter for JS/MJS, HTML, CSS,
+JSON, Markdown and YAML. `.prettierrc.json` configures two-space indentation,
+single quotes, no unnecessary semicolons and a preferred line width of 100.
+Long expressions wrap automatically; string literals may exceed that width.
 
-[ESLint](https://eslint.org/) проверяет JavaScript по рекомендованному набору правил.
-Окружения и дополнительные правила находятся в `eslint.config.mjs`, глобальные
-переменные расширения — также в комментариях `/* global … */`.
-`eslint-config-prettier` отключает правила, конфликтующие с форматтером.
-Версии инструментов закреплены в `package.json` и lockfile. Файлы из `.gitignore`
-исключены из форматирования; схемы в `config-schema` исключены отдельно, чтобы
-сохранить контрольные суммы исходных файлов.
+[ESLint](https://eslint.org/) checks JavaScript using its recommended rules.
+Environments and additional rules are in `eslint.config.mjs`; extension globals
+are also declared in `/* global … */` comments.
+`eslint-config-prettier` disables rules that conflict with formatting.
+Tool versions are pinned in `package.json` and the lock file. `.gitignore` entries
+are excluded from formatting; `config-schema` is excluded separately to preserve
+source-file checksums.
 
 ```sh
-npm run lint         # ESLint + проверка форматирования Prettier
-npm run lint:fix     # Исправления ESLint, затем форматирование Prettier
-npm run format       # Форматирование всего проекта Prettier
-npm run format:check # Проверка форматирования без изменения файлов
+npm run lint         # ESLint + Prettier formatting check
+npm run lint:fix     # ESLint fixes, then Prettier formatting
+npm run format       # Format the entire project with Prettier
+npm run format:check # Check formatting without changing files
 ```
 
-В VS Code установите рекомендованные расширения **Prettier** (`esbenp.prettier-vscode`)
-и **ESLint** (`dbaeumer.vscode-eslint`). Настройки репозитория включают форматирование
-и исправления ESLint при сохранении.
+In VS Code, install the recommended **Prettier** (`esbenp.prettier-vscode`) and
+**ESLint** (`dbaeumer.vscode-eslint`) extensions. Repository settings enable
+formatting and ESLint fixes on save.
 
-Функции разделяем пустыми строками, внутри функций отделяем логические блоки.
-Правило ESLint `curly: all` требует фигурные скобки у всех `if`, `else` и циклов;
-Prettier размещает тела блоков на отдельных строках.
-Prettier сохраняет пустые строки, но не определяет смысловые границы блоков автоматически.
+Separate functions with blank lines and distinguish logical blocks within functions.
+ESLint's `curly: all` requires braces for every `if`, `else` and loop; Prettier
+places block bodies on separate lines. Prettier preserves blank lines but does not
+automatically determine logical boundaries.
 
-## Проверки и PR
+## Checks and pull requests
 
 ```sh
-# Требуются Docker с запущенным daemon, uv, Git и OpenSSL.
+# Requires Docker with a running daemon, uv, Git and OpenSSL.
 npx playwright install chromium firefox
 npm run check
 ```
 
-В [.github/workflows/pr.yml](.github/workflows/pr.yml) проверки запускаются на каждом PR:
+[.github/workflows/pr.yml](.github/workflows/pr.yml) runs checks on every PR:
 
-- ESLint: правила качества кода всех JS/MJS-файлов; ошибки и предупреждения блокируют PR.
-- Prettier: единое форматирование JS/MJS, HTML/CSS/JSON, Markdown и YAML; отличия блокируют PR.
-- Node: валидация, Unicode Basic, маршрутизация, импорт, ограничение повторов и защита реквизитов.
-- Playwright Chromium: установленное MV3-расширение, реальный тестовый proxy challenge,
-  knock, последующий CONNECT и отсутствие реквизитов на origin.
-- Playwright Firefox: установка временного расширения через Mozilla DevTools protocol;
-  test-only sidecar в временной копии вызывает штатный background handler (не попадает в сборку). Playwright проверяет настоящие сетевые запросы; его управление `moz-extension` страницами не поддерживается.
-- MegaProxyServer: настоящий GOST 3.3.0 и HAProxy в Docker, шаблоны и экспорты из зафиксированного commit сервера; HTTPS/407, маскировка с knock и без него, отдельная настройка маскировки цепочки, прямой маршрут и SNI-цепочка (включая сервер без прямого маршрута), IP-endpoint, неверные/пустые реквизиты, отсутствие утечек реквизитов на origin, отказ выхода без прямого fallback, split proxy, подписки через прокси, диагностика и статистика opt-in.
-- Запуск Chrome для разработки: актуальный код при повторном запуске и сохранение языка в отдельном профиле
-  (если установлен обычный Chrome).
-- UI в Chromium и Firefox: создание/редактирование/удаление, импорт, темы, клавиатура и мобильная ширина;
-  автолокализация по языку браузера, ручной выбор и его сохранение, перевод ошибок и сохранение данных формы при переключении.
+- ESLint: code quality rules for all JS/MJS files; errors and warnings block the PR.
+- Prettier: consistent JS/MJS, HTML/CSS/JSON, Markdown and YAML formatting; differences block the PR.
+- Node: validation, Unicode Basic, routing, imports, retry limits and credential protection.
+- Playwright Chromium: installed MV3 extension, a real proxy challenge, knock, subsequent CONNECT and no credentials reaching the origin.
+- Playwright Firefox: temporary add-on installation through Mozilla DevTools Protocol; a test-only sidecar in a temporary copy invokes the normal background handler and is excluded from builds. Playwright checks real network requests; controlling `moz-extension` pages is unsupported.
+- MegaProxyServer: real GOST 3.3.0 and HAProxy in Docker, templates and exports from a pinned server commit; HTTPS/407, camouflage with and without knock, separate chain camouflage settings, direct and SNI-chain routes (including a server with no direct route), IP endpoints, invalid/empty credentials, no origin credential leaks, exit failure without direct fallback, split proxy, proxied subscriptions, diagnostics and request-statistics preferences.
+- Chrome development launcher: current code after relaunch and language persistence in a separate profile, when regular Chrome is installed.
+- Chromium and Firefox UI: create/edit/delete, imports, themes, keyboard access and mobile widths; automatic browser-language selection, persisted manual choices, translated errors and form preservation on language changes.
 
-## Организация кода
+## Code organization
 
-`extension/platform.js` содержит общий класс `BrowserPlatform` и реализации
-`ChromiumPlatform` и `FirefoxPlatform`. Они отвечают за нативные настройки прокси,
-авторизацию и knock, маршрутизацию вкладок, доступные возможности интерфейса и
-совместимость импортируемых настроек. Конкретная реализация выбирается при запуске;
-общие обработчики и UI вызывают её методы. API браузера и функции ядра передаются
-через конструктор, а зависимости отдельных операций — через аргументы, без DI-контейнера.
+`extension/platform.js` contains the shared `BrowserPlatform` class and its
+`ChromiumPlatform` and `FirefoxPlatform` implementations. They handle native proxy
+settings, authentication and knock, tab routing, available UI capabilities and
+import compatibility. The concrete implementation is selected at startup; shared
+handlers and UI call its methods. Browser APIs and core functions are constructor
+arguments; operation-specific dependencies are method arguments, without a DI container.
 
-Перед изменением поведения адаптеров запускайте `npm run check`: юнит-тесты проверяют
-пограничные случаи и восстановление настроек, Playwright — реальные Chromium и Firefox,
-включая взаимодействие с MegaProxyServer.
+Run `npm run check` before changing adapter behavior: unit tests cover edge cases
+and settings restoration; Playwright checks real Chromium and Firefox, including
+MegaProxyServer interoperability.
 
-## Источники решений
+## References and assets
 
-- [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy): Basic в первом CONNECT.
-- [MegaProxyServer](https://github.com/andre487/MegaProxyServer): JSON-экспорты, SNI chains и knock при probe resistance.
-- [FoxyProxy](https://github.com/foxyproxy/browser-extension): сверка proxy challenger и ограничение повторов.
+- [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy): Basic credentials in the first CONNECT.
+- [MegaProxyServer](https://github.com/andre487/MegaProxyServer): JSON exports, SNI chains and knock with probe resistance.
+- [FoxyProxy](https://github.com/foxyproxy/browser-extension): matching proxy challengers and limiting retries.
 - [Mozilla ProxyInfo](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/ProxyInfo),
   [proxy.onRequest](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/proxy/onRequest),
   [Chrome webRequest](https://developer.chrome.com/docs/extensions/reference/api/webRequest),
   [Playwright extensions](https://playwright.dev/docs/chrome-extensions).
 
-Код написан для этого репозитория; исходники других расширений не копируются.
-Иконка взята из [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy/blob/main/fastlane/metadata/android/en-US/images/icon.png)
-под MIT; оригинальный PNG и размеры для браузера находятся в `extension/icons`,
-лицензия исходного проекта сохранена рядом. Векторного исходника в Android-репозитории нет.
-Для панели браузера используются отдельные PNG со скруглёнными прозрачными углами
-в размерах 16, 24, 32 и 48 px. Для их пересоздания из оригинального логотипа:
-`node scripts/renew-toolbar-icons.mjs` (нужен установленный Playwright Chromium).
+Code is written for this repository; source code from other extensions is not copied.
+The icon comes from [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy/blob/main/fastlane/metadata/android/en-US/images/icon.png)
+under MIT. The original PNG and browser sizes are in `extension/icons`, alongside
+the upstream license. The Android repository has no vector source.
+Toolbar icons are separate PNGs with rounded transparent corners at 16, 24, 32 and
+48 px. Regenerate them from the original logo with `node scripts/renew-toolbar-icons.mjs`
+(requires installed Playwright Chromium).
 
 ## Selective routing
 
-Selective routing is disabled by default, keeping all eligible requests on the
-active proxy. In settings, enable it and enter one hostname pattern per line.
+Full proxying is the default, keeping all eligible requests on the active proxy.
+Select a routing mode in Settings; manual lists accept one hostname pattern per line.
 Exact hostnames match only themselves; `*` matches any characters, including dots.
 For example, `*.example.com` selects subdomains, not `example.com`. Empty lists
 connect directly. Both modes respect local-network and profile bypass rules.
@@ -299,9 +297,9 @@ connect directly. Both modes respect local-network and profile bypass rules.
   tab and reload it; the override lasts until the tab closes or routing settings
   change. Previously opened connections are not migrated.
 
-The popup's **Proxy this site** action adds the current hostname to the current
-mode's list, enables selective routing and reloads that tab. Chromium hides the
-mode selector and manual tab controls. Chromium PAC routing always bypasses
+The popup's **Add site to rules** action adds the current hostname to the current
+mode's list and reloads that tab. Chromium hides tab routing and manual tab controls.
+Chromium PAC routing always bypasses
 localhost and link-local addresses; disabling local bypass cannot override this
 browser restriction in selective mode. Other local ranges can still be proxied.
 Required knock traffic and connection checks use the active proxy independently
@@ -314,53 +312,52 @@ uses destination-domain routing with the imported `domains` list. The extension
 does not reinterpret tab site patterns as destination domains. The new browser
 fields remain optional and compatible with Android's version 8 configuration.
 
-## Подписки на доменные списки Podkop
+## Podkop domain-list subscriptions
 
-В «Выборочном проксировании» можно выбрать готовые доменные списки из
-[itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains). Подписки для
-режима по доменам и Firefox split proxy выбираются независимо. Настройки нужно
-сохранить; обновление запускается кнопкой или автоматически раз в сутки при
-работающем браузере. После ошибки повторная попытка выполняется через час.
-Опция «Обновлять списки через активный прокси» использует выбранный профиль,
-даже в выборочном режиме. Без активного профиля будет ошибка, без прямого fallback.
-При выключенной опции загрузки выполняются без прокси MegaProxy.
+Selective routing offers predefined domain lists from
+[itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains).
+Subscriptions for destination-domain routing and Firefox split proxy are selected
+independently. Settings save automatically. Updates run manually or daily while the
+browser is running and the selected mode uses those lists. Failed updates retry
+after an hour. “Update lists through the active proxy” uses the selected profile,
+even with selective routing. Without an active profile it fails, without direct
+fallback. When disabled, downloads bypass MegaProxy.
 
-Берутся только DNS-имена: IP, CIDR и другие форматы пропускаются. Домен вместе со
-всеми поддоменами хранится одной записью `**.example.com`. Она совпадает и с
-`example.com`, и с `a.b.example.com`, но не с `notexample.com`. Прежний
-`*.example.com` по-прежнему означает только поддомены. Дубликаты и записи,
-перекрытые присутствующим в списке родителем, удаляются. Родительский домен,
-которого нет в источнике, не добавляется: `a.example.com` не расширяется до
-`example.com`. Ручные правила остаются отдельными.
+Only DNS names are used; IP addresses, CIDR and other formats are skipped.
+A domain and all its subdomains become one `**.example.com` entry, matching both
+`example.com` and `a.b.example.com`, but not `notexample.com`.
+Legacy `*.example.com` still matches subdomains only. Duplicates and entries
+covered by a parent present in the source are removed. Missing parent domains
+are not invented: `a.example.com` is not broadened to `example.com`.
+Manual rules remain separate.
 
-Лимит — 1000 действующих правил на режим. Сначала сохраняются все ручные правила,
-затем правила подписок по рейтингу [Tranco](https://tranco-list.eu/). Рейтинг
-скачивается только при необходимости обрезки: основной источник — ежедневное
-[GitHub-зеркало](https://github.com/wangmm001/tranco-top1m-cache), резервный —
-официальный сайт Tranco. Учитывается точный домен или ближайший родитель с
-известным рейтингом. Это приблизительная глобальная популярность, а не измерение
-личных предпочтений. Домены без рейтинга идут после ранжированных по алфавиту;
-отсутствие рейтинга не означает непопулярность. При недоступности рейтинга
-используются сохранённые оценки или алфавитный порядок, с явным предупреждением.
+Each mode has a limit of 1000 effective rules. Manual rules take priority, followed
+by subscription rules ordered by [Tranco](https://tranco-list.eu/) ranking.
+Rankings are downloaded only when truncation is needed: the primary source is a
+daily [GitHub mirror](https://github.com/wangmm001/tranco-top1m-cache), with the
+official Tranco site as fallback. The exact domain or its nearest ranked parent
+is used. This approximates global popularity, not individual preferences.
+Unranked domains follow ranked domains alphabetically; an absent rank does not
+imply unpopularity. Unavailable rankings fall back to cached scores or alphabetical
+order, with an explicit warning.
 
-Интерфейс показывает число отброшенных правил: такие домены идут напрямую,
-если их не покрывает другое правило. Ошибка загрузки любого выбранного источника
-сохраняет последнюю успешную версию целиком. Ограничения скачивания: 4 MiB и
-200 000 строк на доменный список; 32 MiB после распаковки рейтинга; 30 секунд на
-запрос. Списки и оценки кэшируются локально; история посещений никуда не отправляется.
-Сопоставление рейтинга и правил выполняется при обновлении, а не на каждом запросе.
+Settings show the number of dropped rules: those domains connect directly unless
+covered by another rule. A failure to download any selected source preserves the
+entire last successful version. Download limits are 4 MiB and 200,000 lines per
+domain list, 32 MiB for the decompressed ranking, and 30 seconds per request.
+Lists and scores are cached locally; browsing history is never uploaded.
+Rank matching runs during updates, not on every request.
 
-Настройки подписок находятся в `browser.routing.subscriptions` и входят в экспорт;
-кэш, рейтинг, ошибки и время загрузки не экспортируются. После импорта нужно
-обновить списки; при включённом автообновлении это происходит автоматически.
-Chromium явно предупреждает и отбрасывает правила вкладок и `siteSources`, даже
-если импортируемый Firefox-конфиг сейчас использует режим по доменам.
+Subscription settings are in `browser.routing.subscriptions` and are exported;
+cache, rankings, errors and download timestamps are not. Lists need refreshing
+after import; automatic updates handle this when enabled and the mode uses them.
+Chromium warns explicitly and discards tab rules and `siteSources`, even when the
+imported Firefox configuration currently uses destination-domain routing.
 
-Chromium временно применяет настройки для хостов источников во время загрузки;
-это влияет и на другие запросы к этим хостам и включает неотключаемый PAC-обход
-localhost/link-local. После загрузки, включая ошибку, прежняя маршрутизация
-восстанавливается. В Firefox выбор транспорта касается фоновых загрузок
-расширения.
+Chromium temporarily applies routing for source hosts during downloads; this also
+affects other requests to those hosts and includes mandatory PAC bypass of
+localhost/link-local. Previous routing is restored after download, including on
+failure. In Firefox, transport selection applies to extension background downloads.
 
 Tranco: Victor Le Pochat et al. (2019), _Tranco: A Research-Oriented Top Sites
 Ranking Hardened Against Manipulation_, NDSS,
@@ -422,7 +419,7 @@ Stored configurations and synchronized preferences receive the same normalizatio
 
 We deliberately retain one global active profile. SOCKS/QUIC, user PAC files,
 container/private-window profiles, regular expressions and full-URL routing,
-request logs, automatic backups, enterprise policies and bulk editing are outside
+full request-content logs, automatic backups, enterprise policies and bulk editing are outside
 the scope of this client. New unit and Playwright scenarios run in the existing
 GitHub PR workflow. Browser-account cloud transport is not automated: tests cover
 the storage API protocol, opt-out, malformed snapshots and quota failures locally.
@@ -515,8 +512,9 @@ IP/subnet and generated non-domain formats are excluded. Existing source IDs
 remain stable. A generated bundled snapshot keeps the UI usable offline; renew
 it with `npm run renew-list-catalog` before a release.
 
-The catalog refreshes daily alongside subscriptions, even when no lists are
-selected, and follows the same direct/proxy update preference. Failed catalog
+The catalog refreshes daily alongside active subscriptions, or when Routing mode
+is expanded and its cache is missing or stale, even with no selected lists.
+It follows the same direct/proxy update preference. Failed catalog
 refreshes retain the last successful data. Missing selected IDs stay visible and
 are preserved on save/import; a failed list update preserves the previous rules.
 Coverage warnings compare the selected source lists with hostname-suffix semantics

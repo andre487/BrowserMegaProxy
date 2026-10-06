@@ -1,110 +1,113 @@
-# Выпуск MegaProxy
+# Releasing MegaProxy
 
-Процесс аналогичен AndroidMegaProxy: ручной запуск с версией → релизный PR →
-обязательные проверки → слияние → тег → сборка и GitHub Release.
+The process follows AndroidMegaProxy: manual version input → release PR →
+required checks → merge → tag → build and GitHub Release.
 
-## Однократная настройка
+## One-time setup
 
-1. Слейте PR с `.github/workflows/prepare-release.yml` и `release.yml` в `main`.
-   Ручной workflow появится в Actions после этого слияния.
-2. Создайте fine-grained GitHub PAT для BrowserMegaProxy с разрешениями
+1. Merge the PR containing `.github/workflows/prepare-release.yml` and `release.yml`
+   into `main`. The manual workflow appears in Actions after that merge.
+2. Create a fine-grained GitHub PAT for BrowserMegaProxy with
    **Contents: Read and write**, **Pull requests: Read and write**,
-   **Actions: Read-only**, **Checks: Read-only**. Владелец токена должен иметь
-   право создавать ветки/теги и сливать PR в этот репозиторий.
-3. В **Settings → Secrets and variables → Actions → New repository secret**
-   сохраните токен как `RELEASE_BOT_TOKEN`. Это тот же подход, что в AndroidMegaProxy.
-   Обычный `GITHUB_TOKEN` не запустит CI от созданного им PR и release workflow
-   от созданного им тега; [GitHub описывает это ограничение](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
-4. Сохраните обязательные проверки `Linters`, `Unit tests`, `Chromium tests`,
-   `Firefox tests` для `main`. Они уже настроены в ruleset Protect Main.
+   **Actions: Read-only**, and **Checks: Read-only**. Its owner must be able to
+   create branches/tags and merge PRs in this repository.
+3. In **Settings → Secrets and variables → Actions → New repository secret**,
+   save it as `RELEASE_BOT_TOKEN`, following AndroidMegaProxy.
+   The normal `GITHUB_TOKEN` does not trigger CI for a PR it creates or the release
+   workflow for a tag it pushes; [GitHub documents this limitation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+4. Keep `Linters`, `Unit tests`, `Chromium tests`, and `Firefox tests` required for
+   `main`. These are already configured in the Protect Main ruleset.
+5. Create a separate API key in [OpenAI Platform → API keys](https://platform.openai.com/api-keys):
+   select a project, click **Create new secret key**, and save the issued key.
+   For a restricted key, enable **Model capabilities → Request** and
+   **Responses API → Write** (`POST /v1/responses`); other permissions can be None.
+   The owner's project role must grant those permissions too.
+   [OpenAI documents platform permissions](https://developers.openai.com/api/docs/guides/rbac).
+   The project needs API billing and access to the selected model;
+   a ChatGPT subscription does not cover API billing.
+6. In **Settings → Secrets and variables → Actions → Secrets**, add the repository
+   secret **OPENAI_API_KEY**. Never put the key in repository files.
+7. Under **Variables**, add the repository variable **OPENAI_RELEASE_MODEL** with
+   the value **gpt-6-luna**, following the other repositories. This is also the
+   default when no variable exists. A secret with the same name is supported for
+   compatibility. The workflow's **model** input overrides both the variable and secret.
 
-5. Создайте отдельный API-ключ в [OpenAI Platform → API keys](https://platform.openai.com/api-keys):
-   выберите проект, нажмите **Create new secret key** и сохраните выданный ключ.
-   Для restricted-ключа разрешите запись в **Responses API** (`POST /v1/responses`).
-   Проект должен иметь настроенную оплату API и доступ к выбранной модели;
-   подписка ChatGPT не заменяет оплату API.
-6. В **Settings → Secrets and variables → Actions → Secrets** добавьте
-   repository secret **OPENAI_API_KEY** с этим ключом. В файлы репозитория ключ не записывайте.
-7. Во вкладке **Variables** добавьте repository variable **OPENAI_RELEASE_MODEL**
-   со значением **gpt-6-luna**, как в других репозиториях. Без переменной используется
-   та же модель; секрет с этим именем тоже поддерживается для совместимости.
-   Поле **model** при запуске workflow имеет приоритет над переменной и секретом.
+The generator uses the [OpenAI Responses API](https://developers.openai.com/api/docs/quickstart)
+and [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
+It sends commit history and file-change statistics since the previous release
+tag, or the complete history for the first release. File contents are not sent;
+API response storage is disabled (`store: false`). The EN/RU changelog is saved in
+`releases/vX.Y.Z.md`, included in the release PR, and published to GitHub Release
+from the tagged commit. Republishing does not call OpenAI again.
+API failures or invalid output stop preparation before committing and pushing.
+Android signing and store credentials are not needed for GitHub releases.
 
-Генератор использует [OpenAI Responses API](https://developers.openai.com/api/docs/quickstart)
-и [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
-Он отправляет историю коммитов и статистику изменённых файлов с предыдущего релизного
-тега, для первого выпуска — всю историю. Содержимое файлов не отправляется;
-сохранение ответа в API отключено (`store: false`). EN/RU changelog сохраняется
-в `releases/vX.Y.Z.md`, включается в релизный PR и публикуется в GitHub Release
-из коммита тега. Повторная публикация не вызывает OpenAI заново.
-При ошибке API или некорректном ответе подготовка останавливается до коммита и пуша.
-Android signing и учётные данные магазинов для GitHub-релиза не нужны.
+## Each release
 
-## Каждый выпуск
+1. Merge the intended changes into `main`.
+2. Open **Actions → Prepare and merge release → Run workflow**.
+3. Select **main** and enter a new version without `v`, for example `0.1.1`.
+   It must be newer than `package.json`; three components from 0–65535 are allowed,
+   without leading zeros or `beta`/`rc` suffixes.
+   Leave **model** empty to use `OPENAI_RELEASE_MODEL` / `gpt-6-luna`, or specify
+   another model identifier available to your project.
+4. Wait for completion. The workflow generates the EN/RU changelog, updates
+   `package.json` and `package-lock.json`, creates `release/vX.Y.Z` and a PR,
+   waits for all four checks, merges the PR, and tags the merge commit.
+   It does not bypass checks with `--admin`.
+5. Check **Release extension artifacts** and the **Releases** page.
+   Before publication, the tag runs the same full CI as a PR.
 
-1. Слейте нужные изменения в `main`.
-2. Откройте **Actions → Prepare and merge release → Run workflow**.
-3. Выберите **main** и укажите новую версию без `v`, например `0.1.1`.
-   Поле **model** можно оставить пустым для `OPENAI_RELEASE_MODEL` / `gpt-6-luna`
-   или указать другой доступный вам идентификатор модели.
-   Она должна быть выше `package.json`; допустимы три компонента 0–65535,
-   без ведущих нулей и суффиксов `beta`/`rc`.
-4. Дождитесь завершения. Workflow сгенерирует EN/RU changelog, обновит `package.json` и `package-lock.json`,
-   создаст `release/vX.Y.Z` и PR, дождётся четырёх проверок, сольёт PR и поставит
-   тег на коммит слияния. Он не использует обход проверок через `--admin`.
-5. Проверьте **Release extension artifacts** и страницу **Releases**.
-   Перед публикацией тег проходит тот же полный CI, что и PR.
+If `main` changes during checks and the PR falls behind, use **Update branch**,
+wait for CI, and merge the PR manually. The workflow verifies the original PR
+commit and will not merge an updated branch automatically; tag the merge commit
+using the recovery instructions below. If preparation fails after creating the PR,
+inspect that PR rather than preparing the same version again over an existing branch.
 
-Если во время проверки изменился `main` и PR стал отставать, обновите его ветку
-кнопкой Update branch, дождитесь CI и слейте PR вручную. Workflow проверяет исходный
-коммит PR и после обновления ветки не сольёт его автоматически; поставьте тег на
-коммит слияния по инструкции восстановления ниже. При падении workflow после создания PR
-проверьте этот PR; не запускайте повторную подготовку той же версии поверх существующей ветки.
+## Release files
 
-## Файлы релиза
+- `MegaProxy-chromium-vX.Y.Z.zip` — Chrome and Opera: unpacked developer installation
+  or submission to the appropriate store.
+- `MegaProxy-firefox-vX.Y.Z.zip` — unsigned Firefox package: temporary installation
+  through `about:debugging` or submission to Mozilla for signing.
+- `MegaProxy-source-vX.Y.Z.zip` — source from the tagged commit for review and reproducible builds.
+- `MegaProxy-store-materials-vX.Y.Z.zip` — fresh screenshots, icons, EN/RU listings
+  and store submission documents.
+- `SHA256SUMS` — SHA-256 checksums for all four archives.
 
-- `MegaProxy-chromium-vX.Y.Z.zip` — Chrome и Opera: распакованная установка
-  в режиме разработчика или загрузка в соответствующий магазин.
-- `MegaProxy-firefox-vX.Y.Z.zip` — неподписанный Firefox-пакет: временная
-  установка через `about:debugging` или отправка Mozilla на подпись.
-- `MegaProxy-source-vX.Y.Z.zip` — исходники из коммита тега для ревью и воспроизводимой сборки.
-- `MegaProxy-store-materials-vX.Y.Z.zip` — актуальные скриншоты, иконки,
-  описания EN/RU и документы для магазинов.
-- `SHA256SUMS` — SHA-256 всех четырёх архивов.
+Extension archives have `manifest.json` at their root. Store materials are
+regenerated for each release. GitHub Release assets do not have the 14-day
+retention limit used for PR artifacts. Republishing restores the description
+from the tagged changelog, overwriting manual edits to that description.
 
-В архивах расширения `manifest.json` находится в корне. Материалы магазинов
-перегенерируются для выпуска. Готовые assets GitHub Release не имеют 14-дневного
-срока хранения, который установлен для PR-артефактов. Повторный запуск публикации
-восстанавливает описание из changelog тега, перезаписывая ручные правки описания.
+## Firefox signing
 
-## Подпись Firefox
+Mozilla issues the signature; a developer's own certificate cannot replace it.
+Use **listed** for the public store, or **unlisted** to distribute an XPI through
+GitHub Release without an AMO listing.
 
-Подпись выдаёт Mozilla, собственный сертификат разработчика её не заменяет.
-Для публичного магазина используйте канал **listed**; для установки XPI из
-GitHub Release без карточки AMO — **unlisted**.
+Manual signing:
 
-Вручную:
+1. Sign in to [AMO Developer Hub](https://addons.mozilla.org/developers/) and accept
+   the developer agreement.
+2. Upload the Firefox ZIP and choose **On this site** for AMO or **On your own**
+   for self-distribution.
+3. If source is requested, attach the source ZIP. Build requirements: Node.js 22+,
+   `npm ci && npm run build`; the Firefox package is in `dist/firefox`.
+4. After review, download the signed `.xpi`. For self-distribution, attach it to
+   GitHub Release through **Edit release → Attach files**.
+   Do not repackage the signed XPI.
 
-1. Войдите в [AMO Developer Hub](https://addons.mozilla.org/developers/) и примите
-   соглашение разработчика.
-2. Загрузите Firefox ZIP и выберите **On this site** для AMO либо **On your own**
-   для самостоятельного распространения.
-3. При запросе исходников приложите source ZIP. Сборка: Node.js 22+,
-   `npm ci && npm run build`; Firefox-пакет находится в `dist/firefox`.
-4. После проверки скачайте подписанный `.xpi`. Для самостоятельного распространения
-   добавьте его к GitHub Release через **Edit release → Attach files**.
-   Подписанный XPI не нужно перепаковывать.
-
-Подписывание также поддерживает [официальный web-ext](https://extensionworkshop.com/documentation/develop/web-ext-command-reference/#web-ext-sign).
-Создайте [ключи AMO API](https://addons.mozilla.org/developers/addon/api/key/) и
-передайте их через переменные `WEB_EXT_API_KEY` и `WEB_EXT_API_SECRET`, не через
-репозиторий. Пример для самостоятельного распространения из checkout тега:
+The [official web-ext CLI](https://extensionworkshop.com/documentation/develop/web-ext-command-reference/#web-ext-sign)
+also supports signing. Create [AMO API keys](https://addons.mozilla.org/developers/addon/api/key/)
+and pass them through `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET` environment
+variables, never repository files. Example for self-distribution from a checkout of the tag:
 
 ```sh
 npm ci
 npm run build
 npm run release:assets
-# WEB_EXT_API_KEY и WEB_EXT_API_SECRET уже заданы в окружении.
+# WEB_EXT_API_KEY and WEB_EXT_API_SECRET are already set in the environment.
 npx --yes web-ext@10 sign \
   --channel unlisted \
   --source-dir dist/firefox \
@@ -112,28 +115,28 @@ npx --yes web-ext@10 sign \
   --artifacts-dir dist/signed
 ```
 
-Замените `X.Y.Z` версией тега. `web-ext sign --channel unlisted` отправляет пакет
-в Mozilla и скачивает подписанную копию после одобрения. Канал `listed` отправляет
-версию на публичное размещение; для первой карточки нужны также метаданные AMO.
-Проверка может потребовать ручного ревью и занять больше времени, чем ожидание CLI.
-[Mozilla описывает оба канала и подпись](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/).
-Автоподписывание и автопубликация в магазины в этих workflow не включены.
+Replace `X.Y.Z` with the tag version. `web-ext sign --channel unlisted` submits the
+package to Mozilla and downloads the signed copy after approval. The `listed`
+channel submits a public release; an initial listing also needs AMO metadata.
+Review may require manual intervention and take longer than the CLI's wait period.
+[Mozilla documents both distribution channels and signing](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/).
+These workflows do not enable automatic signing or automatic store publication.
 
-## Публикация в магазинах
+## Store publication
 
-Для Chrome Web Store и Opera Add-ons загрузите Chromium ZIP. Для Firefox Add-ons
-загрузите Firefox ZIP через свой аккаунт Mozilla. Используйте описания,
-скриншоты и политику из [store/](store/README.md); укажите публичный URL политики.
-Для Opera перед публикацией проверьте релиз в целевой версии браузера.
+Upload the Chromium ZIP to Chrome Web Store and Opera Add-ons. Upload the Firefox
+ZIP to Firefox Add-ons through your Mozilla account. Use the listings, screenshots
+and policy in [store/](store/README.md), and supply a public privacy-policy URL.
+Before Opera publication, test the release in the target browser version.
 
-## Повторная публикация после сбоя
+## Recovery after failure
 
-Если release workflow упал после появления тега, исправьте внешнюю причину
-и выберите **Re-run failed jobs**. Существующие assets этого тега заменяются;
-новый релиз с тем же тегом не создаётся. Если меняется код, выпускайте новую версию.
+If the release workflow fails after a tag appears, resolve the external cause and
+select **Re-run failed jobs**. Existing assets for that tag are replaced; no duplicate
+release is created. Code changes require a new version.
 
-Если подготовка упала после слияния PR, но до создания тега, поставьте тег вручную
-на коммит слияния этого PR (замените значения):
+If preparation fails after merging the PR but before tagging, manually tag that
+PR's merge commit (replace the placeholders):
 
 ```sh
 git fetch origin main
@@ -141,9 +144,9 @@ git tag vX.Y.Z MERGE_COMMIT_SHA
 git push origin refs/tags/vX.Y.Z
 ```
 
-Версия тега обязана совпадать с `package.json` на этом коммите; там же должен быть
-непустой EN/RU changelog `releases/vX.Y.Z.md`. Для ручного выпуска его можно написать
-самостоятельно или сгенерировать командой `node scripts/release.mjs notes X.Y.Z`
-с `OPENAI_API_KEY` в окружении и закоммитить до создания тега. Тег автоматически
-запустит release workflow и полный CI. Релиз для текущей версии без её повышения
-тоже можно запустить этим способом после слияния релизных workflow в `main`.
+The tag version must match `package.json` on that commit, which must also contain
+a nonempty EN/RU changelog at `releases/vX.Y.Z.md`. For a manual release, write it
+yourself or generate it with `node scripts/release.mjs notes X.Y.Z`, with
+`OPENAI_API_KEY` in the environment, and commit it before creating the tag.
+The tag automatically triggers the release workflow and full CI. This also allows
+releasing the current version without bumping it after merging the release workflows into `main`.
