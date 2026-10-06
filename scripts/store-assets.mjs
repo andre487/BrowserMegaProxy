@@ -319,6 +319,7 @@ try {
     )
   }
   for (const [width, height, name] of [
+    [300, 188, 'promo-opera'],
     [440, 280, 'promo-small'],
     [1400, 560, 'promo-marquee']
   ]) {
