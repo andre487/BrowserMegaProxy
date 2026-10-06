@@ -198,6 +198,12 @@ try {
     )
   }
   await adb('shell', 'pm', 'enable', '--user', '0', packageId)
+  const startupPort = await listen((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/html' })
+    res.end('<!doctype html><title>MegaProxy Android startup</title>Ready')
+  })
+  // Fenix can leave Gecko's debugger uninitialized on its home screen.
+  // Use the web intent Activity to open a real tab before discovering RDP.
   await adb(
     'shell',
     'am',
@@ -205,12 +211,12 @@ try {
     '-a',
     'android.intent.action.VIEW',
     '-d',
-    'about:blank',
+    `http://127.0.0.1:${startupPort}/`,
     '--ez',
     'automationtest',
     'true',
-    '-n',
-    activity
+    '-p',
+    packageId
   )
   const startupDiagnostics = async () => {
     const fenix = (
