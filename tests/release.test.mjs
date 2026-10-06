@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { generateNotes, responseNotes, validateVersion } from '../scripts/release.mjs'
 
-test('release versions are browser-compatible and preparation cannot reuse or downgrade a version', () => {
+test('release versions are browser-compatible and preparation accepts an unreleased current version but cannot downgrade', () => {
   for (const value of ['0.0.1', '0.1.0', '1.2.3', '65535.65535.65535']) {
     assert.equal(validateVersion(value), value)
   }
@@ -19,9 +19,10 @@ test('release versions are browser-compatible and preparation cannot reuse or do
   ]) {
     assert.throws(() => validateVersion(value), value)
   }
-  for (const value of ['0.0.9', '0.1.0', '0.0.1']) {
+  for (const value of ['0.0.9', '0.0.1']) {
     assert.throws(() => validateVersion(value, '0.1.0'), value)
   }
+  assert.equal(validateVersion('0.1.0', '0.1.0'), '0.1.0')
   assert.equal(validateVersion('0.1.1', '0.1.0'), '0.1.1')
   assert.equal(validateVersion('1.0.0', '0.99.99'), '1.0.0')
 })
