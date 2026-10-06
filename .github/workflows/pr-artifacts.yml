@@ -1,0 +1,54 @@
+name: Update PR installation archives
+on:
+  workflow_run:
+    workflows: [Extension checks]
+    types: [completed]
+permissions:
+  actions: read
+  pull-requests: write
+concurrency:
+  group: pr-archives-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+jobs:
+  update:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      # Read metadata only; never check out or execute code from the PR.
+      - uses: actions/github-script@v8
+        with:
+          script: |
+            const run = context.payload.workflow_run
+            const repo = context.repo
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, {
+              ...repo, run_id: run.id
+            })
+            const archives = ['MegaProxy-chromium', 'MegaProxy-firefox'].map(name =>
+              artifacts.find(artifact => artifact.name === name && !artifact.expired)
+            )
+            if (archives.some(artifact => !artifact)) return
+            const start = '<!-- megaproxy-archives:start -->'
+            const end = '<!-- megaproxy-archives:end -->'
+            const block = [
+              start,
+              '## Installation archives',
+              '',
+              ...archives.map(artifact => `- [${artifact.name === 'MegaProxy-chromium' ? 'Chromium' : 'Firefox'} ZIP](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${run.id}/artifacts/${artifact.id})`),
+              '',
+              `Build: [${run.head_sha.slice(0, 7)}](${run.html_url}) · checks: ${run.conclusion}.`,
+              'Extract the ZIP and load manifest.json. Firefox builds are unsigned temporary add-ons. Archives expire after 14 days; downloading requires signing in to GitHub.',
+              end
+            ].join('\n')
+            for (const reference of run.pull_requests) {
+              const { data: pr } = await github.rest.pulls.get({ ...repo, pull_number: reference.number })
+              if (pr.state !== 'open' || pr.head.sha !== run.head_sha) continue
+              const body = pr.body || ''
+              const from = body.indexOf(start)
+              const to = body.indexOf(end, from)
+              if (from !== -1 && to === -1) continue
+              const description = from === -1 ? body : body.slice(0, from) + body.slice(to + end.length)
+              await github.rest.pulls.update({
+                ...repo, pull_number: pr.number,
+                body: `${description.trimEnd()}\n\n${block}`
+              })
+            }

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MegaProxy</title>
+    <link rel="icon" href="icons/icon32.png" />
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="log-page" hidden>
+    <main>
+      <header>
+        <h1 data-i18n="diagnosticLog">Diagnostic log</h1>
+        <a href="options.html" data-i18n="settings">Settings</a>
+      </header>
+      <p class="hint" data-i18n="diagnosticLogHint">
+        Stored locally. No passwords, authorization headers or URLs. The viewer shows recent
+        entries; export includes the entire retained log.
+      </p>
+      <div class="log-controls">
+        <label
+          ><span data-i18n="logLimit">Size limit (MiB)</span
+          ><input id="log-limit" type="number" min="1" max="10" value="3"
+        /></label>
+        <div class="log-actions">
+          <button id="log-export" type="button" class="secondary" data-i18n="exportLog">
+            Export log
+          </button>
+          <button id="log-clear" type="button" class="secondary" data-i18n="clear">Clear</button>
+          <button id="log-bottom" type="button" class="secondary" data-i18n="logBottom">
+            Latest entries
+          </button>
+        </div>
+      </div>
+      <p id="log-status" class="hint" role="status"></p>
+      <div id="log-output" tabindex="0" role="region" aria-label="Diagnostic log"></div>
+    </main>
+    <script src="target.js"></script>
+    <script src="platform.js"></script>
+    <script src="i18n.js"></script>
+    <script src="diagnostic-log.js"></script>
+    <script src="log-ui.js"></script>
+  </body>
+</html>

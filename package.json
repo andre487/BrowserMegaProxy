@@ -1,0 +1,32 @@
+{
+  "name": "browser-mega-proxy",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "npm run prepare:server-e2e && playwright test",
+    "check": "npm run lint && npm run build && npm test && npm run test:e2e",
+    "lint": "npm run lint:js && npm run format:check",
+    "lint:fix": "npm run lint:js -- --fix && npm run format",
+    "format": "prettier --ignore-path .gitignore --ignore-path .prettierignore --write .",
+    "lint:js": "eslint . --max-warnings 0",
+    "start": "node scripts/start.mjs",
+    "renew-config-schema": "node scripts/renew-config-schema.mjs",
+    "prepare:server-e2e": "node scripts/prepare-server-e2e.mjs",
+    "format:check": "prettier --ignore-path .gitignore --ignore-path .prettierignore --check .",
+    "renew-list-catalog": "node scripts/renew-list-catalog.mjs && prettier --write extension/subscription-catalog.js",
+    "store:assets": "npm run build && node scripts/store-assets.mjs",
+    "release:assets": "node scripts/release.mjs package"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "ajv": "8.20.0",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.9"
+  }
+}

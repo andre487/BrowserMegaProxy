@@ -1,0 +1,109 @@
+name: Extension checks
+on:
+  workflow_call:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  archives:
+    name: Installation archives
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Upload Chromium installation archive
+        id: chromium
+        uses: actions/upload-artifact@v7
+        with:
+          name: MegaProxy-chromium
+          path: dist/chromium/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Firefox installation archive
+        id: firefox
+        uses: actions/upload-artifact@v7
+        with:
+          name: MegaProxy-firefox
+          path: dist/firefox/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Installation archive download links
+        env:
+          CHROMIUM_ARCHIVE_URL: ${{ steps.chromium.outputs.artifact-url }}
+          FIREFOX_ARCHIVE_URL: ${{ steps.firefox.outputs.artifact-url }}
+        run: |
+          {
+            echo '## MegaProxy installation archives'
+            echo
+            echo "- [Chromium ZIP]($CHROMIUM_ARCHIVE_URL)"
+            echo "- [Firefox ZIP]($FIREFOX_ARCHIVE_URL)"
+            echo
+            echo 'Extract the ZIP and load the extension from its manifest.json. Firefox builds are unsigned temporary add-ons. Artifacts expire after 14 days.'
+          } >> "$GITHUB_STEP_SUMMARY"
+  lint:
+    name: Linters
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+  browser:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chromium
+            name: Chromium tests
+          - browser: firefox
+            name: Firefox tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: tests/megaproxy-server/versions.json
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Playwright and real MegaProxyServer
+        run: npm run test:e2e -- --project=${{ matrix.browser }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

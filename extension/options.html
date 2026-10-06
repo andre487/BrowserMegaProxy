@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MegaProxy</title>
+    <link rel="icon" href="icons/icon32.png" type="image/png" />
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body hidden class="options">
+    <main>
+      <header>
+        <img class="brand" src="icons/icon.png" width="48" height="48" alt="" />
+        <div>
+          <h1>MegaProxy</h1>
+          <p data-i18n="settings">Settings</p>
+        </div>
+      </header>
+      <label
+        ><span data-i18n="connectionMode">Connection mode</span
+        ><select id="connection-mode">
+          <option value="proxy" data-i18n="modeProxy">Proxy</option>
+          <option value="direct" data-i18n="modeDirect">Direct</option>
+          <option value="system" data-i18n="modeSystem">System</option>
+        </select></label
+      >
+      <p id="notice" role="status" aria-live="polite"></p>
+      <section class="connection-check" aria-labelledby="check">
+        <p id="check-result" role="status" aria-live="polite"></p>
+        <button id="check" type="button" class="secondary" data-i18n="checkConnection">
+          Check connection
+        </button>
+      </section>
+      <section aria-labelledby="profiles-title">
+        <div class="section-heading">
+          <h2 id="profiles-title" data-i18n="profiles">Profiles</h2>
+          <button type="button" id="new" class="secondary" data-i18n="add">＋ Add</button>
+        </div>
+        <div id="profiles"></div>
+        <p id="empty" data-i18n="empty"></p>
+      </section>
+      <dialog id="editor" aria-labelledby="editor-title">
+        <h2 id="editor-title" data-i18n="profileSettings">Profile settings</h2>
+        <p class="dialog-error error" role="status" aria-live="polite"></p>
+        <form id="profile-form">
+          <input name="id" type="hidden" />
+          <label
+            ><span data-i18n="name">Name</span
+            ><input name="name" maxlength="256" data-i18n-placeholder="namePlaceholder"
+          /></label>
+          <div class="row">
+            <label
+              ><span data-i18n="color">Color</span
+              ><select name="color" id="profile-color"></select
+            ></label>
+            <label
+              ><span data-i18n="countryCode">Country code</span
+              ><input
+                name="countryCode"
+                maxlength="2"
+                pattern="[A-Za-z]{2}|"
+                placeholder="US"
+                autocapitalize="characters"
+            /></label>
+          </div>
+          <div class="row">
+            <label
+              ><span data-i18n="protocol">Protocol</span
+              ><select name="type">
+                <option value="https">HTTPS · TLS</option>
+                <option value="http">HTTP</option>
+              </select></label
+            >
+            <label
+              ><span data-i18n="port">Port</span
+              ><input name="port" type="number" required min="1" max="65535" value="443"
+            /></label>
+          </div>
+          <label
+            ><span data-i18n="proxyHost">Proxy host</span
+            ><input
+              name="host"
+              required
+              placeholder="proxy.example.com"
+              autocapitalize="none"
+              spellcheck="false"
+          /></label>
+          <div class="row">
+            <label
+              ><span data-i18n="username">Username</span
+              ><input name="username" autocomplete="off" autocapitalize="none"
+            /></label>
+            <label
+              ><span data-i18n="password">Password</span
+              ><input name="password" type="password" autocomplete="off"
+            /></label>
+          </div>
+          <input name="authMode" type="hidden" value="auto" />
+          <label
+            ><span data-i18n="knockHost">Knock host</span
+            ><input
+              name="knockHost"
+              placeholder="knock.example.com"
+              autocapitalize="none"
+              spellcheck="false"
+          /></label>
+          <p class="hint" id="knock-hint" data-i18n="knockHint"></p>
+          <label
+            ><span data-i18n="bypass">Connect directly for domains</span
+            ><textarea
+              name="bypass"
+              rows="2"
+              placeholder="localhost, intranet.example.com"
+            ></textarea>
+          </label>
+          <p class="hint" data-i18n="bypassHint"></p>
+          <div class="actions">
+            <button id="cancel-profile" type="button" class="secondary" data-i18n="cancel">
+              Cancel</button
+            ><button type="submit" data-i18n="saveProfile">Save profile</button>
+          </div>
+        </form>
+      </dialog>
+      <section aria-labelledby="extension-settings-title">
+        <h2 id="extension-settings-title" data-i18n="extensionSettings">Extension preferences</h2>
+        <details id="routing-settings">
+          <summary data-i18n="routingMode">Routing mode</summary>
+          <form id="routing-form">
+            <select id="routing-mode" aria-label="Routing mode">
+              <option value="all" data-i18n="routingAll">All sites</option>
+              <option value="manual" data-i18n="routingManual">Manual domain list</option>
+              <option value="lists" data-i18n="routingAutomatic">Automatic domain lists</option>
+              <option value="tabs" data-i18n="routingTabs">By tabs</option>
+            </select>
+            <p class="hint" id="routing-hint"></p>
+            <div id="manual-routing">
+              <label
+                ><span id="routing-list-label" data-i18n="routingDomainList">Proxy domains</span
+                ><textarea
+                  id="routing-list"
+                  rows="4"
+                  placeholder="example.com&#10;*.example.org"
+                  spellcheck="false"
+                  autocapitalize="none"
+                ></textarea>
+              </label>
+              <p id="routing-patterns-hint" class="hint"></p>
+            </div>
+            <div id="list-routing" hidden>
+              <fieldset id="subscriptions">
+                <legend data-i18n="subscriptionsTitle">Podkop domain lists</legend>
+                <div id="subscription-sources"></div>
+              </fieldset>
+              <label class="checkbox"
+                ><input id="lists-auto" type="checkbox" checked /><span data-i18n="listsAuto"
+                  >Update automatically every day</span
+                ></label
+              >
+              <label class="checkbox"
+                ><input id="lists-proxy" type="checkbox" /><span data-i18n="listsProxy"
+                  >Update lists through the active proxy</span
+                ></label
+              >
+              <p class="hint" data-i18n="subscriptionsHint"></p>
+              <p id="lists-status" role="status" aria-live="polite"></p>
+              <p id="lists-warning" class="warning" role="status" aria-live="polite"></p>
+              <button id="update-lists" type="button" class="secondary" data-i18n="updateLists">
+                Update lists now
+              </button>
+            </div>
+          </form>
+          <section id="rule-tester">
+            <h2 data-i18n="ruleTester">Test routing rules</h2>
+            <form id="rule-test-form">
+              <label
+                ><span data-i18n="ruleURL">Request URL</span
+                ><input
+                  id="rule-url"
+                  type="url"
+                  required
+                  placeholder="https://example.com/resource" /></label
+              ><label
+                ><span data-i18n="ruleTabURL">Tab URL · split proxy</span
+                ><input id="rule-tab-url" type="url" placeholder="https://example.com/" /></label
+              ><button type="submit" data-i18n="ruleTest">Test</button>
+              <p id="rule-result" role="status" aria-live="polite"></p>
+            </form>
+          </section>
+        </details>
+        <details id="settings">
+          <summary data-i18n="generalPreferences">General preferences</summary>
+          <label class="preferences"
+            ><span data-i18n="webRTC">WebRTC</span
+            ><select id="webrtc">
+              <option value="browser" data-i18n="webRTCBrowser">Browser settings</option>
+              <option value="default" data-i18n="webRTCDefault">Default</option>
+              <option value="default_public_and_private_interfaces" data-i18n="webRTCInterfaces">
+                Public and private interfaces
+              </option>
+              <option value="default_public_interface_only" data-i18n="webRTCPublic">
+                Public interface only
+              </option>
+              <option value="disable_non_proxied_udp" data-i18n="webRTCRestrict">
+                Disable non-proxied UDP
+              </option>
+              <option value="proxy_only" data-i18n="webRTCProxyOnly">Proxy only · Firefox</option>
+              <option value="disabled" data-i18n="webRTCDisabled">Disabled · Firefox</option>
+            </select></label
+          >
+          <p class="hint" data-i18n="webRTCHint"></p>
+          <label class="checkbox preferences"
+            ><input id="sync-enabled" type="checkbox" /><span data-i18n="syncEnabled"
+              >Synchronize settings</span
+            ></label
+          ><label class="checkbox preferences"
+            ><input id="sync-passwords" type="checkbox" /><span data-i18n="syncPasswords"
+              >Synchronize passwords</span
+            ></label
+          >
+          <p class="hint" data-i18n="syncHint"></p>
+          <p id="sync-status" role="status"></p>
+          <label class="checkbox preferences"
+            ><input id="statistics-enabled" type="checkbox" /><span data-i18n="statisticsEnabled"
+              >Count proxy requests</span
+            ></label
+          >
+          <p class="hint preferences" data-i18n="statisticsPrivacy"></p>
+          <label class="checkbox preferences"
+            ><input id="bypass-local" type="checkbox" checked /><span data-i18n="bypassLocal"
+              >Bypass local networks</span
+            ></label
+          >
+          <p class="hint preferences" data-i18n="bypassLocalHint"></p>
+          <div class="row preferences">
+            <label
+              ><span data-i18n="theme">Theme</span
+              ><select id="theme">
+                <option value="system" data-i18n="system">Auto</option>
+                <option value="light" data-i18n="light">Light</option>
+                <option value="dark" data-i18n="dark">Dark</option>
+              </select></label
+            >
+            <label
+              ><span data-i18n="language">Language</span
+              ><select id="language">
+                <option value="auto" data-i18n="system">Auto</option>
+                <option value="ru" lang="ru">Русский</option>
+                <option value="en" lang="en">English</option>
+              </select></label
+            >
+          </div>
+          <p id="theme-hint" class="hint"></p>
+          <p class="language-hint" data-i18n="languageHint"></p>
+        </details>
+      </section>
+      <section id="import-review" hidden aria-labelledby="import-review-title">
+        <h2 id="import-review-title" data-i18n="importReview">Review import</h2>
+        <p id="import-summary"></p>
+        <p id="import-warnings"></p>
+        <p data-i18n="importAbsentHint"></p>
+        <div id="import-absent"></div>
+        <div class="actions">
+          <button id="apply-import" type="button" data-i18n="applyImport">Apply import</button
+          ><button id="cancel-import" type="button" class="secondary" data-i18n="cancel">
+            Cancel
+          </button>
+        </div>
+      </section>
+      <details id="network-panel" hidden>
+        <summary data-i18n="networkTitle">Network monitor</summary>
+        <p class="hint" data-i18n="networkHint"></p>
+        <label
+          ><span data-i18n="networkTab">Tab</span
+          ><select id="network-tab"></select></label
+        ><label class="checkbox"
+          ><input id="network-failed" type="checkbox" checked /><span data-i18n="networkFailed"
+            >Failures only</span
+          ></label
+        >
+        <div class="actions">
+          <button id="network-refresh" type="button" data-i18n="networkRefresh">Refresh</button
+          ><button id="network-clear" type="button" class="secondary" data-i18n="networkClear">
+            Clear
+          </button>
+        </div>
+        <div id="network-rows"></div>
+        <p id="network-empty" data-i18n="networkEmpty"></p>
+        <button id="network-add" type="button" data-i18n="networkAdd">
+          Proxy selected domains
+        </button>
+      </details>
+      <section id="statistics" hidden aria-labelledby="statistics-title">
+        <h2 id="statistics-title" data-i18n="statisticsTitle">Proxy requests</h2>
+        <p id="statistics-result"></p>
+        <p class="hint" data-i18n="statisticsHint"></p>
+      </section>
+      <dialog id="url-import" aria-labelledby="url-import-title">
+        <h2 id="url-import-title" data-i18n="importURL">Import configuration from URL</h2>
+        <p class="dialog-error error" role="status" aria-live="polite"></p>
+        <form id="import-url-form">
+          <label
+            ><span data-i18n="configURL">Configuration URL</span
+            ><input
+              id="config-url"
+              type="url"
+              required
+              placeholder="https://example.com/MegaProxy.json"
+              autocomplete="off"
+          /></label>
+          <p class="hint" data-i18n="importURLHint"></p>
+          <div class="actions">
+            <button id="cancel-url-import" type="button" class="secondary" data-i18n="cancel">
+              Cancel</button
+            ><button type="submit" data-i18n="downloadConfig">Download and review</button>
+          </div>
+        </form>
+      </dialog>
+      <footer>
+        <div class="import-actions">
+          <button id="open-import" type="button" class="secondary" data-i18n="importJSON">
+            Import settings
+          </button>
+          <button id="open-url-import" type="button" class="secondary" data-i18n="importURL">
+            Import from URL
+          </button>
+          <input id="import" type="file" accept="application/json,text/plain,.json,.txt" hidden />
+        </div>
+        <div class="export-actions">
+          <button id="export" type="button" class="secondary" data-i18n="exportConfig">
+            Export settings
+          </button>
+          <label class="checkbox"
+            ><input id="export-passwords" type="checkbox" checked /><span
+              data-i18n="includePasswords"
+              >Include passwords</span
+            ></label
+          >
+        </div>
+      </footer>
+      <p class="hint build-version">
+        <a href="log.html" data-i18n="diagnosticLog">Diagnostic log</a> ·
+        <span id="build-version"></span> ·
+        <a
+          href="https://github.com/andre487/BrowserMegaProxy"
+          target="_blank"
+          rel="noopener noreferrer"
+          >GitHub</a
+        >
+      </p>
+    </main>
+    <script src="build-info.js"></script>
+    <script src="target.js"></script>
+    <script src="platform.js"></script>
+    <script src="i18n.js"></script>
+    <script src="config-validator.js"></script>
+    <script src="core.js"></script>
+    <script src="subscription-catalog.js"></script>
+    <script src="subscriptions.js"></script>
+    <script src="ui.js"></script>
+  </body>
+</html>
