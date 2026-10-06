@@ -330,21 +330,26 @@
         </form>
       </dialog>
       <footer>
-        <button id="open-import" type="button" class="secondary" data-i18n="importJSON">
-          Import settings
-        </button>
-        <button id="open-url-import" type="button" class="secondary" data-i18n="importURL">
-          Import from URL
-        </button>
-        <input id="import" type="file" accept="application/json,text/plain,.json,.txt" hidden />
-        <button id="export" type="button" class="secondary" data-i18n="exportConfig">
-          Export settings
-        </button>
-        <label class="checkbox"
-          ><input id="export-passwords" type="checkbox" checked /><span data-i18n="includePasswords"
-            >Include passwords</span
-          ></label
-        >
+        <div class="import-actions">
+          <button id="open-import" type="button" class="secondary" data-i18n="importJSON">
+            Import settings
+          </button>
+          <button id="open-url-import" type="button" class="secondary" data-i18n="importURL">
+            Import from URL
+          </button>
+          <input id="import" type="file" accept="application/json,text/plain,.json,.txt" hidden />
+        </div>
+        <div class="export-actions">
+          <button id="export" type="button" class="secondary" data-i18n="exportConfig">
+            Export settings
+          </button>
+          <label class="checkbox"
+            ><input id="export-passwords" type="checkbox" checked /><span
+              data-i18n="includePasswords"
+              >Include passwords</span
+            ></label
+          >
+        </div>
       </footer>
       <p class="hint build-version">
         <span id="build-version"></span> ·

@@ -290,6 +290,24 @@ footer span {
 footer {
   flex-wrap: wrap;
 }
+.options footer {
+  display: grid;
+}
+.import-actions,
+.export-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.import-actions {
+  flex-wrap: wrap;
+}
+.export-actions > * {
+  min-width: 0;
+}
+.export-actions button {
+  flex-shrink: 1;
+}
 .connection-check,
 #import-review {
   margin-top: 22px;

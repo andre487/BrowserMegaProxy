@@ -960,6 +960,13 @@ test('options reflow at 320 pixels with all sections expanded in both languages 
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         320
       )
+      const exportButton = await page.locator('#export').boundingBox()
+      const passwords = await page.locator('#export-passwords').boundingBox()
+      const imports = await page.locator('.import-actions').boundingBox()
+      expect(exportButton.y).toBeGreaterThanOrEqual(imports.y + imports.height)
+      expect(
+        Math.abs(exportButton.y + exportButton.height / 2 - passwords.y - passwords.height / 2)
+      ).toBeLessThan(1)
       await expect(page.locator('#profile-color option').first()).toHaveText(
         language === 'ru' ? 'Красный' : 'Red'
       )
