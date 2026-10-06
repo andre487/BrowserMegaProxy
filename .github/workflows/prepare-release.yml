@@ -7,6 +7,10 @@ on:
         description: New version X.Y.Z; merges after full CI, then publishes via the tag workflow
         required: true
         type: string
+      model:
+        description: OpenAI model override; otherwise OPENAI_RELEASE_MODEL or gpt-6-luna
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -26,27 +30,36 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
+          cache: npm
+      - run: npm ci
       - name: Prepare release PR
         id: prepare
         env:
           GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_RELEASE_MODEL: ${{ inputs.model || vars.OPENAI_RELEASE_MODEL || secrets.OPENAI_RELEASE_MODEL || 'gpt-6-luna' }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           test -n "$GH_TOKEN" || { echo 'Configure RELEASE_BOT_TOKEN'; exit 1; }
+          test -n "$OPENAI_API_KEY" || { echo 'Configure OPENAI_API_KEY'; exit 1; }
           node scripts/release.mjs validate "$RELEASE_VERSION"
           gh auth setup-git
           if git ls-remote --exit-code --tags origin "refs/tags/v$RELEASE_VERSION"; then
             echo 'Release tag already exists'; exit 1
           fi
           git switch -c "release/v$RELEASE_VERSION"
+          node scripts/release.mjs notes "$RELEASE_VERSION"
+          npx prettier --write "releases/v$RELEASE_VERSION.md"
           npm version "$RELEASE_VERSION" --no-git-tag-version
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package.json package-lock.json
+          git add package.json package-lock.json "releases/v$RELEASE_VERSION.md"
           git commit -m "Release v$RELEASE_VERSION"
           git push origin "release/v$RELEASE_VERSION"
           body="$RUNNER_TEMP/release-pr.md"
           printf 'Update the extension version to %s. All required lint, unit, Chromium and Firefox checks must pass before merging. The merged commit will be tagged and published by the release workflow.\n' "$RELEASE_VERSION" > "$body"
+          printf '\n' >> "$body"
+          cat "releases/v$RELEASE_VERSION.md" >> "$body"
           pr="$(gh pr create --base main --head "release/v$RELEASE_VERSION" --title "Release v$RELEASE_VERSION" --body-file "$body")"
           echo "pr=$pr" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
