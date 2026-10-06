@@ -410,7 +410,10 @@ does not prevent the clean snapshot from being cached.
 APK path with `FIREFOX_ANDROID_APK`, the adb binary with `ADB`, and the device serial
 with `ANDROID_SERIAL` (default `emulator-5554`). Do not run it against a personal
 device: the test clears Firefox app data, seeds test preferences and grants the
-extension private-window access. A test-only bridge is added to an isolated extension copy, never to release
+extension private-window access. Before launch, it marks Fenix onboarding complete
+using the pinned Firefox version's shared preferences and disables repeated onboarding
+and default-browser prompts. Native UI automation is reserved for the extension's
+action popup and settings. A test-only bridge is added to an isolated extension copy, never to release
 archives.
 
 The tests exercise saved HTTP proxy authentication, manual domain rules and

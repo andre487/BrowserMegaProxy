@@ -118,9 +118,21 @@ try {
   )
   const profile = path.posix.dirname(profileFiles.toString().trim().split('\n')[0])
   assert.match(profile, /^\/data\/data\/org\.mozilla\.firefox\/files\/mozilla\/[\w.-]+$/)
-  const prefs =
-    '<map><boolean name="pref_key_terms_accepted" value="true"/><boolean name="pref_key_is_first_run" value="false"/><boolean name="pref_key_remote_debugging" value="true"/><long name="pref_key_onboarding_completed_timestamp" value="1"/></map>'
+  const prefs = [
+    '<map>',
+    '<boolean name="pref_key_terms_accepted" value="true"/>',
+    '<boolean name="pref_key_remote_debugging" value="true"/>',
+    '<boolean name="pref_key_continuous_onboarding_enabled" value="false"/>',
+    `<long name="pref_key_onboarding_completed_timestamp" value="${Date.now()}"/>`,
+    '<int name="pref_key_number_of_set_as_default_prompt_shown_times" value="100"/>',
+    '</map>'
+  ].join('')
   await writeFile(`${output}/fenix_preferences.xml`, prefs)
+  // Match FenixOnboarding.finish() in the pinned Firefox 157 release's UI test setup.
+  await writeFile(
+    `${output}/fenix.onboarding.xml`,
+    '<map><int name="fenix.onboarding.last_version" value="1"/></map>'
+  )
   await writeFile(
     `${output}/user.js`,
     'user_pref("devtools.debugger.remote-enabled", true);\nuser_pref("devtools.debugger.prompt-connection", false);\n'
@@ -136,6 +148,7 @@ try {
   )
   for (const [source, destination] of [
     ['fenix_preferences.xml', `/data/data/${packageId}/shared_prefs/fenix_preferences.xml`],
+    ['fenix.onboarding.xml', `/data/data/${packageId}/shared_prefs/fenix.onboarding.xml`],
     ['user.js', `${profile}/user.js`],
     ['extension-preferences.json', `${profile}/extension-preferences.json`]
   ]) {
@@ -163,23 +176,6 @@ try {
         .includes(`${packageId}/firefox-debugger-socket`),
     'Firefox remote debugger'
   )
-
-  for (let i = 0; i < 8; i++) {
-    const xml = await nativeUI()
-    if (!/Welcome to Firefox|Open all your links|Set Firefox as your default/.test(xml)) {
-      break
-    }
-    let tapped = false
-    for (const label of ['Cancel', 'Not now', 'Continue']) {
-      if (await tapText(xml, label)) {
-        tapped = true
-        break
-      }
-    }
-    if (!tapped) {
-      break
-    }
-  }
 
   const controlPort = await listen(async (req, res) => {
     if (req.method !== 'POST') {
@@ -365,14 +361,6 @@ try {
           // Dismiss emulator/onboarding overlays, never an ANR from Firefox itself.
           if (xml.includes('Pixel Launcher') && xml.includes('responding')) {
             await tapText(xml, 'Close app')
-            return false
-          }
-          if (xml.includes('Set Firefox as your default')) {
-            await tapText(xml, 'Cancel')
-            return false
-          }
-          if (xml.includes('Notifications help you stay safer with Firefox')) {
-            await tapText(xml, 'Not now')
             return false
           }
           if (xml.includes('MegaProxy was added')) {
