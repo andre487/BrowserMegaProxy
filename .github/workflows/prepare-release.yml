@@ -1,0 +1,78 @@
+name: Prepare and merge release
+run-name: Release v${{ inputs.version }}
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New version X.Y.Z; merges after full CI, then publishes via the tag workflow
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Prepare release PR
+        id: prepare
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          test -n "$GH_TOKEN" || { echo 'Configure RELEASE_BOT_TOKEN'; exit 1; }
+          node scripts/release.mjs validate "$RELEASE_VERSION"
+          gh auth setup-git
+          if git ls-remote --exit-code --tags origin "refs/tags/v$RELEASE_VERSION"; then
+            echo 'Release tag already exists'; exit 1
+          fi
+          git switch -c "release/v$RELEASE_VERSION"
+          npm version "$RELEASE_VERSION" --no-git-tag-version
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json
+          git commit -m "Release v$RELEASE_VERSION"
+          git push origin "release/v$RELEASE_VERSION"
+          body="$RUNNER_TEMP/release-pr.md"
+          printf 'Update the extension version to %s. All required lint, unit, Chromium and Firefox checks must pass before merging. The merged commit will be tagged and published by the release workflow.\n' "$RELEASE_VERSION" > "$body"
+          pr="$(gh pr create --base main --head "release/v$RELEASE_VERSION" --title "Release v$RELEASE_VERSION" --body-file "$body")"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          printf 'Release PR: %s\n' "$pr" >> "$GITHUB_STEP_SUMMARY"
+      - name: Require full CI, merge and tag
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_PR: ${{ steps.prepare.outputs.pr }}
+          RELEASE_HEAD: ${{ steps.prepare.outputs.head }}
+        run: |
+          # Wait for all four checks to register before asking gh to watch them.
+          registered=false
+          for attempt in $(seq 1 120); do
+            checks_registered="$(gh pr checks "$RELEASE_PR" --json name --jq 'map(.name) | contains(["Linters", "Unit tests", "Chromium tests", "Firefox tests"])' 2>/dev/null || true)"
+            if [ "$checks_registered" = true ]; then
+              registered=true; break
+            fi
+            sleep 5
+          done
+          test "$registered" = true || { echo 'Required CI checks did not start'; exit 1; }
+          gh pr checks "$RELEASE_PR" --required --watch --fail-fast --interval 10
+          gh pr merge "$RELEASE_PR" --merge --match-head-commit "$RELEASE_HEAD" --delete-branch
+          commit="$(gh pr view "$RELEASE_PR" --json mergeCommit --jq .mergeCommit.oid)"
+          test -n "$commit" && test "$commit" != null
+          git fetch origin main
+          git tag "v$RELEASE_VERSION" "$commit"
+          git push origin "refs/tags/v$RELEASE_VERSION"
+          printf '\nTagged merged commit `%s` as `v%s`. The Release extension artifacts workflow will publish the archives.\n' "$commit" "$RELEASE_VERSION" >> "$GITHUB_STEP_SUMMARY"

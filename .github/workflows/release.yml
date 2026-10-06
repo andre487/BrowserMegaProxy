@@ -1,0 +1,52 @@
+name: Release extension artifacts
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  checks:
+    uses: ./.github/workflows/pr.yml
+  release:
+    name: Build and publish extension archives
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Validate release tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          expected="v$(node -p 'require("./package.json").version')"
+          test "$RELEASE_TAG" = "$expected" || { echo 'Release tag must match package.json'; exit 1; }
+      - run: npx playwright install --with-deps chromium firefox
+      - name: Build extension and fresh store assets
+        run: npm run store:assets
+      - name: Package archives and checksums
+        run: npm run release:assets
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          assets=(dist/release/*.zip dist/release/SHA256SUMS)
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            notes="$RUNNER_TEMP/release-notes.md"
+            printf 'Chromium ZIP: Chrome / Opera developer installation or store submission. Firefox ZIP: unsigned, for temporary installation or submission to Mozilla for signing. Source ZIP: reproducible source for review. Store-materials ZIP: EN/RU listings, screenshots, icons and privacy documentation. SHA256SUMS covers all four archives.\n' > "$notes"
+            gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes --notes-file "$notes" --title "MegaProxy $RELEASE_TAG"
+          fi
