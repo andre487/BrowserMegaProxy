@@ -52,9 +52,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           assets=(dist/release/*.zip dist/release/SHA256SUMS)
-          notes="$RUNNER_TEMP/release-notes.md"
-          cat "releases/$RELEASE_TAG.md" > "$notes"
-          printf '\nChromium ZIP: Chrome / Opera developer installation or store submission. Firefox ZIP: unsigned, for temporary installation or submission to Mozilla for signing. Source ZIP: reproducible source for review. Store-materials ZIP: EN/RU listings, screenshots, icons and privacy documentation. SHA256SUMS covers all four archives.\n' >> "$notes"
+          notes="releases/$RELEASE_TAG.md"
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
             gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"

@@ -72,6 +72,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - name: Unit test summary
+        if: always()
+        uses: test-summary/action@v2
+        with:
+          paths: test-results/unit.xml
+          show: all
+          folded: true
+      - name: Upload unit test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-report
+          path: |
+            test-results/unit.xml
+            test-results/unit.txt
+          retention-days: 7
   browser:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
@@ -99,6 +115,13 @@ jobs:
       - run: npx playwright install --with-deps ${{ matrix.browser }}
       - name: Playwright and real MegaProxyServer
         run: npm run test:e2e -- --project=${{ matrix.browser }}
+      - name: Browser test summary
+        if: always()
+        uses: test-summary/action@v2
+        with:
+          paths: test-results/playwright.xml
+          show: all
+          folded: true
       - uses: actions/upload-artifact@v7
         if: always()
         with:

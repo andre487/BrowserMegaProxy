@@ -87,12 +87,21 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
           script: npm run test:android
+      - name: Android test summary
+        if: always()
+        uses: test-summary/action@v2
+        with:
+          paths: test-results/android-firefox.xml
+          show: all
+          folded: true
       - name: Upload Android evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: firefox-android-results
           path: |
+            test-results/android-firefox.xml
+            test-results/android-firefox.txt
             test-results/android-firefox/*.json
             test-results/android-firefox/*.png
             test-results/android-firefox/*.txt

@@ -59,3 +59,56 @@ test('PR archive links replace their block, preserve prose and reject stale or i
   await execute(github, context)
   assert.equal(updates, 2)
 })
+
+test('release archive links find merged PRs by commit when workflow metadata has no PRs', async () => {
+  let update
+  let associatedLookups = 0
+  const github = {
+    paginate: async (method, args) => {
+      if (method === github.rest.actions.listWorkflowRunArtifacts) {
+        return [
+          { name: 'MegaProxy-chromium', id: 10 },
+          { name: 'MegaProxy-firefox', id: 11 }
+        ]
+      }
+      assert.equal(method, github.rest.repos.listPullRequestsAssociatedWithCommit)
+      assert.equal(args.commit_sha, 'release-head')
+      associatedLookups++
+      return [{ number: 8 }, { number: 9 }]
+    },
+    rest: {
+      actions: { listWorkflowRunArtifacts() {} },
+      repos: { listPullRequestsAssociatedWithCommit() {} },
+      pulls: {
+        get: async ({ pull_number }) => ({
+          data: {
+            number: pull_number,
+            state: 'closed',
+            head: { sha: pull_number === 8 ? 'release-head' : 'newer-head' },
+            body: 'Release notes'
+          }
+        }),
+        update: async data => {
+          assert.equal(data.pull_number, 8, 'Ignore associated PRs with a different head')
+          update = data
+        }
+      }
+    }
+  }
+  await execute(github, {
+    repo: { owner: 'owner', repo: 'repo' },
+    payload: {
+      workflow_run: {
+        id: 42,
+        head_sha: 'release-head',
+        html_url: 'https://github.com/owner/repo/actions/runs/42',
+        conclusion: 'success',
+        pull_requests: []
+      }
+    }
+  })
+  assert.equal(associatedLookups, 1)
+  assert.ok(update.body.startsWith('Release notes\n\n'))
+  assert.ok(update.body.includes('/artifacts/10'))
+  assert.ok(update.body.includes('/artifacts/11'))
+})

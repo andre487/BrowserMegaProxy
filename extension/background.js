@@ -126,7 +126,7 @@ async function knock() {
   await api.storage.session?.set({ knockTabs })
   try {
     await api.tabs.update(tab.id, {
-      url: `https://${p.knockHost.includes(':') ? `[${p.knockHost}]` : p.knockHost}/`
+      url: `https://${p.knockHost.includes(':') ? `[${p.knockHost}]` : p.knockHost}/?r=${Math.random()}`
     })
   } catch (error) {
     await updateKnockTab(tab.id, { failed: true })
