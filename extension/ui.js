@@ -583,7 +583,8 @@ function renderSite() {
   const hasSite = Boolean(currentSite)
   const active = MegaProxy.active(state)
   const profile = state.profiles.find(p => p.id === currentSite?.profileId)
-  $('#site-actions').hidden = Boolean(active) && !config.enabled
+  $('#site-actions').hidden =
+    ['direct', 'system'].includes(state.connectionMode) || (Boolean(active) && !config.enabled)
   $('#current-site').textContent = hasSite ? currentSite.hostname : t('noCurrentSite')
   $('#routing-summary').hidden = !hasSite
   $('#routing-summary').textContent = currentSite?.proxied
@@ -598,15 +599,7 @@ function renderSite() {
   $('#add-current-site').disabled = !hasSite || !active
   $('#add-current-site').title = t('addCurrentSiteHint')
   const cache = state.subscriptionCache
-  const counts = MegaSubscriptions.counts(state, config.mode === 'tabs' ? 'sites' : 'domains')
-  $('#site-warning').textContent = hasSite
-    ? [
-        counts?.dropped ? t('listsTruncated', counts.dropped, MegaSubscriptions.limit) : '',
-        cache?.error ? t(cache.error) : ''
-      ]
-        .filter(Boolean)
-        .join(' ')
-    : ''
+  $('#site-warning').textContent = hasSite && cache?.error ? t(cache.error) : ''
   $('#site-warning').hidden = !$('#site-warning').textContent
   $('#toggle-tab').hidden =
     !platform.supportsTabRouting || config.mode !== 'tabs' || !config.enabled

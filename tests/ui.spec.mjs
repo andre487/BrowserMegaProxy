@@ -1061,23 +1061,23 @@ test('current-site block explains unavailable tabs and domain routing without gl
       sites: [],
       assignments: []
     }
+    state.subscriptionCache = {
+      sourceKey: globalThis.MegaSubscriptions.sourceKey(globalThis.MegaSubscriptions.options()),
+      counts: { domains: { dropped: 1162 } }
+    }
     localStorage.setItem('testState', JSON.stringify(state))
   })
   await page.reload()
   await expect(page.locator('#site-actions')).toBeVisible()
+  await expect(page.locator('#site-warning')).toBeHidden()
   await expect(page.locator('#add-current-site')).toHaveText('Добавить сайт в правила')
   await expect(page.locator('#routing-summary')).toHaveText(
     'Для этого домена: напрямую, без прокси'
   )
   await page.locator('#disconnect').click()
-  await expect(page.locator('#routing-summary')).toHaveText(
-    'Используются системные настройки прокси браузера'
-  )
-  await expect(page.locator('#site-connect-hint')).toBeVisible()
+  await expect(page.locator('#site-actions')).toBeHidden()
   await page.locator('#connection-mode').selectOption('direct')
-  await expect(page.locator('#routing-summary')).toHaveText(
-    'Для этого домена: напрямую, без прокси'
-  )
+  await expect(page.locator('#site-actions')).toBeHidden()
 })
 
 test('connection checks are available without profiles in Direct and System modes', async ({
