@@ -173,10 +173,7 @@ try {
     '</map>'
   ].join('')
   await writeFile(`${output}/fenix_preferences.xml`, prefs)
-  await writeFile(
-    `${output}/user.js`,
-    'user_pref("devtools.debugger.prompt-connection", false);\n'
-  )
+  await writeFile(`${output}/user.js`, 'user_pref("devtools.debugger.prompt-connection", false);\n')
   await writeFile(
     `${output}/extension-preferences.json`,
     JSON.stringify({
