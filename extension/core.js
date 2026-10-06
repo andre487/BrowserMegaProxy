@@ -840,12 +840,14 @@ function FindProxyForURL(url, host) {
         throw new Error('errorProfileFields')
       }
 
-      const browser = entry.browser || {}
+      const browserOptions = entry.browser || {}
       if (
-        (browser.bypass !== undefined &&
-          (!Array.isArray(browser.bypass) || browser.bypass.some(h => typeof h !== 'string'))) ||
-        (browser.knockHost !== undefined && typeof browser.knockHost !== 'string') ||
-        (browser.authMode !== undefined && !['auto', 'challenge'].includes(browser.authMode))
+        (browserOptions.bypass !== undefined &&
+          (!Array.isArray(browserOptions.bypass) ||
+            browserOptions.bypass.some(h => typeof h !== 'string'))) ||
+        (browserOptions.knockHost !== undefined && typeof browserOptions.knockHost !== 'string') ||
+        (browserOptions.authMode !== undefined &&
+          !['auto', 'challenge'].includes(browserOptions.authMode))
       ) {
         throw new Error('errorProfileFields')
       }
@@ -866,9 +868,9 @@ function FindProxyForURL(url, host) {
         type,
         port: p.port || (type === 'https' ? 443 : 80),
         host: p.host || p.hostname || p.address,
-        knockHost: browser.knockHost ?? p.knockHost ?? entry.knockHost,
-        bypass: browser.bypass ?? p.bypass ?? [],
-        authMode: browser.authMode || p.authMode,
+        knockHost: browserOptions.knockHost ?? p.knockHost ?? entry.knockHost,
+        bypass: browserOptions.bypass ?? p.bypass ?? [],
+        authMode: browserOptions.authMode || p.authMode,
         ...(portable ? { portable: entry } : {})
       })
       if (ids.has(result.id)) {

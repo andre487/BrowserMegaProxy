@@ -1,6 +1,35 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { networkDiagnostics } from './megaproxy-server/fixture.mjs'
+import { networkDiagnostics, waitForIPv6Ready } from './megaproxy-server/fixture.mjs'
+
+test('browser startup waits for IPv6 DAD, fails on persistent tentative addresses and tolerates missing ip', async () => {
+  let attempts = 0
+  let waits = 0
+  const command = async (file, args) => {
+    assert.equal(file, 'ip')
+    assert.deepEqual(args, ['-6', 'address', 'show', 'tentative'])
+    return { stdout: ++attempts < 3 ? 'inet6 fe80::1 scope link tentative' : '' }
+  }
+  await waitForIPv6Ready(command, 'linux', async ms => {
+    assert.equal(ms, 100)
+    waits++
+  })
+  assert.equal(attempts, 3)
+  assert.equal(waits, 2)
+  await assert.rejects(
+    waitForIPv6Ready(
+      async () => ({ stdout: 'inet6 fe80::1 tentative' }),
+      'linux',
+      async () => {}
+    ),
+    /duplicate address detection did not finish/
+  )
+  const missing = async () => {
+    throw Object.assign(new Error('not installed'), { code: 'ENOENT' })
+  }
+  await waitForIPv6Ready(missing, 'linux')
+  await waitForIPv6Ready(() => assert.fail('ip must not run on macOS'), 'darwin')
+})
 
 test('failure diagnostics include IPv6/DAD, routing and sockets before container cleanup and tolerate missing tools', async () => {
   const calls = []

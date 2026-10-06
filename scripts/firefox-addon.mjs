@@ -2,7 +2,7 @@ import net from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 
 // Firefox's temporary-addon API, shared by the development launcher and browser tests.
-export async function installFirefoxAddon(port, addonPath) {
+export async function installFirefoxAddon(port, addonPath, { wake = false } = {}) {
   let socket
   for (let attempt = 0; attempt < 50; attempt++) {
     try {
@@ -42,7 +42,8 @@ export async function installFirefoxAddon(port, addonPath) {
   })
 
   async function receive(actor) {
-    for (let i = 0; i < 100; i++) {
+    const deadline = Date.now() + 30000
+    while (Date.now() < deadline) {
       const index = packets.findIndex(packet => packet.from === actor && !packet.type)
       if (index >= 0) {
         const [packet] = packets.splice(index, 1)
@@ -69,7 +70,16 @@ export async function installFirefoxAddon(port, addonPath) {
   try {
     await receive('root') // Initial greeting.
     const root = await request('root', 'getRoot')
-    return await request(root.addonsActor, 'installTemporaryAddon', { addonPath })
+    const installed = await request(root.addonsActor, 'installTemporaryAddon', { addonPath })
+    if (wake) {
+      // Android may leave a temporary MV3 event page stopped until a debugger watches it.
+      const { addons } = await request('root', 'listAddons')
+      const addon = addons.find(addon => addon.id === installed.addon.id)
+      const watcher = await request(addon.actor, 'getWatcher')
+      await request(watcher.actor, 'watchTargets', { targetType: 'frame' })
+      await request(addon.actor, 'reload')
+    }
+    return installed
   } finally {
     socket.destroy()
   }

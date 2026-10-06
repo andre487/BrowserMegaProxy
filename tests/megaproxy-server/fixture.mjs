@@ -14,6 +14,30 @@ const docker = async (...args) => {
   return (result.stdout + (args[0] === 'logs' ? result.stderr : '')).trim()
 }
 
+export async function waitForIPv6Ready(command = exec, platform = process.platform, sleep = delay) {
+  if (platform !== 'linux') {
+    return
+  }
+
+  for (let attempt = 0; attempt < 50; attempt++) {
+    let stdout
+    try {
+      ;({ stdout } = await command('ip', ['-6', 'address', 'show', 'tentative'], { timeout: 5000 }))
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return
+      }
+      throw error
+    }
+
+    if (!/\btentative\b/.test(stdout)) {
+      return
+    }
+    await sleep(100)
+  }
+  throw new Error('IPv6 duplicate address detection did not finish before browser startup')
+}
+
 export async function networkDiagnostics(
   containers = [],
   command = exec,
@@ -272,6 +296,9 @@ export async function startServer(scenario) {
         await delay(100)
       }
     }
+    // New Docker interfaces finish IPv6 DAD after services can already accept IPv4 requests.
+    // Starting Chromium earlier can abort otherwise valid navigations with ERR_NETWORK_CHANGED.
+    await waitForIPv6Ready()
     return {
       dir,
       proxyPort,
