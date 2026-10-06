@@ -18,7 +18,8 @@
     "format:check": "prettier --ignore-path .gitignore --ignore-path .prettierignore --check .",
     "renew-list-catalog": "node scripts/renew-list-catalog.mjs && prettier --write extension/subscription-catalog.js",
     "store:assets": "npm run build && node scripts/store-assets.mjs",
-    "release:assets": "node scripts/release.mjs package"
+    "release:assets": "node scripts/release.mjs package",
+    "store:materials": "node scripts/release.mjs store-materials"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

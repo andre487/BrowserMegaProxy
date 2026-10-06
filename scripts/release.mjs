@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -130,6 +130,28 @@ async function writeNotes(version) {
   )
 }
 
+export async function prepareStoreMaterials(destination = 'dist/store-materials') {
+  await rm(destination, { recursive: true, force: true })
+  const store = path.join(destination, 'store')
+  await cp('store', store, { recursive: true })
+  for (const shop of ['chrome', 'firefox', 'opera']) {
+    for (const locale of ['en', 'ru']) {
+      const file = path.join(store, 'listings', shop, locale)
+      const listing = JSON.parse(await readFile(`${file}.json`, 'utf8'))
+      const description = listing.description.replace(/^• /gm, '- ')
+      const captions = listing.screenshotCaptions.map(caption => `- ${caption}`).join('\n')
+      await writeFile(
+        `${file}.md`,
+        `# ${listing.name}\n\n## Summary\n\n${listing.summary}\n\n` +
+          `## Description\n\n${description}\n\n` +
+          `## Links\n\n- [Homepage](${listing.homepage})\n- [Support](${listing.support})\n\n` +
+          `## Screenshot captions\n\n${captions}\n`
+      )
+    }
+  }
+  return destination
+}
+
 export async function packageRelease() {
   const pkg = JSON.parse(await readFile('package.json', 'utf8'))
   const version = validateVersion(pkg.version)
@@ -161,7 +183,8 @@ export async function packageRelease() {
   execFileSync('git', ['archive', '--format=zip', `--output=${dir}/${source}`, 'HEAD'])
   files.push(source)
   const materials = `MegaProxy-store-materials-${tag}.zip`
-  execFileSync('zip', ['-q', '-r', `${dir}/${materials}`, 'store'])
+  const storeMaterials = await prepareStoreMaterials()
+  execFileSync('zip', ['-q', '-r', `${dir}/${materials}`, 'store'], { cwd: storeMaterials })
   files.push(materials)
   const sums = await Promise.all(
     files.map(
@@ -181,11 +204,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     validateVersion(process.argv[3], pkg.version)
   } else if (process.argv[2] === 'package') {
     await packageRelease()
+  } else if (process.argv[2] === 'store-materials') {
+    console.log(`Store materials ready in ${await prepareStoreMaterials()}`)
   } else if (process.argv[2] === 'notes') {
     await writeNotes(process.argv[3])
   } else {
     throw new Error(
-      'Use release.mjs validate X.Y.Z, release.mjs notes X.Y.Z or release.mjs package'
+      'Use release.mjs validate X.Y.Z, release.mjs notes X.Y.Z or release.mjs package or release.mjs store-materials'
     )
   }
 }
