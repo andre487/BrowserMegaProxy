@@ -1,0 +1,710 @@
+{
+  "extensionName": {
+    "message": "MegaProxy"
+  },
+  "extensionDescription": {
+    "message": "Профили HTTP/HTTPS-прокси с авторизацией и knock host."
+  },
+  "tagline": {
+    "message": "Ваш маршрут в интернет"
+  },
+  "connection": {
+    "message": "ПОДКЛЮЧЕНИЕ"
+  },
+  "disconnected": {
+    "message": "Выключено"
+  },
+  "disconnect": {
+    "message": "Отключить"
+  },
+  "profileLabel": {
+    "message": "Профиль: $1"
+  },
+  "profiles": {
+    "message": "Профили"
+  },
+  "add": {
+    "message": "＋ Добавить"
+  },
+  "empty": {
+    "message": "Добавьте прокси или импортируйте настройки MegaProxy / FoxyProxy."
+  },
+  "profileSettings": {
+    "message": "Настройки профиля"
+  },
+  "name": {
+    "message": "Название"
+  },
+  "namePlaceholder": {
+    "message": "Основной прокси"
+  },
+  "protocol": {
+    "message": "Протокол"
+  },
+  "port": {
+    "message": "Порт"
+  },
+  "proxyHost": {
+    "message": "Хост прокси"
+  },
+  "username": {
+    "message": "Логин"
+  },
+  "password": {
+    "message": "Пароль"
+  },
+  "authentication": {
+    "message": "Авторизация"
+  },
+  "authAuto": {
+    "message": "Сразу, где поддерживается"
+  },
+  "authChallenge": {
+    "message": "После 407"
+  },
+  "knockHost": {
+    "message": "Knock host"
+  },
+  "knockHint": {
+    "message": "Обязателен в Chromium и без сохранённых реквизитов. Открывается при подключении и запуске браузера для авторизации на прокси."
+  },
+  "bypass": {
+    "message": "Напрямую для доменов"
+  },
+  "bypassHint": {
+    "message": "Также применяются к поддоменам. Остальной трафик направляется через прокси без автоматического перехода на прямое соединение."
+  },
+  "saveProfile": {
+    "message": "Сохранить профиль"
+  },
+  "settings": {
+    "message": "Настройки"
+  },
+  "theme": {
+    "message": "Тема"
+  },
+  "system": {
+    "message": "Авто"
+  },
+  "light": {
+    "message": "Светлая"
+  },
+  "dark": {
+    "message": "Тёмная"
+  },
+  "language": {
+    "message": "Язык"
+  },
+  "languageHint": {
+    "message": "Авто: русский, если интерфейс браузера русский; английский — в остальных случаях."
+  },
+  "importJSON": {
+    "message": "Импорт настроек"
+  },
+  "localStorage": {
+    "message": "Реквизиты хранятся локально, без синхронизации."
+  },
+  "proxy": {
+    "message": "Прокси"
+  },
+  "active": {
+    "message": "Активен"
+  },
+  "connect": {
+    "message": "Выбрать"
+  },
+  "selectedProfile": {
+    "message": "Выбран"
+  },
+  "edit": {
+    "message": "Изменить"
+  },
+  "delete": {
+    "message": "Удалить"
+  },
+  "knock": {
+    "message": "Knock"
+  },
+  "chromiumCapability": {
+    "message": "Chromium: авторизация после 407. Для probe resistance используйте knock."
+  },
+  "firefoxCapability": {
+    "message": "Firefox: авторизация сразу через HTTPS-прокси; для HTTP доступен knock."
+  },
+  "knockOpened": {
+    "message": "Knock открыт во вкладке; браузер обработает 407. Само открытие не подтверждает авторизацию."
+  },
+  "imported": {
+    "message": "Профили импортированы"
+  },
+  "importSkipped": {
+    "message": "Импортировано; пропущены неподдерживаемые профили: $1"
+  },
+  "errorBackground": {
+    "message": "Фоновый процесс недоступен"
+  },
+  "errorHost": {
+    "message": "Укажите имя хоста без схемы и пути"
+  },
+  "errorHostPort": {
+    "message": "Порт задаётся отдельно"
+  },
+  "errorProtocol": {
+    "message": "Поддерживаются только HTTP и HTTPS CONNECT"
+  },
+  "errorPort": {
+    "message": "Порт должен быть от 1 до 65535"
+  },
+  "errorCredentials": {
+    "message": "Недопустимые символы в реквизитах"
+  },
+  "errorUsername": {
+    "message": "Для пароля нужен логин"
+  },
+  "errorCertificate": {
+    "message": "Установите доверенный сертификат прокси: отключение TLS-проверки не поддерживается"
+  },
+  "errorKnockBypass": {
+    "message": "Knock host не должен попадать в исключения"
+  },
+  "errorImport": {
+    "message": "В JSON нет профилей"
+  },
+  "errorImportRules": {
+    "message": "PAC/include/exclude FoxyProxy нужно перенести вручную; импорт отменён"
+  },
+  "errorImportCompatible": {
+    "message": "Нет совместимых HTTP/HTTPS профилей"
+  },
+  "errorPrivateBrowsing": {
+    "message": "Firefox: разрешите расширению работу в приватных окнах в about:addons — это необходимо для proxy.settings"
+  },
+  "errorProxyControl": {
+    "message": "Прокси управляется другим расширением или политикой"
+  },
+  "errorKnockMissing": {
+    "message": "У активного профиля нет knock host"
+  },
+  "errorProfileMissing": {
+    "message": "Профиль не найден"
+  },
+  "errorTheme": {
+    "message": "Неизвестная тема"
+  },
+  "errorLanguage": {
+    "message": "Неизвестный язык"
+  },
+  "errorCommand": {
+    "message": "Неизвестная команда"
+  },
+  "errorFileSize": {
+    "message": "Максимальный размер JSON: 1 МБ"
+  },
+  "errorJSON": {
+    "message": "Файл не содержит корректный JSON"
+  },
+  "popupEmpty": {
+    "message": "Добавьте профиль на странице настроек."
+  },
+  "openSettings": {
+    "message": "Настройки"
+  },
+  "color": {
+    "message": "Цвет"
+  },
+  "countryCode": {
+    "message": "Код страны"
+  },
+  "clone": {
+    "message": "Дублировать"
+  },
+  "copyName": {
+    "message": "$1 (копия)"
+  },
+  "reorderProfile": {
+    "message": "Переместить профиль: $1"
+  },
+  "reorderProfileHint": {
+    "message": "Перетащите для изменения порядка. С клавиатуры используйте стрелки вверх и вниз."
+  },
+  "moveUp": {
+    "message": "Выше"
+  },
+  "moveDown": {
+    "message": "Ниже"
+  },
+  "bypassLocal": {
+    "message": "Обходить локальные сети"
+  },
+  "bypassLocalHint": {
+    "message": "Локальные IP-адреса, localhost и локальные имена подключаются напрямую. Отключите, чтобы направлять их через прокси."
+  },
+  "knockDisabledHint": {
+    "message": "Firefox отправляет сохранённые реквизиты сразу. Knock отключён."
+  },
+  "exportConfig": {
+    "message": "Экспорт настроек"
+  },
+  "includePasswords": {
+    "message": "Включить пароли"
+  },
+  "importReview": {
+    "message": "Проверка импорта"
+  },
+  "importSummary": {
+    "message": "Новых: $1 · Обновлений: $2 · Пропущено: $3"
+  },
+  "importAbsentHint": {
+    "message": "Совпадающие ID обновляются; отсутствующие в файле пароли сохраняются. Отметьте отсутствующие в файле локальные профили для удаления или оставьте их. Настройки активных профилей могут измениться."
+  },
+  "applyImport": {
+    "message": "Применить импорт"
+  },
+  "cancel": {
+    "message": "Отмена"
+  },
+  "checkConnection": {
+    "message": "Проверить подключение"
+  },
+  "checkSuccess": {
+    "message": "Выходной IP: $1\nСтрана: $2\nПротокол: HTTPS\nВремя загрузки: $3 мс"
+  },
+  "checkStage_https": {
+    "message": "Проверка HTTPS…"
+  },
+  "checkStage_ip": {
+    "message": "Определение выходного IP…"
+  },
+  "checkStage_country": {
+    "message": "Определение страны…"
+  },
+  "errorProfileFields": {
+    "message": "Некорректные поля профиля или настройки платформы"
+  },
+  "errorDuplicateIds": {
+    "message": "В конфиге повторяются ID профилей"
+  },
+  "errorConfigVersion": {
+    "message": "Неподдерживаемая версия конфига MegaProxy"
+  },
+  "errorExportProtocol": {
+    "message": "Текущий Android поддерживает переносимые HTTPS-профили с DNS/IPv4-хостами. HTTP или IPv6-хосты прокси нельзя экспортировать совместимо."
+  },
+  "errorKnockDisabled": {
+    "message": "Knock отключён в Firefox с сохранёнными реквизитами"
+  },
+  "errorCheckInactive": {
+    "message": "Подключите профиль перед проверкой"
+  },
+  "errorCheckBypass": {
+    "message": "Хосты диагностики не должны обходить прокси"
+  },
+  "errorCheckTimeout": {
+    "message": "Истекло время проверки подключения"
+  },
+  "errorCheckHTTP": {
+    "message": "HTTPS-проверка вернула неуспешный статус"
+  },
+  "errorCheckNetwork": {
+    "message": "Не удалось открыть сайт диагностики через прокси"
+  },
+  "errorCheckIP": {
+    "message": "Не удалось определить выходной IP"
+  },
+  "failover": {
+    "message": "Резервные прокси"
+  },
+  "failoverDisabled": {
+    "message": "Отключено"
+  },
+  "failoverSelected": {
+    "message": "Выбранные профили"
+  },
+  "failoverAll": {
+    "message": "Все профили"
+  },
+  "failoverHint": {
+    "message": "Переключение при ошибке соединения с прокси в выбранном порядке. Может изменить IP и страну. При исчерпании профилей прямого подключения не будет."
+  },
+  "errorFailoverExhausted": {
+    "message": "Все резервные прокси недоступны; прямое подключение отключено"
+  },
+  "unknownConfigFields": {
+    "message": "Конфигурация содержит неизвестные поля"
+  },
+  "routingTitle": {
+    "message": "Режим проксирования"
+  },
+  "routingEnabled": {
+    "message": "Использовать выбранный режим"
+  },
+  "routingAll": {
+    "message": "Все сайты через прокси"
+  },
+  "routingAllHint": {
+    "message": "Все запросы идут через выбранный профиль, кроме локальных сетей и других настроенных исключений."
+  },
+  "routingMode": {
+    "message": "Режим маршрутизации"
+  },
+  "routingDomains": {
+    "message": "По доменам запросов"
+  },
+  "routingTabs": {
+    "message": "По вкладкам"
+  },
+  "routingDomainList": {
+    "message": "Домены для прокси"
+  },
+  "routingSiteList": {
+    "message": "Сайты для проксирования вкладок"
+  },
+  "routingPatternsHint": {
+    "message": "Один шаблон на строку. *.example.com — только поддомены; **.example.com — домен и поддомены. В режиме по вкладкам домен без * включает поддомены. Без подходящего правила соединение прямое."
+  },
+  "routingTabsHint": {
+    "message": "Проксируются запросы вкладок, чей открытый сайт совпадает со списком, включая ресурсы с других доменов. Запросы без вкладки идут напрямую. Ручной выбор действует до закрытия вкладки или изменения маршрутизации. Обход локальных сетей и исключения профиля имеют приоритет."
+  },
+  "routingDomainsHint": {
+    "message": "Через прокси идут только запросы к доменам из списка, независимо от вкладки. Knock и проверка подключения проходят через прокси; обход локальных сетей и исключения профиля имеют приоритет."
+  },
+  "saveRouting": {
+    "message": "Сохранить маршрутизацию"
+  },
+  "currentSiteTitle": {
+    "message": "Сайт в активной вкладке"
+  },
+  "noCurrentSite": {
+    "message": "На этой вкладке нет сайта. Откройте веб-страницу, чтобы настроить для неё прокси."
+  },
+  "addCurrentSite": {
+    "message": "Добавить сайт в правила"
+  },
+  "tabDirect": {
+    "message": "Напрямую для этой вкладки"
+  },
+  "tabProxy": {
+    "message": "Прокси для этой вкладки"
+  },
+  "errorRoutingPattern": {
+    "message": "Некорректный шаблон домена: укажите хост и, при необходимости, *"
+  },
+  "errorCurrentSite": {
+    "message": "Откройте сайт HTTP или HTTPS в активной вкладке"
+  },
+  "errorSplitUnsupported": {
+    "message": "Split proxy по вкладкам поддерживается только в Firefox"
+  },
+  "splitUnsupportedWarning": {
+    "message": "Конфигурация содержит настройки режима по вкладкам Firefox, который не поддерживается в Chromium. Они импортированы не будут. Если этот режим был активен, используется ручной список доменов."
+  },
+  "routingDomainsChromiumHint": {
+    "message": "Через прокси идут только запросы к доменам из списка, независимо от вкладки. Knock и проверка подключения проходят через прокси; обход локальных сетей и исключения профиля имеют приоритет. В Chromium при выборочной маршрутизации localhost и link-local адреса всегда идут напрямую, даже если обход локальных сетей выключен."
+  },
+  "subscriptionsTitle": {
+    "message": "Доменные списки Podkop"
+  },
+  "listsAuto": {
+    "message": "Автоматически обновлять каждый день"
+  },
+  "listsProxy": {
+    "message": "Обновлять списки через активный прокси"
+  },
+  "subscriptionsHint": {
+    "message": "Подписки выбираются отдельно для каждого режима. Сохраните настройки перед обновлением. Домен и все его поддомены объединяются в **.example.com; перекрывающиеся записи удаляются. До 1000 правил: сначала ручные, затем по рейтингу Tranco. Без рейтинга — по алфавиту. История посещений никуда не отправляется."
+  },
+  "updateLists": {
+    "message": "Обновить списки сейчас"
+  },
+  "listsUpdated": {
+    "message": "Обновлено: $1 · Действующих правил: $2"
+  },
+  "listsNotUpdated": {
+    "message": "Для выбранных подписок ещё нет загруженных списков"
+  },
+  "listsTruncated": {
+    "message": "Отброшено правил: $1. Лимит — $2. Отброшенные домены идут напрямую, если их не выбирает другое правило."
+  },
+  "listsUnranked": {
+    "message": "Доменов без известного рейтинга: $1. Они упорядочены по алфавиту; отсутствие рейтинга не означает непопулярность."
+  },
+  "listsIgnored": {
+    "message": "Пропущено записей, не являющихся доменами: $1"
+  },
+  "errorListSize": {
+    "message": "Список превышает допустимый размер; сохранена последняя успешная версия"
+  },
+  "errorListDownload": {
+    "message": "Не удалось обновить списки; сохранена последняя успешная версия"
+  },
+  "errorListEmpty": {
+    "message": "В источнике нет корректных доменов; сохранена последняя успешная версия"
+  },
+  "errorListProxyInactive": {
+    "message": "Выберите профиль прокси перед обновлением списков через прокси"
+  },
+  "errorRankingFormat": {
+    "message": "Некорректный набор данных рейтинга доменов"
+  },
+  "errorRankingUnavailable": {
+    "message": "Рейтинг популярности недоступен: используется сохранённый рейтинг, где он есть, иначе алфавитный порядок"
+  },
+  "statisticsTitle": {
+    "message": "Запросы через прокси"
+  },
+  "statisticsEnabled": {
+    "message": "Статистика и монитор сети"
+  },
+  "statisticsCounts": {
+    "message": "Завершено: $1 · Ошибок: $2"
+  },
+  "statisticsHint": {
+    "message": "Счётчики в памяти с начала подсчёта. Сбрасываются при отключении или перезапуске фонового процесса. Объём трафика не измеряется. Статистика хранится локально в браузере и никуда не отправляется."
+  },
+  "statisticsPrivacy": {
+    "message": "Включены по умолчанию. Данные никуда не отправляются и хранятся только в памяти браузера. Отключение очищает данные и прекращает сбор."
+  },
+  "webRTC": {
+    "message": "WebRTC"
+  },
+  "webRTCBrowser": {
+    "message": "Настройки браузера"
+  },
+  "webRTCDefault": {
+    "message": "Разрешить все интерфейсы"
+  },
+  "webRTCInterfaces": {
+    "message": "Публичный и локальный IP"
+  },
+  "webRTCPublic": {
+    "message": "Только публичный интерфейс"
+  },
+  "webRTCRestrict": {
+    "message": "Запретить UDP вне прокси"
+  },
+  "webRTCProxyOnly": {
+    "message": "Только через прокси · Firefox"
+  },
+  "webRTCDisabled": {
+    "message": "Отключить WebRTC · Firefox"
+  },
+  "webRTCHint": {
+    "message": "Действует на весь браузер, включая сайты без прокси. Ограничения могут повлиять на звонки. «Настройки браузера» возвращает управление браузеру."
+  },
+  "syncEnabled": {
+    "message": "Синхронизировать профили и настройки"
+  },
+  "syncPasswords": {
+    "message": "Также синхронизировать пароли"
+  },
+  "syncHint": {
+    "message": "Используется учётная запись браузера. Пароли синхронизируются по умолчанию; выключите отдельный переключатель, чтобы исключить их. Активное подключение, статистика и скачанные списки остаются локальными. Включите синхронизацию браузера на каждом устройстве. Применяется последняя сохранённая конфигурация."
+  },
+  "ruleTester": {
+    "message": "Проверка правил маршрутизации"
+  },
+  "ruleURL": {
+    "message": "URL запроса"
+  },
+  "ruleTabURL": {
+    "message": "URL вкладки"
+  },
+  "ruleTest": {
+    "message": "Проверить"
+  },
+  "ruleProxy": {
+    "message": "Прокси: $1"
+  },
+  "ruleDirect": {
+    "message": "Прямое подключение"
+  },
+  "importURL": {
+    "message": "Импорт конфигурации по URL"
+  },
+  "configURL": {
+    "message": "URL конфигурации"
+  },
+  "downloadConfig": {
+    "message": "Скачать и проверить"
+  },
+  "importURLHint": {
+    "message": "Скачивает один раз и открывает проверку, как при импорте файла. Использует текущие правила маршрутизации. Максимальный размер: 1 МиБ. Предпочтителен HTTPS."
+  },
+  "excludeCurrentSite": {
+    "message": "Подключаться к этому сайту напрямую"
+  },
+  "toggleTabMenu": {
+    "message": "Переключить прокси вкладки"
+  },
+  "errorPrivacyPermission": {
+    "message": "Предоставьте разрешение на управление приватностью для настройки WebRTC."
+  },
+  "errorPrivacyControl": {
+    "message": "Настройками WebRTC управляет другое расширение или политика."
+  },
+  "errorWebRTCUnsupported": {
+    "message": "Этот режим WebRTC поддерживается только в Firefox."
+  },
+  "errorSync": {
+    "message": "Не удалось синхронизировать настройки. Проверьте синхронизацию браузера и повторите."
+  },
+  "errorSyncSize": {
+    "message": "Конфигурация превышает лимит синхронизации 45 000 байт. Она сохранена локально."
+  },
+  "errorConfigURL": {
+    "message": "Введите HTTP или HTTPS URL без встроенного логина и пароля."
+  },
+  "errorConfigDownload": {
+    "message": "Не удалось скачать конфигурацию, либо файл слишком большой."
+  },
+  "errorRuleURL": {
+    "message": "Для проверки правил используйте HTTP или HTTPS URL."
+  },
+  "connectionMode": {
+    "message": "Режим подключения"
+  },
+  "modeProxy": {
+    "message": "Прокси"
+  },
+  "modeDirect": {
+    "message": "Напрямую"
+  },
+  "modeSystem": {
+    "message": "Системные настройки"
+  },
+  "networkTitle": {
+    "message": "Монитор сети"
+  },
+  "networkHint": {
+    "message": "До 200 последних запросов на вкладку, до 50 вкладок. Только домены, без путей, параметров URL и содержимого запросов. Данные сбрасываются при переходе страницы или остановке фонового процесса. System не позволяет определить внешний прокси. Выбранные домены можно добавить в ручной список или список сайтов режима по вкладкам Firefox."
+  },
+  "networkTab": {
+    "message": "Вкладка"
+  },
+  "networkFailed": {
+    "message": "Только ошибки"
+  },
+  "networkRefresh": {
+    "message": "Обновить"
+  },
+  "networkClear": {
+    "message": "Очистить"
+  },
+  "networkEmpty": {
+    "message": "Нет запросов для отображения"
+  },
+  "networkAdd": {
+    "message": "Проксировать выбранные домены"
+  },
+  "defaultProfile": {
+    "message": "Активный профиль"
+  },
+  "profileActions": {
+    "message": "Действия профиля"
+  },
+  "color0": {
+    "message": "Красный"
+  },
+  "color1": {
+    "message": "Розовый"
+  },
+  "color2": {
+    "message": "Фиолетовый"
+  },
+  "color3": {
+    "message": "Тёмно-фиолетовый"
+  },
+  "color4": {
+    "message": "Индиго"
+  },
+  "color5": {
+    "message": "Синий"
+  },
+  "color6": {
+    "message": "Бирюзовый"
+  },
+  "color7": {
+    "message": "Зелёный"
+  },
+  "color8": {
+    "message": "Светло-зелёный"
+  },
+  "color9": {
+    "message": "Оранжевый"
+  },
+  "color10": {
+    "message": "Тёмно-оранжевый"
+  },
+  "color11": {
+    "message": "Коричневый"
+  },
+  "addCurrentSiteHint": {
+    "message": "Добавит домен и его поддомены в список и включит выборочное проксирование. Сайты вне правил будут открываться напрямую."
+  },
+  "siteProxyProfile": {
+    "message": "Для этого домена: прокси «$1»"
+  },
+  "siteProxy": {
+    "message": "Для этого домена: через прокси"
+  },
+  "siteDirect": {
+    "message": "Для этого домена: напрямую, без прокси"
+  },
+  "siteSystem": {
+    "message": "Используются системные настройки прокси браузера"
+  },
+  "siteConnectHint": {
+    "message": "Подключите профиль ниже, чтобы добавить сайт в правила."
+  },
+  "errorListCatalog": {
+    "message": "Не удалось обновить каталог списков. Используется сохранённая версия."
+  },
+  "errorListUnknownSource": {
+    "message": "Выбранный список отсутствует в каталоге. Сохранена последняя успешная версия правил."
+  },
+  "listsCovered": {
+    "message": "Исходный список «$1» уже полностью покрывается списком «$2»."
+  },
+  "listUnavailable": {
+    "message": "$1 (нет в каталоге)"
+  },
+  "generalPreferences": {
+    "message": "Общие параметры"
+  },
+  "routingSource": {
+    "message": "Источник правил"
+  },
+  "routingManual": {
+    "message": "Ручной список доменов"
+  },
+  "networkNoTabs": {
+    "message": "Нет открытых сайтов HTTP или HTTPS"
+  },
+  "themeHint": {
+    "message": "Авто следует теме системы; если её определить нельзя, используется тёмная. Если тема Chrome отличается, выберите тему здесь."
+  },
+  "extensionSettings": {
+    "message": "Параметры расширения"
+  },
+  "routingAutomatic": {
+    "message": "Автоматические списки доменов"
+  },
+  "contextToggleTab": {
+    "message": "Переключить прокси вкладки"
+  },
+  "themeChromiumHint": {
+    "message": "В Chromium по умолчанию используется тёмная тема. Светлую можно выбрать вручную."
+  },
+  "themeDetected": {
+    "message": "Браузер сообщает: $1."
+  },
+  "themeUnknown": {
+    "message": "Предпочтение недоступно"
+  },
+  "routingDomainPatternsHint": {
+    "message": "Один шаблон на строку. *.example.com — только поддомены; **.example.com — домен и поддомены; имя без * — только этот домен. Без подходящего правила запрос идёт напрямую."
+  },
+  "failoverModeHint": {
+    "message": "Чтобы автоматически переключаться при отказе прокси, выберите «Резервные прокси» в режиме подключения."
+  }
+}

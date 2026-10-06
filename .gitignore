@@ -147,3 +147,12 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Browser test output
+playwright-report/
+test-results/
+__pycache__/
+*.pyc
+
+# Persistent development browser profiles
+.browser-profiles/

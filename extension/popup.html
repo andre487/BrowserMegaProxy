@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MegaProxy</title>
+    <link rel="icon" href="icons/icon32.png" type="image/png" />
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body hidden class="popup">
+    <main>
+      <header>
+        <img class="brand" src="icons/icon.png" width="48" height="48" alt="" />
+        <div>
+          <h1>MegaProxy</h1>
+          <p data-i18n="tagline">Your route to the internet</p>
+        </div>
+        <button type="button" id="open-settings" class="secondary" aria-label="Settings"></button>
+      </header>
+      <div class="popup-content">
+        <section class="connection">
+          <div>
+            <span class="eyebrow" data-i18n="connection">CONNECTION</span>
+            <h2 id="connection">Disconnected</h2>
+            <p id="endpoint"></p>
+          </div>
+          <button type="button" id="disconnect" class="secondary" data-i18n="disconnect">
+            Disconnect
+          </button>
+        </section>
+        <label
+          ><span data-i18n="connectionMode">Connection mode</span
+          ><select id="connection-mode">
+            <option value="proxy" data-i18n="modeProxy">Proxy</option>
+            <option value="failover" data-i18n="failover">Fallback profiles</option>
+            <option value="direct" data-i18n="modeDirect">Direct</option>
+            <option value="system" data-i18n="modeSystem">System</option>
+          </select></label
+        >
+        <p id="notice" role="status" aria-live="polite"></p>
+        <section id="site-actions" aria-labelledby="site-title">
+          <h2 id="site-title" data-i18n="currentSiteTitle">Current site</h2>
+          <p id="current-site"></p>
+          <p class="hint" id="routing-summary"></p>
+          <p class="hint" id="site-connect-hint" data-i18n="siteConnectHint" hidden></p>
+          <p id="site-warning" class="warning" role="status" hidden></p>
+          <div class="actions">
+            <button
+              id="add-current-site"
+              type="button"
+              class="secondary"
+              data-i18n="addCurrentSite"
+            >
+              Proxy this site</button
+            ><button id="toggle-tab" type="button" class="secondary" hidden></button>
+          </div>
+        </section>
+        <section aria-labelledby="profiles-title">
+          <div class="section-heading">
+            <h2 id="profiles-title" data-i18n="profiles">Profiles</h2>
+          </div>
+          <div id="profiles"></div>
+          <p id="empty" data-i18n="popupEmpty"></p>
+        </section>
+        <section id="statistics" hidden aria-labelledby="statistics-title">
+          <h2 id="statistics-title" data-i18n="statisticsTitle">Proxy requests</h2>
+          <p id="statistics-result"></p>
+        </section>
+        <section class="connection-check">
+          <p id="check-result" role="status" aria-live="polite"></p>
+          <button id="check" type="button" class="secondary" data-i18n="checkConnection">
+            Check connection
+          </button>
+        </section>
+      </div>
+    </main>
+    <script src="target.js"></script>
+    <script src="platform.js"></script>
+    <script src="i18n.js"></script>
+    <script src="config-validator.js"></script>
+    <script src="core.js"></script>
+    <script src="subscription-catalog.js"></script>
+    <script src="subscriptions.js"></script>
+    <script src="ui.js"></script>
+  </body>
+</html>

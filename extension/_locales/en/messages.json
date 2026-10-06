@@ -1,0 +1,710 @@
+{
+  "extensionName": {
+    "message": "MegaProxy"
+  },
+  "extensionDescription": {
+    "message": "HTTP/HTTPS proxy profiles with authentication and knock hosts."
+  },
+  "tagline": {
+    "message": "Your route to the internet"
+  },
+  "connection": {
+    "message": "CONNECTION"
+  },
+  "disconnected": {
+    "message": "Disconnected"
+  },
+  "disconnect": {
+    "message": "Disconnect"
+  },
+  "profileLabel": {
+    "message": "Profile: $1"
+  },
+  "profiles": {
+    "message": "Profiles"
+  },
+  "add": {
+    "message": "＋ Add"
+  },
+  "empty": {
+    "message": "Add a proxy or import MegaProxy / FoxyProxy settings."
+  },
+  "profileSettings": {
+    "message": "Profile settings"
+  },
+  "name": {
+    "message": "Name"
+  },
+  "namePlaceholder": {
+    "message": "Main proxy"
+  },
+  "protocol": {
+    "message": "Protocol"
+  },
+  "port": {
+    "message": "Port"
+  },
+  "proxyHost": {
+    "message": "Proxy host"
+  },
+  "username": {
+    "message": "Username"
+  },
+  "password": {
+    "message": "Password"
+  },
+  "authentication": {
+    "message": "Authentication"
+  },
+  "authAuto": {
+    "message": "Immediately, where supported"
+  },
+  "authChallenge": {
+    "message": "After 407"
+  },
+  "knockHost": {
+    "message": "Knock host"
+  },
+  "knockHint": {
+    "message": "Required in Chromium and when credentials are not saved. Opens at connection and browser startup for proxy authentication."
+  },
+  "bypass": {
+    "message": "Connect directly for domains"
+  },
+  "bypassHint": {
+    "message": "Also applies to subdomains. All other traffic uses the proxy without automatic fallback to a direct connection."
+  },
+  "saveProfile": {
+    "message": "Save profile"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "theme": {
+    "message": "Theme"
+  },
+  "system": {
+    "message": "Auto"
+  },
+  "light": {
+    "message": "Light"
+  },
+  "dark": {
+    "message": "Dark"
+  },
+  "language": {
+    "message": "Language"
+  },
+  "languageHint": {
+    "message": "Auto uses Russian when the browser interface is Russian, and English otherwise."
+  },
+  "importJSON": {
+    "message": "Import settings"
+  },
+  "localStorage": {
+    "message": "Credentials stay local, without sync."
+  },
+  "proxy": {
+    "message": "Proxy"
+  },
+  "active": {
+    "message": "Active"
+  },
+  "connect": {
+    "message": "Select"
+  },
+  "selectedProfile": {
+    "message": "Selected"
+  },
+  "edit": {
+    "message": "Edit"
+  },
+  "delete": {
+    "message": "Delete"
+  },
+  "knock": {
+    "message": "Knock"
+  },
+  "chromiumCapability": {
+    "message": "Chromium: authentication after 407. Use knock for probe resistance."
+  },
+  "firefoxCapability": {
+    "message": "Firefox: immediate authentication through HTTPS proxies; knock is available for HTTP."
+  },
+  "knockOpened": {
+    "message": "Knock opened in a tab; the browser will handle 407. Opening the tab does not confirm authentication."
+  },
+  "imported": {
+    "message": "Profiles imported"
+  },
+  "importSkipped": {
+    "message": "Imported; unsupported profiles skipped: $1"
+  },
+  "errorBackground": {
+    "message": "The background process is unavailable"
+  },
+  "errorHost": {
+    "message": "Enter a host name without a scheme or path"
+  },
+  "errorHostPort": {
+    "message": "Set the port separately"
+  },
+  "errorProtocol": {
+    "message": "Only HTTP and HTTPS CONNECT are supported"
+  },
+  "errorPort": {
+    "message": "Port must be between 1 and 65535"
+  },
+  "errorCredentials": {
+    "message": "Invalid characters in credentials"
+  },
+  "errorUsername": {
+    "message": "A password requires a username"
+  },
+  "errorCertificate": {
+    "message": "Install a trusted proxy certificate: disabling TLS verification is not supported"
+  },
+  "errorKnockBypass": {
+    "message": "The knock host must not be bypassed"
+  },
+  "errorImport": {
+    "message": "The JSON contains no profiles"
+  },
+  "errorImportRules": {
+    "message": "Transfer FoxyProxy PAC/include/exclude rules manually; import cancelled"
+  },
+  "errorImportCompatible": {
+    "message": "No compatible HTTP/HTTPS profiles"
+  },
+  "errorPrivateBrowsing": {
+    "message": "Firefox: allow the extension in private windows in about:addons — this is required for proxy.settings"
+  },
+  "errorProxyControl": {
+    "message": "The proxy is controlled by another extension or policy"
+  },
+  "errorKnockMissing": {
+    "message": "The active profile has no knock host"
+  },
+  "errorProfileMissing": {
+    "message": "Profile not found"
+  },
+  "errorTheme": {
+    "message": "Unknown theme"
+  },
+  "errorLanguage": {
+    "message": "Unknown language"
+  },
+  "errorCommand": {
+    "message": "Unknown command"
+  },
+  "errorFileSize": {
+    "message": "Maximum JSON size: 1 MB"
+  },
+  "errorJSON": {
+    "message": "The file is not valid JSON"
+  },
+  "popupEmpty": {
+    "message": "Add a profile on the settings page."
+  },
+  "openSettings": {
+    "message": "Settings"
+  },
+  "color": {
+    "message": "Color"
+  },
+  "countryCode": {
+    "message": "Country code"
+  },
+  "clone": {
+    "message": "Clone"
+  },
+  "copyName": {
+    "message": "$1 (copy)"
+  },
+  "reorderProfile": {
+    "message": "Reorder profile: $1"
+  },
+  "reorderProfileHint": {
+    "message": "Drag to reorder. Use the up and down arrow keys with a keyboard."
+  },
+  "moveUp": {
+    "message": "Move up"
+  },
+  "moveDown": {
+    "message": "Move down"
+  },
+  "bypassLocal": {
+    "message": "Bypass local networks"
+  },
+  "bypassLocalHint": {
+    "message": "Local IP ranges, localhost and local names connect directly. Disable to send them through the proxy."
+  },
+  "knockDisabledHint": {
+    "message": "Firefox sends saved credentials immediately. Knock is disabled."
+  },
+  "exportConfig": {
+    "message": "Export settings"
+  },
+  "includePasswords": {
+    "message": "Include passwords"
+  },
+  "importReview": {
+    "message": "Review import"
+  },
+  "importSummary": {
+    "message": "New: $1 · Updates: $2 · Skipped: $3"
+  },
+  "importAbsentHint": {
+    "message": "Existing IDs are updated; omitted passwords are preserved. Select absent local profiles to remove, or leave them unchecked to keep them. Connection settings of active profiles may change."
+  },
+  "applyImport": {
+    "message": "Apply import"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "checkConnection": {
+    "message": "Check connection"
+  },
+  "checkSuccess": {
+    "message": "Exit IP: $1\nCountry: $2\nProtocol: HTTPS\nLoad time: $3 ms"
+  },
+  "checkStage_https": {
+    "message": "Checking HTTPS…"
+  },
+  "checkStage_ip": {
+    "message": "Checking exit IP…"
+  },
+  "checkStage_country": {
+    "message": "Checking country…"
+  },
+  "errorProfileFields": {
+    "message": "Invalid profile or platform settings"
+  },
+  "errorDuplicateIds": {
+    "message": "Configuration contains duplicate profile IDs"
+  },
+  "errorConfigVersion": {
+    "message": "Unsupported MegaProxy configuration version"
+  },
+  "errorExportProtocol": {
+    "message": "Current Android supports portable HTTPS profiles with DNS/IPv4 hosts. HTTP or IPv6 proxy profiles cannot be exported compatibly."
+  },
+  "errorKnockDisabled": {
+    "message": "Knock is disabled in Firefox with saved credentials"
+  },
+  "errorCheckInactive": {
+    "message": "Connect a profile before testing"
+  },
+  "errorCheckBypass": {
+    "message": "Diagnostic hosts must not bypass the proxy"
+  },
+  "errorCheckTimeout": {
+    "message": "Connection check timed out"
+  },
+  "errorCheckHTTP": {
+    "message": "The HTTPS check returned an unsuccessful status"
+  },
+  "errorCheckNetwork": {
+    "message": "Could not reach the diagnostic site through the proxy"
+  },
+  "errorCheckIP": {
+    "message": "Could not determine the exit IP"
+  },
+  "failover": {
+    "message": "Profile failover"
+  },
+  "failoverDisabled": {
+    "message": "Disabled"
+  },
+  "failoverSelected": {
+    "message": "Selected profiles"
+  },
+  "failoverAll": {
+    "message": "All profiles"
+  },
+  "failoverHint": {
+    "message": "Switches on proxy connection errors, in the selected order. May change your exit IP and country. Exhausted profiles remain proxied; there is no direct fallback."
+  },
+  "errorFailoverExhausted": {
+    "message": "All fallback proxies have failed; direct fallback is disabled"
+  },
+  "unknownConfigFields": {
+    "message": "Configuration contains unknown fields"
+  },
+  "routingTitle": {
+    "message": "Proxy mode"
+  },
+  "routingEnabled": {
+    "message": "Use the selected mode"
+  },
+  "routingAll": {
+    "message": "All sites use the proxy"
+  },
+  "routingAllHint": {
+    "message": "All requests use the selected profile, except local networks and other configured bypass rules."
+  },
+  "routingMode": {
+    "message": "Routing mode"
+  },
+  "routingDomains": {
+    "message": "By destination domain"
+  },
+  "routingTabs": {
+    "message": "By tabs"
+  },
+  "routingDomainList": {
+    "message": "Proxy domains"
+  },
+  "routingSiteList": {
+    "message": "Sites for proxied tabs"
+  },
+  "routingPatternsHint": {
+    "message": "One pattern per line. *.example.com matches subdomains; **.example.com matches the domain and its subdomains. A bare domain in tab mode includes subdomains. Unmatched requests connect directly."
+  },
+  "routingTabsHint": {
+    "message": "Proxy requests belonging to tabs whose top-level site matches the list, including resources on other domains. Requests without a tab go directly. Manual tab choices last until the tab closes or routing settings change. Local and profile bypass rules take priority."
+  },
+  "routingDomainsHint": {
+    "message": "Only requests to listed domains use the proxy, regardless of the tab. Knock and connection checks still use the proxy; local and profile bypass rules take priority."
+  },
+  "saveRouting": {
+    "message": "Save routing"
+  },
+  "currentSiteTitle": {
+    "message": "Site in the active tab"
+  },
+  "noCurrentSite": {
+    "message": "There is no website in this tab. Open a web page to configure its proxy routing."
+  },
+  "addCurrentSite": {
+    "message": "Add site to rules"
+  },
+  "tabDirect": {
+    "message": "Use direct connection for this tab"
+  },
+  "tabProxy": {
+    "message": "Use proxy for this tab"
+  },
+  "errorRoutingPattern": {
+    "message": "Invalid domain pattern: use a hostname and optional * wildcards"
+  },
+  "errorCurrentSite": {
+    "message": "Open an HTTP or HTTPS site in the active tab"
+  },
+  "errorSplitUnsupported": {
+    "message": "Split proxy by tab is only supported in Firefox"
+  },
+  "splitUnsupportedWarning": {
+    "message": "The configuration includes Firefox tab routing settings, which Chromium does not support. These settings will not be imported. If tab routing was active, the manual domain list will be used."
+  },
+  "routingDomainsChromiumHint": {
+    "message": "Only requests to listed domains use the proxy, regardless of the tab. Knock and connection checks still use the proxy; local and profile bypass rules take priority. In Chromium selective routing, localhost and link-local addresses always connect directly, even when local bypass is disabled."
+  },
+  "subscriptionsTitle": {
+    "message": "Podkop domain lists"
+  },
+  "listsAuto": {
+    "message": "Update automatically every day"
+  },
+  "listsProxy": {
+    "message": "Update lists through the active proxy"
+  },
+  "subscriptionsHint": {
+    "message": "Sources are selected independently for each mode. Save settings before updating. Root domains and all their subdomains are combined as **.example.com; covered entries are removed. Up to 1,000 rules: manual rules first, then Tranco popularity. Unknown ranks use alphabetical order. Your browsing history is never sent."
+  },
+  "updateLists": {
+    "message": "Update lists now"
+  },
+  "listsUpdated": {
+    "message": "Updated: $1 · Effective rules: $2"
+  },
+  "listsNotUpdated": {
+    "message": "No snapshot for the selected sources yet"
+  },
+  "listsTruncated": {
+    "message": "$1 rules were dropped to fit the $2-rule limit. Dropped domains connect directly unless another rule selects them."
+  },
+  "listsUnranked": {
+    "message": "$1 domains have no known popularity rank. Their order is alphabetical; missing rank does not mean unpopular."
+  },
+  "listsIgnored": {
+    "message": "Ignored non-domain entries: $1"
+  },
+  "errorListSize": {
+    "message": "Downloaded list exceeds the size limit; the last successful snapshot is retained"
+  },
+  "errorListDownload": {
+    "message": "Could not update lists; the last successful snapshot is retained"
+  },
+  "errorListEmpty": {
+    "message": "The source has no valid domains; the last successful snapshot is retained"
+  },
+  "errorListProxyInactive": {
+    "message": "Select a proxy profile before updating lists through the proxy"
+  },
+  "errorRankingFormat": {
+    "message": "Invalid domain popularity dataset"
+  },
+  "errorRankingUnavailable": {
+    "message": "Popularity ranking unavailable: using cached ranks where available, otherwise alphabetical order"
+  },
+  "statisticsTitle": {
+    "message": "Proxy requests"
+  },
+  "statisticsEnabled": {
+    "message": "Statistics and network monitor"
+  },
+  "statisticsCounts": {
+    "message": "Completed: $1 · Failed: $2"
+  },
+  "statisticsHint": {
+    "message": "In-memory counters since counting started. Reset when disabled or the background process restarts. Traffic volume is not measured. Statistics stay locally in your browser and are never sent anywhere."
+  },
+  "statisticsPrivacy": {
+    "message": "Enabled by default. Data is never sent anywhere and stays only in browser memory. Disabling clears data and stops collection."
+  },
+  "webRTC": {
+    "message": "WebRTC"
+  },
+  "webRTCBrowser": {
+    "message": "Use browser settings"
+  },
+  "webRTCDefault": {
+    "message": "Allow all interfaces"
+  },
+  "webRTCInterfaces": {
+    "message": "Public and local IP"
+  },
+  "webRTCPublic": {
+    "message": "Public interface only"
+  },
+  "webRTCRestrict": {
+    "message": "Disable non-proxied UDP"
+  },
+  "webRTCProxyOnly": {
+    "message": "Proxy only · Firefox"
+  },
+  "webRTCDisabled": {
+    "message": "Disable WebRTC · Firefox"
+  },
+  "webRTCHint": {
+    "message": "Applies to the whole browser, including direct sites. Restrictions can affect calls. Browser settings releases control back to the browser."
+  },
+  "syncEnabled": {
+    "message": "Synchronize profiles and settings"
+  },
+  "syncPasswords": {
+    "message": "Also synchronize passwords"
+  },
+  "syncHint": {
+    "message": "Uses your browser account. Passwords are synchronized by default; uncheck the password option to exclude them. Active connection, statistics and downloaded lists stay local. Enable browser sync on each device. Last saved configuration wins."
+  },
+  "ruleTester": {
+    "message": "Test routing rules"
+  },
+  "ruleURL": {
+    "message": "Request URL"
+  },
+  "ruleTabURL": {
+    "message": "Tab URL"
+  },
+  "ruleTest": {
+    "message": "Test"
+  },
+  "ruleProxy": {
+    "message": "Proxy: $1"
+  },
+  "ruleDirect": {
+    "message": "Direct connection"
+  },
+  "importURL": {
+    "message": "Import configuration from URL"
+  },
+  "configURL": {
+    "message": "Configuration URL"
+  },
+  "downloadConfig": {
+    "message": "Download and review"
+  },
+  "importURLHint": {
+    "message": "Downloads once and opens the same review as file import. Uses the current routing rules. Maximum size: 1 MiB. Prefer HTTPS."
+  },
+  "excludeCurrentSite": {
+    "message": "Connect to this site directly"
+  },
+  "toggleTabMenu": {
+    "message": "Toggle proxy for this tab"
+  },
+  "errorPrivacyPermission": {
+    "message": "Grant privacy permission to manage WebRTC."
+  },
+  "errorPrivacyControl": {
+    "message": "WebRTC settings are controlled by another extension or policy."
+  },
+  "errorWebRTCUnsupported": {
+    "message": "This WebRTC option is only supported in Firefox."
+  },
+  "errorSync": {
+    "message": "Settings could not be synchronized. Check browser sync and retry."
+  },
+  "errorSyncSize": {
+    "message": "Configuration exceeds the safe sync limit of 45,000 bytes. It remains saved locally."
+  },
+  "errorConfigURL": {
+    "message": "Enter an HTTP or HTTPS URL without embedded credentials."
+  },
+  "errorConfigDownload": {
+    "message": "Unable to download the configuration or file is too large."
+  },
+  "errorRuleURL": {
+    "message": "Use HTTP or HTTPS URLs for the rule test."
+  },
+  "connectionMode": {
+    "message": "Connection mode"
+  },
+  "modeProxy": {
+    "message": "Proxy"
+  },
+  "modeDirect": {
+    "message": "Direct"
+  },
+  "modeSystem": {
+    "message": "System settings"
+  },
+  "networkTitle": {
+    "message": "Network monitor"
+  },
+  "networkHint": {
+    "message": "Up to 200 recent requests per tab and 50 tabs. Domains only, without URL paths, query strings or request contents. Navigation or background restart clears the data. System mode cannot identify an external proxy. Selected domains can be added to the manual domain list or Firefox tab-site list."
+  },
+  "networkTab": {
+    "message": "Tab"
+  },
+  "networkFailed": {
+    "message": "Failures only"
+  },
+  "networkRefresh": {
+    "message": "Refresh"
+  },
+  "networkClear": {
+    "message": "Clear"
+  },
+  "networkEmpty": {
+    "message": "No requests to display"
+  },
+  "networkAdd": {
+    "message": "Proxy selected domains"
+  },
+  "defaultProfile": {
+    "message": "Active profile"
+  },
+  "profileActions": {
+    "message": "Profile actions"
+  },
+  "color0": {
+    "message": "Red"
+  },
+  "color1": {
+    "message": "Pink"
+  },
+  "color2": {
+    "message": "Purple"
+  },
+  "color3": {
+    "message": "Deep purple"
+  },
+  "color4": {
+    "message": "Indigo"
+  },
+  "color5": {
+    "message": "Blue"
+  },
+  "color6": {
+    "message": "Teal"
+  },
+  "color7": {
+    "message": "Green"
+  },
+  "color8": {
+    "message": "Light green"
+  },
+  "color9": {
+    "message": "Orange"
+  },
+  "color10": {
+    "message": "Deep orange"
+  },
+  "color11": {
+    "message": "Brown"
+  },
+  "addCurrentSiteHint": {
+    "message": "Adds the domain and its subdomains to the list and enables selective proxying. Sites outside the rules will connect directly."
+  },
+  "siteProxyProfile": {
+    "message": "For this domain: proxy “$1”"
+  },
+  "siteProxy": {
+    "message": "For this domain: through the proxy"
+  },
+  "siteDirect": {
+    "message": "For this domain: direct, without a proxy"
+  },
+  "siteSystem": {
+    "message": "Using the browser’s system proxy settings"
+  },
+  "siteConnectHint": {
+    "message": "Connect a profile below to add this site to the rules."
+  },
+  "errorListCatalog": {
+    "message": "Could not update the list catalog. Using the saved version."
+  },
+  "errorListUnknownSource": {
+    "message": "A selected list is missing from the catalog. Keeping the last successful rules."
+  },
+  "listsCovered": {
+    "message": "The original “$1” list is already fully covered by “$2”."
+  },
+  "listUnavailable": {
+    "message": "$1 (not in the catalog)"
+  },
+  "generalPreferences": {
+    "message": "General preferences"
+  },
+  "routingSource": {
+    "message": "Rule source"
+  },
+  "routingManual": {
+    "message": "Manual domain list"
+  },
+  "networkNoTabs": {
+    "message": "No open HTTP or HTTPS sites"
+  },
+  "themeHint": {
+    "message": "Auto follows the system theme, falling back to dark when unavailable. If Chrome uses a different theme, choose a theme here."
+  },
+  "extensionSettings": {
+    "message": "Extension preferences"
+  },
+  "routingAutomatic": {
+    "message": "Automatic domain lists"
+  },
+  "contextToggleTab": {
+    "message": "Toggle proxy for this tab"
+  },
+  "themeChromiumHint": {
+    "message": "Chromium uses the dark theme by default. You can select the light theme manually."
+  },
+  "themeDetected": {
+    "message": "Browser preference: $1."
+  },
+  "themeUnknown": {
+    "message": "Preference unavailable"
+  },
+  "routingDomainPatternsHint": {
+    "message": "One pattern per line. *.example.com matches subdomains; **.example.com matches the domain and its subdomains; a bare name matches only that domain. Unmatched requests connect directly."
+  },
+  "failoverModeHint": {
+    "message": "To enable automatic switching on proxy failure, select “Fallback profiles” in Connection mode."
+  }
+}
