@@ -721,6 +721,44 @@ dialog h2 {
   text-align: center;
   margin-top: 24px;
 }
+.log-page main {
+  width: min(100%, 1100px);
+}
+.log-controls {
+  display: grid;
+  gap: 0;
+}
+.log-controls > label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+.log-controls input {
+  width: 100px;
+  margin: 0;
+}
+#log-output {
+  height: max(240px, calc(100dvh - 260px));
+  overflow: auto;
+  overflow-anchor: none;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface);
+}
+#log-output pre {
+  font: 12px/1.6 monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
 
 .network-row,
 #check-result,

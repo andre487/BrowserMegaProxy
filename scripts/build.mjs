@@ -84,6 +84,7 @@ for (const target of ['chromium', 'firefox']) {
         'core.js',
         'subscription-catalog.js',
         'subscriptions.js',
+        'diagnostic-log.js',
         'background.js'
       ]
     }

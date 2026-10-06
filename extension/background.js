@@ -1,4 +1,4 @@
-/* global chrome, MegaProxy, MegaPlatform, MEGA_TARGET, MegaSubscriptions, importScripts */
+/* global chrome, MegaProxy, MegaPlatform, MEGA_TARGET, MegaSubscriptions, MegaDiagnosticLog, importScripts */
 if (typeof importScripts === 'function') {
   importScripts(
     'target.js',
@@ -6,13 +6,15 @@ if (typeof importScripts === 'function') {
     'config-validator.js',
     'core.js',
     'subscription-catalog.js',
-    'subscriptions.js'
+    'subscriptions.js',
+    'diagnostic-log.js'
   )
 }
 
 const api = globalThis.browser || chrome
 const platform = MegaPlatform.create(MEGA_TARGET, api)
 const M = MegaProxy
+const diagnosticLog = typeof indexedDB === 'undefined' ? null : new MegaDiagnosticLog()
 let state = { ...M.defaults(), theme: platform.defaultTheme }
 const attempts = new Set()
 const tabUrls = new Map()
@@ -718,11 +720,15 @@ async function handle(message) {
   }
 
   if (message.command === 'knock') {
+    diagnosticLog?.write('knock_started')
     return knock()
   }
 
   if (message.command === 'check') {
-    return checkConnection()
+    diagnosticLog?.write('connection_check_started')
+    const result = await checkConnection()
+    diagnosticLog?.write('connection_check_finished', { code: result.connectionCheck?.error })
+    return result
   }
 
   if (message.command === 'export') {
@@ -900,6 +906,7 @@ async function handle(message) {
     startupError = undefined
   } catch (error) {
     state = old
+    diagnosticLog?.write('settings_failed', { code: error.message })
     await apply(old).catch(() => {})
     if (old.webRTC !== next.webRTC) {
       await applyWebRTC(old.webRTC).catch(() => {})
@@ -952,6 +959,10 @@ async function handle(message) {
   }
 
   await publishSync()
+  diagnosticLog?.write('settings_changed', {
+    mode: state.connectionMode,
+    profile: state.profiles.findIndex(p => p.id === state.activeId)
+  })
 
   await rebuildMenus()
   await refreshBadges()
@@ -986,7 +997,12 @@ api.runtime.onMessage.addListener((message, sender, respond) => {
       .then(respond)
       .catch(error => respond({ ok: false, error: error.message }))
   } else {
-    queue = queue.then(() => handle(message)).catch(error => ({ ok: false, error: error.message }))
+    queue = queue
+      .then(() => handle(message))
+      .catch(error => {
+        diagnosticLog?.write('operation_failed', { code: error.message })
+        return { ok: false, error: error.message }
+      })
     queue.then(respond)
   }
 
@@ -1133,6 +1149,9 @@ api.webRequest.onCompleted.addListener(
 api.webRequest.onErrorOccurred.addListener(
   details => {
     attempts.delete(details.requestId)
+    if (details.tabId >= 0 && ['main_frame', 'xmlhttprequest'].includes(details.type)) {
+      diagnosticLog?.write('request_failed', { type: details.type, code: details.error })
+    }
     if (details.type === 'main_frame') {
       queue = queue.then(() => updateKnockTab(details.tabId, { failed: true })).catch(() => {})
     }
@@ -1636,6 +1655,7 @@ api.storage.onChanged?.addListener((changes, area) => {
 queue = queue
   .then(async () => {
     await ready
+    diagnosticLog?.write('background_started', { mode: state.connectionMode })
     if (recoverAssignedKnock || routingMigration) {
       await apply(state)
       await api.storage.session?.set({ assignedKnockLease: false })

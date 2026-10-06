@@ -426,6 +426,20 @@ and are cleared with the browser session. Firefox does not use this behavior.
 
 ## Direct, System and network monitoring
 
+The Settings footer opens a separate diagnostic log page. Entries stay locally in
+IndexedDB, without storage.sync or network uploads. The log records startup,
+settings changes, connection checks and main-document/Fetch request errors; it
+excludes passwords, authorization headers, URLs and proxy hostnames. Consecutive
+identical events within a batch share a repetition count. Writes are batched for
+500 ms with a bounded pending buffer; a crash can lose the pending batch.
+The retained UTF-8 text is limited to 3 MiB by default (configurable from 1 to
+10 MiB), with oldest batches deleted when the limit is exceeded. This is a
+logical text limit; database overhead is additional. The viewer loads a bounded
+recent tail and refreshes once a second while visible. It follows new entries
+while at the bottom, preserves the reading position after scrolling upwards,
+and resumes following when the user returns to the bottom. Export includes all
+retained entries; Clear removes the persisted log.
+
 The popup and the top of Settings provide Proxy, Direct and System modes.
 The choice updates across all open extension pages through local browser storage.
 The selected profile remains selected when requests fail; there is no automatic

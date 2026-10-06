@@ -685,5 +685,29 @@
   },
   "routingDomainPatternsHint": {
     "message": "One pattern per line. *.example.com matches subdomains; **.example.com matches the domain and its subdomains; a bare name matches only that domain. Unmatched requests connect directly."
+  },
+  "diagnosticLog": {
+    "message": "Diagnostic log"
+  },
+  "diagnosticLogHint": {
+    "message": "Stored only locally. No passwords, authorization headers or URLs. The viewer shows recent entries; export includes the entire retained log. Pending records may be lost if the browser crashes."
+  },
+  "logLimit": {
+    "message": "Size limit (MiB)"
+  },
+  "exportLog": {
+    "message": "Export log"
+  },
+  "logBottom": {
+    "message": "Latest entries"
+  },
+  "logSize": {
+    "message": "Stored: $1 KiB"
+  },
+  "errorLogStorage": {
+    "message": "Unable to read or write the local diagnostic log"
+  },
+  "errorLogLimit": {
+    "message": "Enter an integer from 1 to 10 MiB"
   }
 }
