@@ -15,6 +15,7 @@ function harness(target = 'chromium', session = {}, opened = new Map(), savedCre
   const events = {}
   const reloaded = []
   const created = []
+  const navigations = []
   const event = key => {
     const callbacks = new Set()
     events[key] = (...args) => {
@@ -76,7 +77,10 @@ function harness(target = 'chromium', session = {}, opened = new Map(), savedCre
         return { id: 99 }
       },
       reload: async id => reloaded.push(id),
-      update: async (id, change) => Object.assign(opened.get(id), change),
+      update: async (id, change) => {
+        navigations.push({ id, ...change })
+        return Object.assign(opened.get(id), change)
+      },
       remove: async id => opened.delete(id),
       onActivated: event('activated'),
       onUpdated: event('updated'),
@@ -105,7 +109,19 @@ function harness(target = 'chromium', session = {}, opened = new Map(), savedCre
     events.activated({ tabId: id })
     await flush()
   }
-  return { api, events, send, flush, complete, activate, reloaded, opened, session, created }
+  return {
+    api,
+    events,
+    send,
+    flush,
+    complete,
+    activate,
+    reloaded,
+    opened,
+    session,
+    created,
+    navigations
+  }
 }
 
 const tabs = () =>
@@ -116,6 +132,38 @@ const tabs = () =>
     [4, { id: 4, url: 'chrome://settings/' }],
     [5, { id: 5, url: 'https://other.example.com/', discarded: true }]
   ])
+
+test('Chromium retries a knock interrupted by proxy settings once, then closes on success or leaves a repeated failure open', async () => {
+  for (const repeatedFailure of [false, true]) {
+    const h = harness('chromium', {}, tabs())
+    await h.send({ command: 'knock' })
+    const error = {
+      tabId: 99,
+      type: 'main_frame',
+      url: 'https://knock.example/',
+      error: 'net::ERR_NETWORK_CHANGED'
+    }
+    h.events.onErrorOccurred(error)
+    await h.flush()
+    assert.equal(h.navigations.length, 2)
+    assert.deepEqual(h.navigations[0], h.navigations[1])
+    assert.equal(h.created.length, 1)
+    assert.equal(h.session.knockTabs[0].retried, true)
+    assert.ok(h.session.knockRefresh.pending)
+    if (repeatedFailure) {
+      h.events.onErrorOccurred(error)
+      await h.flush()
+      assert.equal(h.session.knockTabs.length, 0)
+      assert.equal(h.opened.has(99), true)
+    } else {
+      h.complete(200)
+      h.events.updated(99, { status: 'complete' }, { url: error.url })
+      await h.flush()
+      assert.equal(h.opened.has(99), false)
+    }
+    assert.equal(h.navigations.length, 2)
+  }
+})
 
 test('Chromium startup marks only existing routed tabs after knock succeeds and reloads each once on activation', async () => {
   const h = harness('chromium', {}, tabs())

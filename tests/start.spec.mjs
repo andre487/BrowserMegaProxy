@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { expect, test } from '@playwright/test'
+import { expect, firefox, test } from '@playwright/test'
 import { build, launchBrowser, selectBrowser } from '../scripts/start.mjs'
 
 test('development launcher installs and reloads the Firefox extension on a persistent profile', async ({
@@ -13,7 +13,11 @@ test('development launcher installs and reloads the Firefox extension on a persi
 
   try {
     try {
-      session = await launchBrowser('firefox', { headless: true, profileDir })
+      session = await launchBrowser('firefox', {
+        headless: true,
+        profileDir,
+        executablePath: firefox.executablePath()
+      })
     } catch (error) {
       test.skip(
         error.code === 'ENOENT' || error.message.startsWith('Install Firefox'),
@@ -25,7 +29,11 @@ test('development launcher installs and reloads the Firefox extension on a persi
     await session.reload()
     await session.close()
     await session.closed
-    session = await launchBrowser('firefox', { headless: true, profileDir })
+    session = await launchBrowser('firefox', {
+      headless: true,
+      profileDir,
+      executablePath: firefox.executablePath()
+    })
     await session.reload()
   } finally {
     await session?.close()

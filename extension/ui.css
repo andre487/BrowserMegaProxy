@@ -734,12 +734,16 @@ dialog h2 {
 .log-page main > :not(#log-output) {
   flex-shrink: 0;
 }
+.log-page header {
+  flex-wrap: wrap;
+}
 .log-controls {
   display: grid;
   gap: 0;
 }
 .log-controls > label {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }

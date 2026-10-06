@@ -380,7 +380,9 @@ for (const scenario of ['auto', 'challenge']) {
         updated.ok,
         JSON.stringify({ error: updated.error, targets: requests.map(r => r.target) })
       ).toBe(true)
-      expect(updated.state.subscriptionCache.domains).toEqual(['**.subscription.invalid'])
+      expect(updated.state.subscriptionCache[target === 'firefox' ? 'sites' : 'domains']).toEqual([
+        '**.subscription.invalid'
+      ])
       expect(updated.state.subscriptionCache.ignored).toBe(1)
       expect(
         requests.some(r => r.target === 'raw.githubusercontent.com:443' && r.auth === credential)

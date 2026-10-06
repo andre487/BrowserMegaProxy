@@ -55,7 +55,11 @@ async function firefoxExecutable() {
 
 export async function launchBrowser(
   browser,
-  { headless = false, profileDir = path.join(root, '.browser-profiles', browser) } = {}
+  {
+    headless = false,
+    profileDir = path.join(root, '.browser-profiles', browser),
+    executablePath
+  } = {}
 ) {
   if (!['darwin', 'linux', 'win32'].includes(process.platform)) {
     throw new Error('Supported systems: macOS, Linux, Windows')
@@ -116,7 +120,7 @@ export async function launchBrowser(
     }
   }
 
-  const executable = await firefoxExecutable()
+  const executable = executablePath || (await firefoxExecutable())
   const server = net.createServer()
   await new Promise((resolve, reject) => {
     server.once('error', reject)

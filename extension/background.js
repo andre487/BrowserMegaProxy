@@ -166,6 +166,40 @@ async function updateKnockTab(tabId, { failed = false, statusCode, url, loaded =
   }
 }
 
+async function retryKnock(details) {
+  const pending = knockTabs.find(tab => tab.tabId === details.tabId)
+  if (
+    details.error !== 'net::ERR_NETWORK_CHANGED' ||
+    !pending ||
+    pending.retried ||
+    M.active(state)?.id !== pending.profileId
+  ) {
+    return false
+  }
+  const tab = await api.tabs.get(details.tabId).catch(() => null)
+  const url = tab?.pendingUrl || tab?.url
+  if (
+    !tab ||
+    !/^https?:/.test(details.url || '') ||
+    M.host(new URL(details.url).hostname) !== pending.host ||
+    (url !== 'about:blank' &&
+      (!/^https?:/.test(url || '') || M.host(new URL(url).hostname) !== pending.host))
+  ) {
+    return false
+  }
+  // Proxy settings can interrupt the first navigation while Chromium applies them.
+  pending.retried = true
+  pending.received = false
+  pending.loaded = false
+  await api.storage.session?.set({ knockTabs })
+  try {
+    await api.tabs.update(details.tabId, { url: details.url })
+    return true
+  } catch {
+    return false
+  }
+}
+
 function refreshEligible(tab, p = M.active(state)) {
   const url = tab.pendingUrl || tab.url
   return Boolean(
@@ -1191,7 +1225,15 @@ api.webRequest.onErrorOccurred.addListener(
       diagnosticLog?.write('request_failed', { type: details.type, code: details.error })
     }
     if (details.type === 'main_frame') {
-      queue = queue.then(() => updateKnockTab(details.tabId, { failed: true })).catch(() => {})
+      queue = queue
+        .then(async () => {
+          if (await retryKnock(details)) {
+            return
+          }
+          await finishKnockRefresh(details, true)
+          await updateKnockTab(details.tabId, { failed: true })
+        })
+        .catch(() => {})
     }
   },
   { urls: ['<all_urls>'] }

@@ -203,14 +203,6 @@
         },
         { urls: ['<all_urls>'] }
       )
-      this.api.webRequest.onErrorOccurred.addListener(
-        details => {
-          if (details.type === 'main_frame') {
-            enqueue(() => finish(details, true))
-          }
-        },
-        { urls: ['<all_urls>'] }
-      )
     }
   }
 
