@@ -4,6 +4,36 @@ import path from 'node:path'
 import { expect, test } from '@playwright/test'
 import { build, launchBrowser, selectBrowser } from '../scripts/start.mjs'
 
+test('development launcher installs and reloads the Firefox extension on a persistent profile', async ({
+  browserName
+}) => {
+  test.skip(browserName !== 'firefox', 'The Firefox launcher is checked once')
+  const profileDir = await mkdtemp(path.join(tmpdir(), 'mega-firefox-launcher-'))
+  let session
+
+  try {
+    try {
+      session = await launchBrowser('firefox', { headless: true, profileDir })
+    } catch (error) {
+      test.skip(
+        error.code === 'ENOENT' || error.message.startsWith('Install Firefox'),
+        'Install Firefox to check the development launcher'
+      )
+      throw error
+    }
+
+    await session.reload()
+    await session.close()
+    await session.closed
+    session = await launchBrowser('firefox', { headless: true, profileDir })
+    await session.reload()
+  } finally {
+    await session?.close()
+    await session?.closed
+    await rm(profileDir, { recursive: true, force: true })
+  }
+})
+
 test('development launcher reloads current code and retains the dedicated Chrome profile', async ({
   browserName
 }) => {

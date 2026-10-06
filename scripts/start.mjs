@@ -156,6 +156,8 @@ export async function launchBrowser(
     executable,
     [
       '-no-remote',
+      ...(process.platform === 'darwin' ? ['-foreground'] : []),
+      ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
       '-profile',
       profileDir,
       ...(headless ? ['--headless'] : []),
@@ -167,14 +169,16 @@ export async function launchBrowser(
   )
   const closed = new Promise((resolve, reject) => {
     child.once('error', reject)
-    child.once('exit', resolve)
+    child.once('exit', (code, signal) => resolve({ code, signal }))
   })
 
   try {
     await Promise.race([
       installFirefoxAddon(port, extension),
-      closed.then(() => {
-        throw new Error('Firefox exited before the extension was installed')
+      closed.then(({ code, signal }) => {
+        throw new Error(
+          `Firefox exited before the extension was installed (${signal ? `signal ${signal}` : `code ${code}`})`
+        )
       })
     ])
 
