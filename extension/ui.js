@@ -919,7 +919,8 @@ api.storage?.onChanged?.addListener((changes, area) => {
 action(async () => {
   if (!isOptions) {
     const tab = api.tabs.getCurrent ? await api.tabs.getCurrent() : true
-    document.documentElement.dataset.surface = tab ? 'tab' : 'popup'
+    const mobile = (await api.runtime.getPlatformInfo?.())?.os === 'android'
+    document.documentElement.dataset.surface = tab || mobile ? 'tab' : 'popup'
   }
   await MegaI18n.ready
   MegaI18n.apply('auto')

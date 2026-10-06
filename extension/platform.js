@@ -214,6 +214,17 @@
   }
 
   class FirefoxPlatform extends BrowserPlatform {
+    async apply(state) {
+      if ((await this.api.runtime.getPlatformInfo?.())?.os === 'android') {
+        // Android routes through onRequest; proxy.settings exists but rejects every call.
+        await this.checkPrivateAccess()
+        this.validateKnock(this.core.active(state), state)
+        return
+      }
+
+      await super.apply(state)
+    }
+
     get id() {
       return 'firefox'
     }

@@ -1454,6 +1454,27 @@ test('browser action popup uses content dimensions rather than its initial tiny 
   await expect(page.locator('main')).toHaveCSS('max-height', '600px')
 })
 
+test('Android browser action popup fits the mobile viewport and keeps settings accessible', async ({
+  page
+}) => {
+  await page.addInitScript(() => {
+    globalThis.chrome.tabs.getCurrent = async () => undefined
+    globalThis.chrome.runtime.getPlatformInfo = async () => ({ os: 'android' })
+  })
+  for (const width of [320, 360]) {
+    await page.setViewportSize({ width, height: 700 })
+    await page.goto('http://127.0.0.1:8765/popup.html')
+    await expect(page.locator('html')).toHaveAttribute('data-surface', 'tab')
+    const layout = await page.evaluate(() => ({
+      content: document.documentElement.scrollWidth,
+      viewport: innerWidth,
+      settingsRight: document.querySelector('#open-settings').getBoundingClientRect().right
+    }))
+    expect(layout.content).toBeLessThanOrEqual(layout.viewport)
+    expect(layout.settingsRight).toBeLessThanOrEqual(layout.viewport)
+  }
+})
+
 test('routing autosaves consecutive changes without losing later edits and recovers after errors', async ({
   page
 }) => {

@@ -343,6 +343,27 @@ test('browser proxy ownership and private access guards preserve state and nativ
   }
 })
 
+test('Firefox Android routes without calling unsupported proxy.settings', async () => {
+  const h = harness('firefox')
+  h.api.runtime.getPlatformInfo = async () => ({ os: 'android' })
+  for (const method of ['get', 'set', 'clear']) {
+    h.api.proxy.settings[method] = async () => {
+      throw new Error('proxy.settings is not supported on android.')
+    }
+  }
+
+  await profiles(h)
+  assert.equal((await h.send({ command: 'activate', id: 'two' })).ok, true)
+  assert.equal(
+    (await h.events.proxy({ url: 'https://public.example/', tabId: -1 }))[0].host,
+    'other.example'
+  )
+  assert.equal((await h.send({ command: 'connectionMode', mode: 'direct' })).ok, true)
+  assert.equal((await h.events.proxy({ url: 'https://public.example/', tabId: -1 })).type, 'direct')
+  assert.equal((await h.send({ command: 'connectionMode', mode: 'system' })).ok, true)
+  assert.equal(await h.events.proxy({ url: 'https://public.example/', tabId: -1 }), undefined)
+})
+
 test('cross-browser sync downgrades tab routing and unsupported privacy without losing profiles', async () => {
   const shared = {}
   const firefox = harness('firefox', shared)
