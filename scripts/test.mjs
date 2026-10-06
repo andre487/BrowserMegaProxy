@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { mkdir, readdir } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 
 const suites = {
   unit: (await readdir('tests'))
@@ -28,5 +28,17 @@ const result = spawnSync(
 )
 if (result.error) {
   throw result.error
+}
+if (suite === 'unit') {
+  // Node emits ungrouped testcases directly under testsuites; JUnit consumers
+  // expect them inside a testsuite (otherwise the summary reports zero tests).
+  const report = 'test-results/unit.xml'
+  const xml = await readFile(report, 'utf8')
+  await writeFile(
+    report,
+    xml
+      .replace('<testsuites>', '<testsuites><testsuite name="Unit tests">')
+      .replace('</testsuites>', '</testsuite></testsuites>')
+  )
 }
 process.exitCode = result.status ?? 1
