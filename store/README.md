@@ -27,7 +27,8 @@ The command builds the extension and regenerates all PNGs with the installed Pla
 ## Submission documents
 
 - [Privacy policy](PRIVACY.md): publish at a public URL and provide it to the stores.
-- [Reviewer notes](REVIEWER-NOTES.md): permission explanations, review steps and package selection.
+- [Permission justifications](PERMISSIONS.md): English text for each requested permission and host access.
+- [Reviewer notes](REVIEWER-NOTES.md): review steps and package selection.
 
 These materials do not publish the extension. The store dashboard’s current fields, release package and target-browser behavior still need to be checked at submission time. Prepared on 6 October 2026 using the official guidance:
 
