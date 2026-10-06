@@ -1,10 +1,10 @@
-name: Prepare and merge release
+name: Release MegaProxy
 run-name: Release v${{ inputs.version }}
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: New version X.Y.Z; merges after full CI, then publishes via the tag workflow
+        description: Version X.Y.Z; prepares, merges, tags and publishes in this workflow
         required: true
         type: string
       model:
@@ -18,6 +18,10 @@ concurrency:
   cancel-in-progress: false
 jobs:
   prepare:
+    name: Prepare release PR
+    outputs:
+      pr: ${{ steps.prepare.outputs.pr }}
+      head: ${{ steps.prepare.outputs.head }}
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -57,20 +61,35 @@ jobs:
           git commit -m "Release v$RELEASE_VERSION"
           git push origin "release/v$RELEASE_VERSION"
           body="$RUNNER_TEMP/release-pr.md"
-          printf 'Update the extension version to %s. All required lint, unit, Chromium and Firefox checks must pass before merging. The merged commit will be tagged and published by the release workflow.\n' "$RELEASE_VERSION" > "$body"
+          printf 'Update the extension version to %s. All required lint, unit, Chromium and Firefox checks must pass before merging. The merged commit will be tagged and published in this workflow.\n' "$RELEASE_VERSION" > "$body"
           printf '\n' >> "$body"
           cat "releases/v$RELEASE_VERSION.md" >> "$body"
           pr="$(gh pr create --base main --head "release/v$RELEASE_VERSION" --title "Release v$RELEASE_VERSION" --body-file "$body")"
           echo "pr=$pr" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           printf 'Release PR: %s\n' "$pr" >> "$GITHUB_STEP_SUMMARY"
+  finalize:
+    name: Verify CI, merge and tag
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      tag: ${{ steps.finalize.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
       - name: Require full CI, merge and tag
+        id: finalize
         env:
           GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
           RELEASE_VERSION: ${{ inputs.version }}
-          RELEASE_PR: ${{ steps.prepare.outputs.pr }}
-          RELEASE_HEAD: ${{ steps.prepare.outputs.head }}
+          RELEASE_PR: ${{ needs.prepare.outputs.pr }}
+          RELEASE_HEAD: ${{ needs.prepare.outputs.head }}
         run: |
+          gh auth setup-git
           # Wait for all four checks to register before asking gh to watch them.
           registered=false
           for attempt in $(seq 1 120); do
@@ -88,4 +107,13 @@ jobs:
           git fetch origin main
           git tag "v$RELEASE_VERSION" "$commit"
           git push origin "refs/tags/v$RELEASE_VERSION"
-          printf '\nTagged merged commit `%s` as `v%s`. The Release extension artifacts workflow will publish the archives.\n' "$commit" "$RELEASE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "tag=v$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+          printf '\nTagged merged commit `%s` as `v%s`.\n' "$commit" "$RELEASE_VERSION" >> "$GITHUB_STEP_SUMMARY"
+  publish:
+    name: Publish release
+    needs: finalize
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.finalize.outputs.tag }}

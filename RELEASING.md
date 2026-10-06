@@ -1,7 +1,7 @@
 # Releasing MegaProxy
 
 The process follows AndroidMegaProxy: manual version input → release PR →
-required checks → merge → tag → build and GitHub Release.
+required checks → merge → tag → build and GitHub Release, all in one workflow run.
 
 ## One-time setup
 
@@ -13,8 +13,7 @@ required checks → merge → tag → build and GitHub Release.
    create branches/tags and merge PRs in this repository.
 3. In **Settings → Secrets and variables → Actions → New repository secret**,
    save it as `RELEASE_BOT_TOKEN`, following AndroidMegaProxy.
-   The normal `GITHUB_TOKEN` does not trigger CI for a PR it creates or the release
-   workflow for a tag it pushes; [GitHub documents this limitation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
+   The normal `GITHUB_TOKEN` does not trigger CI for a PR it creates; [GitHub documents this limitation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow).
 4. Keep `Linters`, `Unit tests`, `Chromium tests`, and `Firefox tests` required for
    `main`. These are already configured in the Protect Main ruleset.
 5. Create a separate API key in [OpenAI Platform → API keys](https://platform.openai.com/api-keys):
@@ -45,7 +44,7 @@ Android signing and store credentials are not needed for GitHub releases.
 ## Each release
 
 1. Merge the intended changes into `main`.
-2. Open **Actions → Prepare and merge release → Run workflow**.
+2. Open **Actions → Release MegaProxy → Run workflow**.
 3. Select **main** and enter a new version without `v`, for example `0.1.1`.
    It must be at least the version in `package.json` and its release tag must not exist.
    The current version can be used for its first release; three components from 0–65535 are allowed,
@@ -56,8 +55,10 @@ Android signing and store credentials are not needed for GitHub releases.
    `package.json` and `package-lock.json`, creates `release/vX.Y.Z` and a PR,
    waits for all four checks, merges the PR, and tags the merge commit.
    It does not bypass checks with `--admin`.
-5. Check **Release extension artifacts** and the **Releases** page.
-   Before publication, the tag runs the same full CI as a PR.
+5. The same run continues through **Verify CI, merge and tag** and **Publish release**.
+   Publication checks out the exact tag and publishes archives with the committed EN/RU changelog.
+   Required CI is verified on the release PR before merging; tag pushes do not start a second release run.
+   Open the **Releases** page after the workflow completes.
 
 If `main` changes during checks and the PR falls behind, use **Update branch**,
 wait for CI, and merge the PR manually. The workflow verifies the original PR
@@ -149,5 +150,7 @@ The tag version must match `package.json` on that commit, which must also contai
 a nonempty EN/RU changelog at `releases/vX.Y.Z.md`. For a manual release, write it
 yourself or generate it with `node scripts/release.mjs notes X.Y.Z`, with
 `OPENAI_API_KEY` in the environment, and commit it before creating the tag.
-The tag automatically triggers the release workflow and full CI. This also allows
-releasing the current version without bumping it after merging the release workflows into `main`.
+After manually creating a recovery tag, run **Release extension artifacts** with that
+existing tag to publish it. This recovery workflow builds the tagged commit without
+creating a PR or rerunning the already verified release PR checks. A tag push alone
+does not publish a release.
