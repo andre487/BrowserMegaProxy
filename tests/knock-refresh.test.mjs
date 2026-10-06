@@ -134,9 +134,15 @@ const tabs = () =>
   ])
 
 test('Chromium retries a knock interrupted by proxy settings once, then closes on success or leaves a repeated failure open', async () => {
-  for (const repeatedFailure of [false, true]) {
+  for (const [tabURL, repeatedFailure] of [
+    ['https://knock.example/', false],
+    ['chrome-error://chromewebdata/', false],
+    ['about:blank', false],
+    ['chrome-error://chromewebdata/', true]
+  ]) {
     const h = harness('chromium', {}, tabs())
     await h.send({ command: 'knock' })
+    h.opened.get(99).url = tabURL
     const error = {
       tabId: 99,
       type: 'main_frame',
@@ -163,6 +169,22 @@ test('Chromium retries a knock interrupted by proxy settings once, then closes o
     }
     assert.equal(h.navigations.length, 2)
   }
+})
+
+test('Chromium never retries an interrupted knock after the user navigates elsewhere', async () => {
+  const h = harness('chromium', {}, tabs())
+  await h.send({ command: 'knock' })
+  h.opened.get(99).url = 'https://other.example/'
+  h.events.onErrorOccurred({
+    tabId: 99,
+    type: 'main_frame',
+    url: 'https://knock.example/',
+    error: 'net::ERR_NETWORK_CHANGED'
+  })
+  await h.flush()
+  assert.equal(h.navigations.length, 1)
+  assert.equal(h.opened.get(99).url, 'https://other.example/')
+  assert.equal(h.session.knockTabs.length, 0)
 })
 
 test('Chromium startup marks only existing routed tabs after knock succeeds and reloads each once on activation', async () => {

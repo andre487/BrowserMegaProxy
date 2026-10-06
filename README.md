@@ -383,6 +383,13 @@ The fixture renders the server's actual GOST and HAProxy templates and invokes i
 
 The native proxy credential dialog is outside Playwright’s page API: tests verify that the browser opens a knock tab and the real server challenges it, but do not automate typing into that dialog.
 
+Failed server tests attach `network-diagnostics` before removing their containers.
+When available, `ip` (iproute2) reports addresses, IPv6 `tentative`/`dadfailed` flags,
+all routing tables and policy rules; `ss` reports TCP sockets and a socket summary.
+Linux runners also inspect each test container's network namespace through
+`sudo -n nsenter`, using host tools without modifying container images.
+Missing tools or permissions are recorded and do not replace the original test failure.
+
 ## WebRTC, sync and routing tools
 
 Settings provide browser-wide native WebRTC privacy controls. Chromium and Firefox

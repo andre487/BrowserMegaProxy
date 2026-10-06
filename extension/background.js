@@ -183,6 +183,7 @@ async function retryKnock(details) {
     !/^https?:/.test(details.url || '') ||
     M.host(new URL(details.url).hostname) !== pending.host ||
     (url !== 'about:blank' &&
+      url !== 'chrome-error://chromewebdata/' &&
       (!/^https?:/.test(url || '') || M.host(new URL(url).hostname) !== pending.host))
   ) {
     return false

@@ -276,6 +276,12 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
           .toBeGreaterThan(authFailures)
       }
     } catch (error) {
+      const diagnostics = await server.diagnostics()
+      console.log(diagnostics)
+      await testInfo.attach('network-diagnostics', {
+        body: diagnostics,
+        contentType: 'text/plain'
+      })
       if (browser) {
         await testInfo.attach('browser-network-errors', {
           body: JSON.stringify(await browser.networkErrors(), null, 2),

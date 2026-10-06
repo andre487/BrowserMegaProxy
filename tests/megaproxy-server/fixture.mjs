@@ -14,6 +14,64 @@ const docker = async (...args) => {
   return (result.stdout + (args[0] === 'logs' ? result.stderr : '')).trim()
 }
 
+export async function networkDiagnostics(
+  containers = [],
+  command = exec,
+  platform = process.platform
+) {
+  const commands = [
+    ['ip', '-Version'],
+    ['ip', 'address', 'show'],
+    ['ip', '-6', 'address', 'show'],
+    ['ip', 'route', 'show', 'table', 'all'],
+    ['ip', '-6', 'route', 'show', 'table', 'all'],
+    ['ip', 'rule', 'show'],
+    ['ss', '-s'],
+    ['ss', '-tanp']
+  ]
+  const capture = async args => {
+    try {
+      const result = await command(args[0], args.slice(1), { timeout: 5000 })
+      return `$ ${args.join(' ')}\n${result.stdout}${result.stderr}`
+    } catch (error) {
+      return `$ ${args.join(' ')}\nUnavailable or failed: ${error.code || error.message}\n${error.stdout || ''}${error.stderr || ''}`
+    }
+  }
+  const host = await Promise.all(commands.map(capture))
+  const namespaces = await Promise.all(
+    containers.map(async name => {
+      const network = await capture([
+        'docker',
+        'inspect',
+        '--format',
+        '{{json .NetworkSettings.Networks}}',
+        name
+      ])
+      if (platform !== 'linux') {
+        return `${name}\n${network}\nContainer namespaces require a local Linux Docker host.`
+      }
+      try {
+        const { stdout } = await command(
+          'docker',
+          ['inspect', '--format', '{{.State.Pid}}', name],
+          { timeout: 5000 }
+        )
+        const pid = stdout.trim()
+        if (!/^[1-9]\d*$/.test(pid)) {
+          return `${name}\n${network}\nContainer is not running.`
+        }
+        const sockets = await Promise.all(
+          commands.map(args => capture(['sudo', '-n', 'nsenter', '-t', pid, '-n', '--', ...args]))
+        )
+        return `${name}\n${network}\n${sockets.join('\n')}`
+      } catch (error) {
+        return `${name}\n${network}\nNamespace unavailable: ${error.code || error.message}`
+      }
+    })
+  )
+  return `Host network (iproute2)\n${host.join('\n')}\n${namespaces.join('\n')}`
+}
+
 async function freePort() {
   const server = net.createServer()
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -231,6 +289,7 @@ export async function startServer(scenario) {
         )
       ),
       stopExit: () => docker('stop', '--time', '0', exit),
+      diagnostics: () => networkDiagnostics(containers),
       logs: async () =>
         (
           await Promise.all(containers.map(async name => `${name}\n${await docker('logs', name)}`))
@@ -239,8 +298,9 @@ export async function startServer(scenario) {
     }
   } catch (error) {
     const logs = await Promise.all(containers.map(name => docker('logs', name).catch(() => '')))
+    const diagnostics = await networkDiagnostics(containers)
     await close()
-    throw new Error(`${error.message}\n${logs.join('\n')}`, { cause: error })
+    throw new Error(`${error.message}\n${logs.join('\n')}\n${diagnostics}`, { cause: error })
   }
 }
 
