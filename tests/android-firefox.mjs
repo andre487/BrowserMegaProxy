@@ -371,6 +371,10 @@ try {
             await tapText(xml, 'Cancel')
             return false
           }
+          if (xml.includes('Notifications help you stay safer with Firefox')) {
+            await tapText(xml, 'Not now')
+            return false
+          }
           if (xml.includes('MegaProxy was added')) {
             await tapText(xml, 'OK')
             return false
