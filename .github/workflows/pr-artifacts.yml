@@ -33,7 +33,7 @@ jobs:
               start,
               '## Installation archives',
               '',
-              ...archives.map(artifact => `- [${artifact.name.replace('MegaProxy-', '')} ZIP](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${run.id}/artifacts/${artifact.id})`),
+              ...archives.map(artifact => `- [${artifact.name === 'MegaProxy-chromium' ? 'Chromium' : 'Firefox'} ZIP](https://github.com/${repo.owner}/${repo.repo}/actions/runs/${run.id}/artifacts/${artifact.id})`),
               '',
               `Build: [${run.head_sha.slice(0, 7)}](${run.html_url}) · checks: ${run.conclusion}.`,
               'Extract the ZIP and load manifest.json. Firefox builds are unsigned temporary add-ons. Archives expire after 14 days; downloading requires signing in to GitHub.',
