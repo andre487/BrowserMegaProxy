@@ -5,7 +5,12 @@ export default defineConfig({
   timeout: 30000,
   fullyParallel: false,
   workers: 1,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  reporter: [
+    ['list'],
+    ...(process.env.CI ? [['github']] : []),
+    ['html', { open: 'never' }],
+    ['junit', { outputFile: 'test-results/playwright.xml' }]
+  ],
   use: { trace: 'retain-on-failure' },
   webServer: { command: 'node tests/serve.mjs', port: 8765, reuseExistingServer: !process.env.CI },
   projects: [

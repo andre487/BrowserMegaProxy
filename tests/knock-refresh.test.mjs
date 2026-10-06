@@ -133,6 +133,22 @@ const tabs = () =>
     [5, { id: 5, url: 'https://other.example.com/', discarded: true }]
   ])
 
+test('new knock tabs use unique query strings while pending tabs retain their navigation', async () => {
+  const h = harness('chromium', {}, tabs())
+  await h.send({ command: 'knock' })
+  const first = h.opened.get(99).url
+  assert.equal(new URL(first).origin, 'https://knock.example')
+  assert.ok(new URL(first).searchParams.has('r'))
+  await h.send({ command: 'knock' })
+  assert.equal(h.navigations.length, 1, 'Reuse the pending tab without navigating again')
+  h.complete(200)
+  h.events.updated(99, { status: 'complete' }, { url: first })
+  await h.flush()
+  assert.equal(h.opened.has(99), false)
+  await h.send({ command: 'knock' })
+  assert.notEqual(h.opened.get(99).url, first)
+})
+
 test('Chromium retries a knock interrupted by proxy settings once, then closes on success or leaves a repeated failure open', async () => {
   for (const [tabURL, repeatedFailure] of [
     ['https://knock.example/', false],

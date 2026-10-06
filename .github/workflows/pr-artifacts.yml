@@ -5,6 +5,7 @@ on:
     types: [completed]
 permissions:
   actions: read
+  contents: read
   pull-requests: write
 concurrency:
   group: pr-archives-${{ github.event.workflow_run.head_branch }}
@@ -39,9 +40,15 @@ jobs:
               'Extract the ZIP and load manifest.json. Firefox builds are unsigned temporary add-ons. Archives expire after 14 days; downloading requires signing in to GitHub.',
               end
             ].join('\n')
-            for (const reference of run.pull_requests) {
+            // Release PRs can have an empty workflow_run.pull_requests list,
+            // and the release workflow may merge them before this job starts.
+            const references = run.pull_requests.length ? run.pull_requests :
+              await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+                ...repo, commit_sha: run.head_sha
+              })
+            for (const reference of references) {
               const { data: pr } = await github.rest.pulls.get({ ...repo, pull_number: reference.number })
-              if (pr.state !== 'open' || pr.head.sha !== run.head_sha) continue
+              if (pr.head.sha !== run.head_sha) continue
               const body = pr.body || ''
               const from = body.indexOf(start)
               const to = body.indexOf(end, from)

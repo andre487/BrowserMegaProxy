@@ -33,6 +33,8 @@ Each PR's **Extension checks** workflow publishes two ZIP artifacts:
 download the archive from **Artifacts**, and extract it. Its `manifest.json` is at the
 archive root; install the extracted directory as described above.
 Artifacts are retained for 14 days and uploaded immediately after building, before tests run.
+The latest archive links are maintained at the bottom of the PR description,
+including release PRs that merge before the publication job starts.
 
 Open Settings from the popup: profiles, import/export, routing, language and appearance
 are on a separate page. Add a profile with a server address, port, username and password.
@@ -366,6 +368,25 @@ Ranking Hardened Against Manipulation_, NDSS,
 ### Optional request statistics
 
 Statistics and network monitoring are enabled by default, with one local opt-out in Settings. Existing saved opt-out preferences remain respected. Counters track completed and failed MegaProxy requests. Direct requests are excluded. Statistics remain local in the browser and are never sent anywhere. Counters stay in memory, reset on opt-out or background-process restart, and never write storage per request. The statistics panel refreshes every five seconds only while its page is visible and statistics are enabled. Opting out removes the collecting listeners, clears the journal and counters, and hides both panels. The preference is local and is neither imported nor exported; no traffic-volume measurement is attempted.
+
+### Test runners and reports
+
+`npm test` runs unit tests with Node's built-in test runner. Android suites use
+the same runner in `tests/android/*.test.mjs`, with named sequential scenarios,
+one browser setup per suite, and teardown that also runs after a failure.
+Scenario failures do not prevent the remaining scenarios from running; a failed
+setup prevents the suite from proceeding. Desktop browser tests use Playwright Test.
+
+All runners print named results and write JUnit XML under `test-results/`:
+`unit.xml`, `android-firefox.xml`, `android-vivaldi.xml`, or `playwright.xml`.
+Extra Node runner flags can be passed through npm, for example
+`npm test -- --test-name-pattern=knock`.
+Playwright also writes an HTML report; open it with `npx playwright show-report`.
+
+Each GitHub Actions test job publishes a summary with counts and expandable
+results, even after failures. JUnit reports and browser evidence are retained
+as artifacts for seven days. Playwright failures also create GitHub annotations.
+These reports do not change the separate required test statuses.
 
 ### Server integration tests
 

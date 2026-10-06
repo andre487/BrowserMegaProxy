@@ -87,12 +87,20 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           disable-animations: true
           script: npm run test:android:chromium
+      - name: Android test summary
+        if: always()
+        uses: test-summary/action@v2
+        with:
+          paths: test-results/android-vivaldi.xml
+          show: all
+          folded: true
       - name: Upload Android evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: vivaldi-android-results
           path: |
+            test-results/android-vivaldi.xml
             test-results/android-vivaldi/*.json
             test-results/android-vivaldi/*.png
             test-results/android-vivaldi/*.txt
