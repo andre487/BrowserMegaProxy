@@ -150,6 +150,9 @@ try {
     ).catch(() => ({ stdout: Buffer.alloc(0) }))
     return stdout.toString().includes('prefs.js')
   }, 'Firefox profile creation')
+  // WorkManager can restart Firefox while its private preferences are being seeded.
+  // Disable the package until all files are ready, then allow a fresh process to read them.
+  await adb('shell', 'pm', 'disable-user', '--user', '0', packageId)
   await adb('shell', 'am', 'force-stop', packageId)
   const { stdout: profileFiles } = await adb(
     'shell',
@@ -194,6 +197,7 @@ try {
       `rm -f '${destination}.bak'; cp /data/local/tmp/megaproxy-pref '${destination}'; chown $(stat -c %u:%g '${profile}') '${destination}'; chmod 600 '${destination}'`
     )
   }
+  await adb('shell', 'pm', 'enable', '--user', '0', packageId)
   await adb(
     'shell',
     'am',
@@ -208,15 +212,7 @@ try {
     '-n',
     activity
   )
-  try {
-    await poll(
-      async () =>
-        (await adb('shell', 'cat', '/proc/net/unix')).stdout
-          .toString()
-          .includes(`${packageId}/firefox-debugger-socket`),
-      'Firefox remote debugger'
-    )
-  } catch (error) {
+  const startupDiagnostics = async () => {
     const fenix = (
       await adb('shell', 'cat', `/data/data/${packageId}/shared_prefs/fenix_preferences.xml`)
     ).stdout.toString()
@@ -227,6 +223,10 @@ try {
         fenix.match(/<boolean name="pref_key_remote_debugging"[^>]*>/)?.[0] || 'missing',
       geckoRemoteDebugging:
         gecko.match(/user_pref\("devtools\.debugger\.remote-enabled"[^;]*;/)?.[0] || 'missing',
+      sockets: (await adb('shell', 'cat', '/proc/net/unix')).stdout
+        .toString()
+        .split('\n')
+        .filter(line => line.includes('firefox-debugger-socket')),
       files: (
         await adb(
           'shell',
@@ -237,8 +237,19 @@ try {
         )
       ).stdout.toString()
     }
-    console.error('Firefox startup diagnostics:', diagnostics)
+    console.log('Firefox startup diagnostics:', diagnostics)
     await writeFile(`${output}/startup-debug.json`, JSON.stringify(diagnostics, null, 2))
+  }
+  try {
+    await poll(
+      async () =>
+        (await adb('shell', 'cat', '/proc/net/unix')).stdout
+          .toString()
+          .includes(`${packageId}/firefox-debugger-socket`),
+      'Firefox remote debugger'
+    )
+  } catch (error) {
+    await startupDiagnostics()
     throw error
   }
 
@@ -339,6 +350,7 @@ try {
   await exec('zip', ['-qr', `${output}/addon.xpi`, '.'], { cwd: addon })
   await adb('push', `${output}/addon.xpi`, '/data/local/tmp/megaproxy-android.xpi')
   await adb('forward', 'tcp:6000', `localabstract:${packageId}/firefox-debugger-socket`)
+  await startupDiagnostics()
   await installFirefoxAddon(6000, '/data/local/tmp/megaproxy-android.xpi', { wake: true })
   await tapText(await nativeUI(), 'OK')
   const capabilities = await command({ command: 'testPlatform' })
