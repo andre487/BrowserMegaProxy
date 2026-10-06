@@ -175,7 +175,7 @@ try {
   await writeFile(`${output}/fenix_preferences.xml`, prefs)
   await writeFile(
     `${output}/user.js`,
-    'user_pref("devtools.debugger.remote-enabled", true);\nuser_pref("devtools.debugger.prompt-connection", false);\n'
+    'user_pref("devtools.debugger.prompt-connection", false);\n'
   )
   await writeFile(
     `${output}/extension-preferences.json`,
@@ -198,7 +198,9 @@ try {
     )
   }
   await adb('shell', 'pm', 'enable', '--user', '0', packageId)
+  let startupLoaded = false
   const startupPort = await listen((req, res) => {
+    startupLoaded = true
     res.writeHead(200, { 'Content-Type': 'text/html' })
     res.end('<!doctype html><title>MegaProxy Android startup</title>Ready')
   })
@@ -225,6 +227,7 @@ try {
     const gecko = (await adb('shell', 'cat', `${profile}/prefs.js`)).stdout.toString()
     const diagnostics = {
       profile,
+      startupLoaded,
       fenixRemoteDebugging:
         fenix.match(/<boolean name="pref_key_remote_debugging"[^>]*>/)?.[0] || 'missing',
       geckoRemoteDebugging:
@@ -247,6 +250,7 @@ try {
     await writeFile(`${output}/startup-debug.json`, JSON.stringify(diagnostics, null, 2))
   }
   try {
+    await poll(() => startupLoaded, 'Firefox startup document request')
     await poll(
       async () =>
         (await adb('shell', 'cat', '/proc/net/unix')).stdout
