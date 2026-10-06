@@ -11,8 +11,14 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
     test.setTimeout(120000)
     const target = testInfo.project.name
     const server = await startServer(scenario)
+    const recordNetwork = async phase => {
+      const diagnostics = `Network ${phase}: ${new Date().toISOString()}\n${await server.diagnostics()}`
+      console.log(diagnostics)
+      await testInfo.attach(`network-${phase}`, { body: diagnostics, contentType: 'text/plain' })
+    }
     let browser
     try {
+      await recordNetwork('start')
       const serverHost =
         scenario === 'ip'
           ? '127.0.0.1'
@@ -276,12 +282,6 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
           .toBeGreaterThan(authFailures)
       }
     } catch (error) {
-      const diagnostics = await server.diagnostics()
-      console.log(diagnostics)
-      await testInfo.attach('network-diagnostics', {
-        body: diagnostics,
-        contentType: 'text/plain'
-      })
       if (browser) {
         await testInfo.attach('browser-network-errors', {
           body: JSON.stringify(await browser.networkErrors(), null, 2),
@@ -292,7 +292,11 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
       throw error
     } finally {
       try {
-        await browser?.close()
+        try {
+          await recordNetwork('end')
+        } finally {
+          await browser?.close()
+        }
       } finally {
         await server.close()
       }

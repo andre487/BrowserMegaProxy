@@ -383,7 +383,9 @@ The fixture renders the server's actual GOST and HAProxy templates and invokes i
 
 The native proxy credential dialog is outside Playwright’s page API: tests verify that the browser opens a knock tab and the real server challenges it, but do not automate typing into that dialog.
 
-Failed server tests attach `network-diagnostics` before removing their containers.
+Server tests record `network-start` before browser requests and `network-end` before
+removing their containers, on success or failure. Both timestamped snapshots appear
+in the CI log and as separate Playwright attachments for comparison.
 When available, `ip` (iproute2) reports addresses, IPv6 `tentative`/`dadfailed` flags,
 all routing tables and policy rules; `ss` reports TCP sockets and a socket summary.
 Linux runners also inspect each test container's network namespace through
