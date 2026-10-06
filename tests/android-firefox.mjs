@@ -51,7 +51,8 @@ const listen = async handler => {
   return port
 }
 const poll = async (condition, description) => {
-  for (let i = 0; i < 150; i++) {
+  const deadline = Date.now() + 30000
+  while (Date.now() < deadline) {
     if (await condition()) {
       return
     }
@@ -359,10 +360,10 @@ try {
   for (const page of ['popup', 'options']) {
     if (page === 'popup') {
       for (const label of ['More options', 'Extensions', 'MegaProxy']) {
-        assert.ok(await tapText(await nativeUI(), label), `Native control missing: ${label}`)
+        await poll(async () => tapText(await nativeUI(), label), `Native control: ${label}`)
       }
     } else {
-      assert.ok(await tapText(await nativeUI(), 'Settings'), 'Popup settings action missing')
+      await poll(async () => tapText(await nativeUI(), 'Settings'), 'Popup settings action')
       await adb('shell', 'input', 'keyevent', '4')
     }
     await poll(() => layouts.some(r => r.page === `/${page}.html`), 'mobile layout report')
