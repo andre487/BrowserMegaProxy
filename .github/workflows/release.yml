@@ -68,6 +68,14 @@ jobs:
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file "$notes" --title "MegaProxy $RELEASE_TAG"
           fi
+  opera-addons:
+    name: Submit to Opera Add-ons
+    needs: release
+    if: vars.OPERA_PUBLISH_ENABLED == 'true'
+    uses: ./.github/workflows/opera-addons.yml
+    secrets: inherit
+    with:
+      tag: ${{ inputs.tag }}
   chrome-web-store:
     name: Submit to Chrome Web Store
     needs: release

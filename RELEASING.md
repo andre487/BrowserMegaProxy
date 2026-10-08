@@ -128,8 +128,7 @@ These workflows do not enable automatic Firefox signing or AMO publication.
 
 ## Store publication
 
-Chrome Web Store submission can be automated as described below. Upload the Chromium
-ZIP to Opera Add-ons. Upload the Firefox
+Chrome Web Store and Opera Add-ons submission can be automated as described below. Upload the Firefox
 ZIP to Firefox Add-ons through your Mozilla account. Use the listings, screenshots
 and policy in [store/](store/README.md), and supply a public privacy-policy URL.
 Before Opera publication, test the release in the target browser version.
@@ -166,6 +165,44 @@ the successful GitHub Release job does not need to run again. A version already
 pending review or published is skipped when reported by the API. Rejected or
 cancelled submissions require attention in the dashboard. Publish code fixes as a
 new version; recovery of an older version cannot downgrade the store item.
+
+### Opera Add-ons
+
+The optional **Submit to Opera Add-ons** job uses the existing Chromium ZIP from
+GitHub Release. It calls the developer dashboard's undocumented HTTP API using
+the session cookie in secret `OPERA_SESSION_ID` and the numeric package ID in
+variable `OPERA_PACKAGE_ID`. The listing and its first version must already exist
+in Opera's dashboard. Set `OPERA_PUBLISH_ENABLED=true` to submit after normal releases;
+leave it unset or false to keep Opera submission disabled.
+
+The job uploads the ZIP in chunks, copies existing metadata and localized summaries,
+and submits for moderation. It resumes an uploaded version after a failed attempt
+and skips a version already submitted. A successful submission does not mean Opera
+has approved or published it. Sessions can expire and dashboard API changes can
+require updating the integration. No account password is stored by this workflow.
+
+For a read-only check, run **Actions → Opera Add-ons → Run workflow**, select a
+GitHub release tag and keep **dry_run** enabled (the default). It validates archive
+integrity/version, reads the package and previous version metadata, and confirms
+that the account can edit the listing. It does not upload, edit or submit a version.
+Use this workflow independently to retry Opera without rebuilding GitHub assets or
+triggering Chrome publication. Clearing **dry_run** submits the selected release.
+
+Failures in normal Opera submission are non-blocking: the workflow emits a warning
+and a job summary with manual upload and credential renewal instructions. GitHub
+Release and Chrome publication continue independently. Dry-run failures remain
+blocking so invalid credentials are reported clearly.
+
+Manual recovery: download the Chromium ZIP from the GitHub release, open
+[Opera Developer Dashboard](https://addons.opera.com/developer/), select the extension's
+**Versions** tab, upload the ZIP, verify metadata and submit for moderation. To
+renew access, sign in to that dashboard, copy its `sessionid` cookie from browser
+DevTools → Application → Cookies and replace GitHub secret `OPERA_SESSION_ID`.
+Check `OPERA_PACKAGE_ID` against the numeric ID in the dashboard URL, then run a
+dry run before retrying. Never share or commit the cookie value.
+
+API behavior is based on the [publish-browser-extension implementation](https://github.com/aklinker1/publish-browser-extension/blob/main/src/stores/opera-addons-store.ts);
+Opera's supported manual process is described in its [publishing guidelines](https://help.opera.com/en/extensions/publishing-guidelines/).
 
 ## Recovery after failure
 
