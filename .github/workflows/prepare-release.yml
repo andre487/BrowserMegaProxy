@@ -115,5 +115,6 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/release.yml
+    secrets: inherit
     with:
       tag: ${{ needs.finalize.outputs.tag }}
