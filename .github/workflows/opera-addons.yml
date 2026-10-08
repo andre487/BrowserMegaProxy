@@ -1,0 +1,72 @@
+name: Opera Add-ons
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      dry_run:
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag
+        required: true
+        type: string
+      dry_run:
+        description: Check archive and Opera session without uploading or submitting
+        default: true
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: opera-addons
+  cancel-in-progress: false
+jobs:
+  opera:
+    name: Check or submit Opera Add-on
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: ${{ !inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Download released Chromium archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-chromium-$RELEASE_TAG.zip" --dir dist/release
+      - name: Run Opera integration
+        id: submit
+        continue-on-error: ${{ !inputs.dry_run }}
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          OPERA_PACKAGE_ID: ${{ vars.OPERA_PACKAGE_ID }}
+          OPERA_SESSION_ID: ${{ secrets.OPERA_SESSION_ID }}
+          OPERA_DRY_RUN: ${{ inputs.dry_run }}
+        run: node scripts/opera-addons.mjs "$RELEASE_TAG"
+      - name: Explain manual recovery
+        if: failure() || steps.submit.outcome == 'failure'
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          OPERA_PACKAGE_ID: ${{ vars.OPERA_PACKAGE_ID }}
+        run: |
+          echo '::warning title=Opera Add-ons submission failed::Submit the Chromium ZIP manually at https://addons.opera.com/developer/. Renew the sessionid cookie from that site and replace GitHub secret OPERA_SESSION_ID. See the job summary for links and steps.'
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### Opera submission needs attention
+
+          1. Download \`MegaProxy-chromium-$RELEASE_TAG.zip\` from [GitHub Release](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG).
+          2. Sign in to [Opera Developer Dashboard](https://addons.opera.com/developer/), open your existing extension → Versions, upload the ZIP, check the metadata and submit for moderation.
+          3. To renew credentials, while signed in to the dashboard open browser DevTools → Application → Cookies → https://addons.opera.com. Copy the value of \`sessionid\` and replace [Actions secret](https://github.com/$GITHUB_REPOSITORY/settings/secrets/actions) \`OPERA_SESSION_ID\`. Keep the cookie value private.
+          4. Check [Actions variable](https://github.com/$GITHUB_REPOSITORY/settings/variables/actions) \`OPERA_PACKAGE_ID\`: it is the numeric ID in the dashboard URL \`/developer/package/ID/\` (configured: \`$OPERA_PACKAGE_ID\`).
+          5. Run **Opera Add-ons** with this tag and **dry_run** enabled before retrying submission. Leave **dry_run** disabled only when ready to submit.
+
+          Normal release publication continues even if Opera fails. Dry runs fail explicitly so expired credentials remain visible.
+          EOF

@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       dry_run:
-        description: Check an existing release and Chrome Web Store access without publishing
+        description: Check an existing release and store access without publishing
         default: false
         type: boolean
   workflow_dispatch:
@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       dry_run:
-        description: Check an existing release and Chrome Web Store access without publishing
+        description: Check an existing release and store access without publishing
         default: false
         type: boolean
 permissions:
@@ -68,6 +68,15 @@ jobs:
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file "$notes" --title "MegaProxy $RELEASE_TAG"
           fi
+  opera-addons:
+    name: Submit to Opera Add-ons
+    needs: release
+    if: ${{ !cancelled() && vars.OPERA_PUBLISH_ENABLED != 'false' && (needs.release.result == 'success' || (inputs.dry_run && needs.release.result == 'skipped')) }}
+    uses: ./.github/workflows/opera-addons.yml
+    secrets: inherit
+    with:
+      tag: ${{ inputs.tag }}
+      dry_run: ${{ inputs.dry_run }}
   chrome-web-store:
     name: Submit to Chrome Web Store
     needs: release
