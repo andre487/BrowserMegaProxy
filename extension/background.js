@@ -1137,12 +1137,28 @@ platform.registerKnockRefresh({
 
 api.webRequest.onAuthRequired.addListener(
   (details, respond) => {
+    if (details.isProxy) {
+      diagnosticLog?.write('proxy_auth_required', { type: details.type })
+    }
     ready
-      .then(async () => {
-        const p = details.url ? await requestProfile(details) : M.active(state)
-        respond(p ? M.auth({ ...details, profileId: p.id }, state, attempts) : {})
+      .then(() => {
+        // Authenticate the actual proxy challenger; routing may have changed since the request began.
+        const response = M.auth(details, state, attempts)
+        if (details.isProxy) {
+          diagnosticLog?.write(
+            response.authCredentials
+              ? 'proxy_auth_supplied'
+              : response.cancel
+                ? 'proxy_auth_cancelled'
+                : 'proxy_auth_skipped'
+          )
+        }
+        respond(response)
       })
-      .catch(() => respond({ cancel: true }))
+      .catch(() => {
+        diagnosticLog?.write('proxy_auth_failed')
+        respond({ cancel: true })
+      })
   },
   { urls: ['<all_urls>'] },
   ['asyncBlocking']
