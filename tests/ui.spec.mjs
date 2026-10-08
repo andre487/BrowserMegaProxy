@@ -30,6 +30,9 @@ test.beforeEach(async ({ page, browserName, context }) => {
       statisticsEnabled: true
     }
     globalThis.chrome = {
+      extension: {
+        isAllowedIncognitoAccess: async () => localStorage.getItem('privateAccess') === 'true'
+      },
       permissions: { request: async () => true },
       tabs: { query: async () => [] },
       i18n: { getUILanguage: () => localStorage.getItem('browserLanguage') || 'ru-RU' },
@@ -239,6 +242,40 @@ test.beforeEach(async ({ page, browserName, context }) => {
     }
   })
   await page.goto('http://127.0.0.1:8765/options.html')
+})
+
+test('private-window access status, browser instructions and refresh on return', async ({
+  page,
+  browserName
+}) => {
+  const status = page.locator('#private-access-status')
+  const hint = page.locator('#private-access-hint')
+  await expect(status).toHaveText('Доступ к приватным окнам: не разрешён')
+  await expect(hint).toBeVisible()
+  await expect(hint).toContainText(browserName === 'firefox' ? 'about:addons' : '«Подробнее»')
+
+  await page.locator('#settings').evaluate(element => {
+    element.open = true
+  })
+  await page.locator('#language').selectOption('en')
+  await expect(status).toHaveText('Private-window access: not allowed')
+  await expect(hint).toContainText(browserName === 'firefox' ? 'about:addons' : 'Details')
+
+  await page.evaluate(() => {
+    localStorage.setItem('privateAccess', 'true')
+    window.dispatchEvent(new Event('focus'))
+  })
+  await expect(status).toHaveText('Private-window access: allowed')
+  await expect(hint).toBeHidden()
+
+  await page.evaluate(() => {
+    chrome.extension.isAllowedIncognitoAccess = async () => {
+      throw new Error('Unavailable')
+    }
+    window.dispatchEvent(new Event('focus'))
+  })
+  await expect(status).toHaveText('Private-window access: unable to check')
+  await expect(hint).toBeVisible()
 })
 
 test('profile lifecycle, import, themes and responsive keyboard-accessible form', async ({

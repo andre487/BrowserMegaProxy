@@ -709,5 +709,20 @@
   },
   "errorLogLimit": {
     "message": "Enter an integer from 1 to 10 MiB"
+  },
+  "privateAccessAllowed": {
+    "message": "Private-window access: allowed"
+  },
+  "privateAccessDenied": {
+    "message": "Private-window access: not allowed"
+  },
+  "privateAccessUnknown": {
+    "message": "Private-window access: unable to check"
+  },
+  "privateAccessFirefoxHint": {
+    "message": "Open about:addons → MegaProxy → Run in Private Windows → Allow."
+  },
+  "privateAccessChromiumHint": {
+    "message": "Open your browser’s extensions page → MegaProxy → Details → Allow in incognito (private windows)."
   }
 }
