@@ -124,12 +124,13 @@ package to Mozilla and downloads the signed copy after approval. The `listed`
 channel submits a public release; an initial listing also needs AMO metadata.
 Review may require manual intervention and take longer than the CLI's wait period.
 [Mozilla documents both distribution channels and signing](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/).
-These workflows do not enable automatic Firefox signing or AMO publication.
+Automatic public AMO submission is described below. The unlisted signing command
+above remains a separate manual option for self-distribution.
 
 ## Store publication
 
-Chrome Web Store and Opera Add-ons submission can be automated as described below. Upload the Firefox
-ZIP to Firefox Add-ons through your Mozilla account. Use the listings, screenshots
+Chrome Web Store, Firefox Add-ons and Opera Add-ons submission can be automated as
+described below. Use the listings, screenshots
 and policy in [store/](store/README.md), and supply a public privacy-policy URL.
 Before Opera publication, test the release in the target browser version.
 
@@ -165,6 +166,53 @@ the successful GitHub Release job does not need to run again. A version already
 pending review or published is skipped when reported by the API. Rejected or
 cancelled submissions require attention in the dashboard. Publish code fixes as a
 new version; recovery of an older version cannot downgrade the store item.
+
+### Firefox Add-ons (AMO)
+
+The **Submit to Firefox Add-ons** job submits the Firefox package to public AMO
+using Mozilla's official `web-ext@10.7.0 sign --channel listed`. It downloads the
+Firefox ZIP and source ZIP from the same GitHub release, validates archive integrity,
+versions and the manifest's `browser-mega-proxy@andre487` ID, then authenticates
+with AMO's official JWT API. Store submissions are serialized across release tags.
+
+The required repository secrets are `AMO_JWT_ISSUER` and `AMO_JWT_SECRET`, obtained
+from [AMO API credentials](https://addons.mozilla.org/developers/addon/api/key/).
+The account must accept AMO's developer agreement and, if MegaProxy is already
+listed, be an author of that listing. The manifest ID must match its AMO GUID; the store slug is not
+used as the extension ID. Submission is enabled by default; set repository variable
+`AMO_PUBLISH_ENABLED=false` to disable it. Configure the secrets before the next
+release or disable submission until ready.
+
+For a first submission, `web-ext` creates the listing using the tagged source
+archive's EN/RU Firefox listings, privacy policy, reviewer notes, MIT license and
+Other categories for desktop and Android. Complete screenshots, icons and any
+remaining store requirements in the AMO dashboard. Later updates preserve the
+existing listing and submit version-level reviewer/build notes. Both first
+submissions and updates include the source ZIP for reproducible review.
+
+Run **Actions → Firefox Add-ons → Run workflow** with an existing release tag and
+**dry_run** enabled (the default) to validate the archives, authenticate and check
+ownership of an existing listing. A missing listing is reported as an initial
+submission, without creating it. The common **Release extension artifacts** dry run
+also checks Firefox unless `AMO_PUBLISH_ENABLED=false`. No upload, signing request,
+listing edit or version submission occurs during dry runs. These checks cannot
+confirm Mozilla's package validation or approval of a new listing.
+
+Clear **dry_run** only to submit a real version. The job waits for upload/validation,
+but not review approval (`--approval-timeout 0`); success means AMO accepted the
+submission. AMO signs and publishes after approval. This integration does not
+download a signed XPI or attach one to GitHub Release; public store installation
+uses AMO, including on supported Firefox Android versions.
+
+Unlike Opera's optional warning path, Firefox failures remain visible as failed
+jobs while the existing GitHub release remains available. Fix credentials or
+metadata in AMO, then rerun **Firefox Add-ons** for the same tag. Versions already
+listed as public or awaiting review with attached source are skipped. Rejected,
+disabled, unlisted or incomplete existing versions require dashboard attention;
+the workflow does not silently replace or delete them.
+
+See [Mozilla's signing command reference](https://extensionworkshop.com/documentation/develop/web-ext-command-reference/#web-ext-sign)
+and [JWT authentication documentation](https://mozilla.github.io/addons-server/topics/api/auth.html).
 
 ### Opera Add-ons
 

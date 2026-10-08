@@ -3,6 +3,7 @@
 [Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
 Automatic Chrome release submission and dry runs are described in [RELEASING.md](../RELEASING.md#chrome-web-store).
 Optional Opera submission, dry runs and manual recovery are described in [RELEASING.md](../RELEASING.md#opera-add-ons).
+Firefox Add-ons submission and dry runs are described in [RELEASING.md](../RELEASING.md#firefox-add-ons-amo).
 
 Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English and Russian copy is in `listings/{chrome,firefox,opera}/{en,ru}.json`: paste the name, summary and description into the corresponding store fields. Each summary is at most 132 characters. Screenshot captions are supplied for accessibility fields where available. Release store-materials archives include readable Markdown copies beside the JSON listings.
 
