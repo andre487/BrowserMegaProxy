@@ -16,6 +16,7 @@ function harness(target, credentials) {
   const events = {}
   const tabs = []
   const proxy = []
+  const diagnostics = []
   const listener = name => ({
     addListener: fn => {
       events[name] = fn
@@ -81,15 +82,59 @@ function harness(target, credentials) {
     URL,
     TextEncoder,
     btoa,
-    structuredClone
+    structuredClone,
+    indexedDB: {},
+    MegaDiagnosticLog: class {
+      write(event) {
+        diagnostics.push(event)
+      }
+    }
   })
   vm.runInContext(core, context)
   vm.runInContext(background, context)
   const send = message => new Promise(resolve => events.message(message, { id: 'test' }, resolve))
   const flush = () => vm.runInContext('queue', context)
 
-  return { events, tabs, proxy, send, flush }
+  return { events, tabs, proxy, diagnostics, send, flush }
 }
+
+test('proxy authentication without knock follows the challenger even when current routing excludes the request', async () => {
+  const h = harness('chromium', { username: 'user', password: 'secret', knockHost: '' })
+  await h.send({
+    command: 'routing',
+    routing: { enabled: true, mode: 'domains', domains: ['selected.example'] }
+  })
+  const details = {
+    requestId: 'old-tab',
+    tabId: 42,
+    type: 'xmlhttprequest',
+    url: 'https://excluded.example/resource',
+    isProxy: true,
+    challenger: { host: 'proxy.example', port: 443 }
+  }
+  const auth = extra =>
+    new Promise(resolve => h.events.onAuthRequired({ ...details, ...extra }, resolve))
+  assert.deepEqual(JSON.parse(JSON.stringify(await auth())), {
+    authCredentials: { username: 'user', password: 'secret' }
+  })
+  assert.equal((await auth()).cancel, true)
+  h.events.onCompleted({ ...details, type: 'image' })
+  assert.ok((await auth()).authCredentials)
+  assert.equal(Object.keys(await auth({ isProxy: false })).length, 0)
+  assert.equal(
+    Object.keys(await auth({ challenger: { host: 'other.example', port: 443 } })).length,
+    0
+  )
+  assert.equal(
+    Object.keys(await auth({ challenger: { host: 'proxy.example', port: 80 } })).length,
+    0
+  )
+  assert.ok(h.diagnostics.includes('proxy_auth_required'))
+  assert.ok(h.diagnostics.includes('proxy_auth_supplied'))
+  assert.ok(h.diagnostics.includes('proxy_auth_cancelled'))
+  assert.ok(h.diagnostics.includes('proxy_auth_skipped'))
+  assert.equal(h.tabs.length, 0)
+})
 
 test('startup and activation knock matrix uses saved credentials and browser; native prompt is left to the browser', async () => {
   for (const target of ['chromium', 'firefox']) {
