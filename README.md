@@ -20,6 +20,10 @@ Safari and browsers without extension proxy APIs are not supported.
 
 ## Build and install
 
+**Chrome:** [Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
+
+For a local development build:
+
 Requires Node.js 22+ and npm.
 
 ```sh

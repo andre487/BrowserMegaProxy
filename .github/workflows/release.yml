@@ -6,12 +6,20 @@ on:
         description: Existing release tag to build and publish
         required: true
         type: string
+      dry_run:
+        description: Check an existing release and Chrome Web Store access without publishing
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       tag:
         description: Existing release tag to republish after recovery
         required: true
         type: string
+      dry_run:
+        description: Check an existing release and Chrome Web Store access without publishing
+        default: false
+        type: boolean
 permissions:
   contents: read
 concurrency:
@@ -20,6 +28,7 @@ concurrency:
 jobs:
   release:
     name: Build and publish extension archives
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -59,3 +68,37 @@ jobs:
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file "$notes" --title "MegaProxy $RELEASE_TAG"
           fi
+  chrome-web-store:
+    name: Submit to Chrome Web Store
+    needs: release
+    if: ${{ !cancelled() && (vars.CWS_PUBLISH_ENABLED == 'true' || inputs.dry_run) && (needs.release.result == 'success' || (inputs.dry_run && needs.release.result == 'skipped')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: chrome-web-store
+      cancel-in-progress: false
+    steps:
+      # Use publishing code from the workflow revision, including for recovery of older tags.
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Download released Chromium archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-chromium-$RELEASE_TAG.zip" --dir dist/release
+      - name: Upload and submit for review
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          CWS_PUBLISHER_ID: ${{ vars.CWS_PUBLISHER_ID }}
+          CWS_EXTENSION_ID: kfilelfnldddoncicbampiojjjcpbigo
+          CWS_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CWS_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_DRY_RUN: ${{ inputs.dry_run }}
+        run: node scripts/chrome-web-store.mjs "$RELEASE_TAG"

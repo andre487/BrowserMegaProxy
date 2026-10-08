@@ -1,7 +1,8 @@
 # Releasing MegaProxy
 
 The process follows AndroidMegaProxy: manual version input → release PR →
-required checks → merge → tag → build and GitHub Release, all in one workflow run.
+required checks → merge → tag → build and GitHub Release → optional Chrome Web Store
+submission, all in one workflow run.
 
 ## One-time setup
 
@@ -123,14 +124,48 @@ package to Mozilla and downloads the signed copy after approval. The `listed`
 channel submits a public release; an initial listing also needs AMO metadata.
 Review may require manual intervention and take longer than the CLI's wait period.
 [Mozilla documents both distribution channels and signing](https://extensionworkshop.com/documentation/publish/signing-and-distribution-overview/).
-These workflows do not enable automatic signing or automatic store publication.
+These workflows do not enable automatic Firefox signing or AMO publication.
 
 ## Store publication
 
-Upload the Chromium ZIP to Chrome Web Store and Opera Add-ons. Upload the Firefox
+Chrome Web Store submission can be automated as described below. Upload the Chromium
+ZIP to Opera Add-ons. Upload the Firefox
 ZIP to Firefox Add-ons through your Mozilla account. Use the listings, screenshots
 and policy in [store/](store/README.md), and supply a public privacy-policy URL.
 Before Opera publication, test the release in the target browser version.
+
+### Chrome Web Store
+
+[Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
+The workflow targets this existing item (`kfilelfnldddoncicbampiojjjcpbigo`).
+
+After the GitHub Release succeeds, **Submit to Chrome Web Store** downloads its
+exact Chromium ZIP, checks archive integrity and manifest version, authenticates,
+uploads through API v2, waits up to 150 seconds for processing, and submits with
+`DEFAULT_PUBLISH`. Google reviews the update and publishes it after approval;
+workflow success means submission was accepted, not that review has completed.
+Store descriptions, screenshots, privacy fields and visibility stay managed in the
+Web Store dashboard. Submissions are serialized across release tags.
+
+For a dry run, open **Actions → Release extension artifacts → Run workflow** on
+`main`, enter an existing GitHub release tag and enable **dry_run**. This works
+before `CWS_PUBLISH_ENABLED` is enabled. It downloads the existing Chromium asset,
+checks ZIP integrity and manifest version, obtains an access token and calls
+`fetchStatus`. It does not rebuild, edit the GitHub release, upload or submit to
+Google. It checks authentication and read access; only a real submission can
+validate Google's package checks and publishing permissions.
+
+To check locally with the same environment variables and downloaded archive:
+
+```sh
+CWS_DRY_RUN=true node scripts/chrome-web-store.mjs vX.Y.Z
+```
+
+If submission fails, fix the credentials or dashboard issue and **Re-run failed jobs**;
+the successful GitHub Release job does not need to run again. A version already
+pending review or published is skipped when reported by the API. Rejected or
+cancelled submissions require attention in the dashboard. Publish code fixes as a
+new version; recovery of an older version cannot downgrade the store item.
 
 ## Recovery after failure
 

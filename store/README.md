@@ -1,5 +1,8 @@
 # MegaProxy store materials
 
+[Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
+Automatic Chrome release submission and dry runs are described in [RELEASING.md](../RELEASING.md#chrome-web-store).
+
 Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English and Russian copy is in `listings/{chrome,firefox,opera}/{en,ru}.json`: paste the name, summary and description into the corresponding store fields. Each summary is at most 132 characters. Screenshot captions are supplied for accessibility fields where available. Release store-materials archives include readable Markdown copies beside the JSON listings.
 
 Run `npm run store:materials` to copy the current assets and generate all six Markdown listings in `dist/store-materials/store/`. JSON files remain the source of truth; release packaging runs this generation automatically.
