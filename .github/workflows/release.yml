@@ -68,6 +68,15 @@ jobs:
           else
             gh release create "$RELEASE_TAG" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file "$notes" --title "MegaProxy $RELEASE_TAG"
           fi
+  firefox-addons:
+    name: Submit to Firefox Add-ons
+    needs: release
+    if: ${{ !cancelled() && vars.AMO_PUBLISH_ENABLED != 'false' && (needs.release.result == 'success' || (inputs.dry_run && needs.release.result == 'skipped')) }}
+    uses: ./.github/workflows/firefox-addons.yml
+    secrets: inherit
+    with:
+      tag: ${{ inputs.tag }}
+      dry_run: ${{ inputs.dry_run }}
   opera-addons:
     name: Submit to Opera Add-ons
     needs: release
