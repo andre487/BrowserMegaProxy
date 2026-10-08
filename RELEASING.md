@@ -172,8 +172,8 @@ The optional **Submit to Opera Add-ons** job uses the existing Chromium ZIP from
 GitHub Release. It calls the developer dashboard's undocumented HTTP API using
 the session cookie in secret `OPERA_SESSION_ID` and the numeric package ID in
 variable `OPERA_PACKAGE_ID`. The listing and its first version must already exist
-in Opera's dashboard. Set `OPERA_PUBLISH_ENABLED=true` to submit after normal releases;
-leave it unset or false to keep Opera submission disabled.
+in Opera's dashboard. Opera submission is enabled by default after normal releases;
+set `OPERA_PUBLISH_ENABLED=false` to disable it explicitly.
 
 The job uploads the ZIP in chunks, copies existing metadata and localized summaries,
 and submits for moderation. It resumes an uploaded version after a failed attempt
@@ -187,6 +187,8 @@ integrity/version, reads the package and previous version metadata, and confirms
 that the account can edit the listing. It does not upload, edit or submit a version.
 Use this workflow independently to retry Opera without rebuilding GitHub assets or
 triggering Chrome publication. Clearing **dry_run** submits the selected release.
+The **Release extension artifacts** workflow with **dry_run** enabled also checks
+Opera unless `OPERA_PUBLISH_ENABLED=false`, alongside its Chrome access check.
 
 Failures in normal Opera submission are non-blocking: the workflow emits a warning
 and a job summary with manual upload and credential renewal instructions. GitHub
