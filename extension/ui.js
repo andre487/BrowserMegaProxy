@@ -23,6 +23,30 @@ let routingDraftMode
 let routingSaves = Promise.resolve()
 let routingSaving = false
 let renderedRoutingConfig
+let privateAccess
+
+function renderPrivateAccess() {
+  $('#private-access-status').textContent = t(
+    privateAccess === undefined
+      ? 'privateAccessUnknown'
+      : privateAccess
+        ? 'privateAccessAllowed'
+        : 'privateAccessDenied'
+  )
+  $('#private-access-hint').textContent = t(
+    platform.id === 'firefox' ? 'privateAccessFirefoxHint' : 'privateAccessChromiumHint'
+  )
+  $('#private-access-hint').hidden = privateAccess === true
+}
+
+async function refreshPrivateAccess() {
+  try {
+    privateAccess = await api.extension.isAllowedIncognitoAccess()
+  } catch {
+    privateAccess = undefined
+  }
+  renderPrivateAccess()
+}
 
 async function send(command, extra = {}) {
   const result = await api.runtime.sendMessage({ command, ...extra })
@@ -162,6 +186,7 @@ function render() {
   }
 
   if (isOptions) {
+    renderPrivateAccess()
     $('#webrtc').value = state.webRTC || 'browser'
     for (const option of $('#webrtc').options) {
       option.hidden = !platform.supportsWebRTC(option.value)
@@ -925,6 +950,10 @@ action(async () => {
   await MegaI18n.ready
   MegaI18n.apply('auto')
   await send('get')
+  if (isOptions) {
+    await refreshPrivateAccess()
+    window.addEventListener('focus', refreshPrivateAccess)
+  }
 })
 
 async function refreshNetwork() {

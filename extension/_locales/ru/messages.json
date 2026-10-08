@@ -709,5 +709,20 @@
   },
   "errorLogLimit": {
     "message": "Введите целое число от 1 до 10 MiB"
+  },
+  "privateAccessAllowed": {
+    "message": "Доступ к приватным окнам: разрешён"
+  },
+  "privateAccessDenied": {
+    "message": "Доступ к приватным окнам: не разрешён"
+  },
+  "privateAccessUnknown": {
+    "message": "Доступ к приватным окнам: не удалось проверить"
+  },
+  "privateAccessFirefoxHint": {
+    "message": "Откройте about:addons → MegaProxy → «Запуск в приватных окнах» → «Разрешить»."
+  },
+  "privateAccessChromiumHint": {
+    "message": "Откройте страницу расширений браузера → MegaProxy → «Подробнее» → разрешите работу в режиме инкогнито (приватных окнах)."
   }
 }
