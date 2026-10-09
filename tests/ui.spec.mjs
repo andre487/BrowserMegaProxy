@@ -30,11 +30,19 @@ test.beforeEach(async ({ page, browserName, context }) => {
       statisticsEnabled: true
     }
     globalThis.chrome = {
+      windows: { getCurrent: async () => ({ id: 7 }) },
       extension: {
+        getViews: () => [],
         isAllowedIncognitoAccess: async () => localStorage.getItem('privateAccess') === 'true'
       },
       permissions: { request: async () => true },
-      tabs: { query: async () => [] },
+      tabs: {
+        query: async () => [],
+        create: async ({ url }) => {
+          location.href = url
+          return { id: 1 }
+        }
+      },
       i18n: { getUILanguage: () => localStorage.getItem('browserLanguage') || 'ru-RU' },
       storage: {
         onChanged: {
@@ -2128,4 +2136,145 @@ test('Firefox warns when disabled MASQUE profiles are imported from a file', asy
   )
   await page.locator('#apply-import').click()
   await expect(page.locator('.profile')).toHaveCount(0)
+})
+
+for (const scenario of ['add-profile', 'import-config']) {
+  test(`empty popup opens the ${scenario} settings scenario and hides actions after adding a profile`, async ({
+    page
+  }) => {
+    await page.addInitScript(() => {
+      globalThis.chrome.tabs.create = async ({ url }) => {
+        location.href = url
+        return { id: 1 }
+      }
+    })
+    await page.goto('http://127.0.0.1:8765/popup.html')
+    await expect(page.locator('#empty')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Добавить профиль', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Импорт настроек', exact: true })).toBeVisible()
+    await page.locator(`#${scenario}`).click()
+    if (scenario === 'add-profile') {
+      await expect(page.locator('#editor')).toBeVisible()
+      await expect(page.locator('[name=name]')).toBeFocused()
+      await page.getByLabel('Хост прокси').fill('proxy.example')
+      await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+    } else {
+      await expect(page.locator('#import-start')).toBeVisible()
+      const chooser = page.waitForEvent('filechooser')
+      await page.locator('#import-file').click()
+      await (
+        await chooser
+      ).setFiles({
+        name: 'proxy.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(
+          JSON.stringify({
+            profiles: [
+              { name: 'Imported', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }
+            ]
+          })
+        )
+      })
+      await expect(page.locator('#import-review')).toBeVisible()
+      await page.locator('#apply-import').click()
+    }
+    await expect(page.locator('.profile')).toHaveCount(1)
+    await page.reload()
+    await expect(page.locator('dialog[open]')).toHaveCount(0)
+    await page.goto('http://127.0.0.1:8765/popup.html')
+    await expect(page.locator('.profile')).toHaveCount(1)
+    await expect(page.locator('#empty')).toBeHidden()
+    await expect(page.locator('#add-profile')).toBeHidden()
+    await expect(page.locator('#import-config')).toBeHidden()
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('testState'))
+      state.profiles = []
+      state.activeId = null
+      const newValue = JSON.stringify(state)
+      localStorage.setItem('testState', newValue)
+      window.dispatchEvent(new StorageEvent('storage', { key: 'testState', newValue }))
+    })
+    await expect(page.locator('#empty')).toBeVisible()
+  })
+}
+
+test('popup import scenario opens the existing URL import dialog', async ({ page }) => {
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await page.goto('http://127.0.0.1:8765/options.html#import-config')
+  await expect(page.locator('#import-start')).toBeVisible()
+  await page.locator('#import-from-url').click()
+  await expect(page.locator('#import-start')).not.toBeVisible()
+  await expect(page.locator('#url-import')).toBeVisible()
+  await expect(page.locator('#config-url')).toBeFocused()
+})
+
+for (const mobile of [false, true]) {
+  for (const scenario of ['add-profile', 'import-config', 'open-settings']) {
+    test(`popup reuses settings in the current window for ${scenario}${mobile ? ' without the windows API' : ''}`, async ({
+      page
+    }) => {
+      await page.addInitScript(mobile => {
+        if (mobile) {
+          delete chrome.windows
+          chrome.runtime.getPlatformInfo = async () => ({ os: 'android' })
+        }
+        globalThis.tabCalls = []
+        chrome.extension.getViews = options => {
+          globalThis.tabCalls.push(['views', options])
+          return [
+            {
+              location: { href: new URL('options.html', location.href).href + '#old' },
+              chrome: { tabs: { getCurrent: async () => ({ id: 42 }) } }
+            },
+            { location: { href: new URL('popup.html', location.href).href } }
+          ]
+        }
+        chrome.tabs.update = async (id, options) => {
+          globalThis.tabCalls.push(['update', id, options])
+        }
+        chrome.tabs.create = async options => {
+          globalThis.tabCalls.push(['create', options])
+        }
+      }, mobile)
+      await page.goto('http://127.0.0.1:8765/popup.html')
+      await page.locator(`#${scenario}`).click()
+      await expect
+        .poll(() => page.evaluate(() => globalThis.tabCalls))
+        .toEqual([
+          ['views', { type: 'tab', ...(mobile ? {} : { windowId: 7 }) }],
+          [
+            'update',
+            42,
+            {
+              active: true,
+              ...(scenario === 'open-settings'
+                ? {}
+                : { url: `http://127.0.0.1:8765/options.html#${scenario}` })
+            }
+          ]
+        ])
+    })
+  }
+}
+
+test('existing settings handles popup scenarios without reloading or losing an open editor', async ({
+  page
+}) => {
+  await page.locator('#new').click()
+  await page.locator('[name=name]').fill('Unsaved profile')
+  await page.evaluate(() => {
+    location.hash = 'add-profile'
+  })
+  await expect(page.locator('[name=name]')).toHaveValue('Unsaved profile')
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('')
+  await page.locator('#cancel-profile').click()
+  await page.evaluate(() => {
+    location.hash = 'import-config'
+  })
+  await expect(page.locator('#import-start')).toBeVisible()
+  await page.locator('#cancel-import-start').click()
+  await page.evaluate(() => {
+    location.hash = 'import-config'
+  })
+  await expect(page.locator('#import-start')).toBeVisible()
 })

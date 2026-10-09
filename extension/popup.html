@@ -59,7 +59,15 @@
             <h2 id="profiles-title" data-i18n="profiles">Profiles</h2>
           </div>
           <div id="profiles"></div>
-          <p id="empty" data-i18n="popupEmpty"></p>
+          <div id="empty" hidden>
+            <p data-i18n="popupEmpty"></p>
+            <div class="actions">
+              <button id="add-profile" type="button" data-i18n="addProfile">Add profile</button>
+              <button id="import-config" type="button" class="secondary" data-i18n="importJSON">
+                Import settings
+              </button>
+            </div>
+          </div>
         </section>
         <section id="statistics" hidden aria-labelledby="statistics-title">
           <h2 id="statistics-title" data-i18n="statisticsTitle">Proxy requests</h2>

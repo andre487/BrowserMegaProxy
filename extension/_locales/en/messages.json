@@ -204,7 +204,7 @@
     "message": "The file is not valid JSON"
   },
   "popupEmpty": {
-    "message": "Add a profile on the settings page."
+    "message": "No profiles yet. Add a proxy manually or import settings."
   },
   "openSettings": {
     "message": "Settings"
@@ -1105,5 +1105,11 @@
   },
   "masqueImportDisabled": {
     "message": "MASQUE is disabled: MASQUE profiles were skipped."
+  },
+  "addProfile": {
+    "message": "Add profile"
+  },
+  "importFile": {
+    "message": "Choose file"
   }
 }

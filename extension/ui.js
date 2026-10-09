@@ -180,6 +180,39 @@ function edit(p = {}) {
   form.elements.name.focus()
 }
 
+async function openSettings(scenario = '') {
+  const url = api.runtime.getURL('options.html')
+  const currentWindow = await api.windows?.getCurrent()
+  const view = api.extension
+    .getViews({ type: 'tab', ...(currentWindow ? { windowId: currentWindow.id } : {}) })
+    .find(view => view.location.href.split(/[?#]/)[0] === url)
+  if (view) {
+    const tab = await (view.browser || view.chrome).tabs.getCurrent()
+    await api.tabs.update(tab.id, {
+      active: true,
+      ...(scenario ? { url: `${url}#${scenario}` } : {})
+    })
+  } else {
+    await api.tabs.create({ url: scenario ? `${url}#${scenario}` : url })
+  }
+}
+
+function openSettingsScenario() {
+  const scenario = location.hash
+  if (!['#add-profile', '#import-config'].includes(scenario)) {
+    return
+  }
+  document.body.hidden = false
+  history.replaceState(null, '', location.pathname + location.search)
+  if (scenario === '#add-profile') {
+    if (!$('#editor').open) {
+      edit({ color: state.profiles.length % MegaProxy.colors.length })
+    }
+  } else {
+    $('#import-start').showModal()
+  }
+}
+
 function render() {
   if (draggingProfile) {
     return
@@ -967,6 +1000,15 @@ if (isOptions) {
   }
 
   $('#open-import').onclick = () => $('#import').click()
+  $('#import-file').onclick = () => {
+    $('#import-start').close()
+    $('#import').click()
+  }
+  $('#import-from-url').onclick = () => {
+    $('#import-start').close()
+    $('#url-import').showModal()
+  }
+  $('#cancel-import-start').onclick = () => $('#import-start').close()
   $('#import').onchange = () =>
     action(async () => {
       const file = $('#import').files[0]
@@ -1033,7 +1075,10 @@ if (isOptions) {
     })
   $('#toggle-tab').onclick = () => action(() => send('toggleTab'))
   $('#disconnect').onclick = () => action(() => send('activate', { id: null }))
-  $('#open-settings').onclick = () => action(() => api.runtime.openOptionsPage(), 'get')
+  $('#open-settings').onclick = () => action(() => openSettings(), 'get')
+  for (const id of ['add-profile', 'import-config']) {
+    $(`#${id}`).onclick = () => action(() => openSettings(id))
+  }
 }
 
 $('#connection-mode').onchange = () =>
@@ -1066,6 +1111,8 @@ action(async () => {
   if (isOptions) {
     await refreshPrivateAccess()
     window.addEventListener('focus', refreshPrivateAccess)
+    openSettingsScenario()
+    window.addEventListener('hashchange', openSettingsScenario)
   }
 }, 'get')
 
