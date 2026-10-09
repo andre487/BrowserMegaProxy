@@ -1920,12 +1920,15 @@ test('UI explains transport failures and transferred background errors with thei
   await expect(page.locator('#notice')).not.toContainText('Failed to fetch')
 })
 
-test('authentication page keeps edits through verification, explains rejection and clears accepted passwords', async ({
+test('authentication page keeps rejected edits and closes after credentials are saved', async ({
   page
 }) => {
   await page.addInitScript(() => {
     globalThis.authPhase = 'waiting'
     globalThis.authMessages = []
+    globalThis.authClosedTabs = []
+    chrome.tabs.getCurrent = async () => ({ id: 7 })
+    chrome.tabs.remove = async id => globalThis.authClosedTabs.push(id)
     chrome.runtime.sendMessage = async message => {
       globalThis.authMessages.push(message)
       if (message.command === 'authSubmit') {
@@ -1953,6 +1956,7 @@ test('authentication page keeps edits through verification, explains rejection a
   await expect(page.locator('body')).toBeVisible()
   await expect(page.locator('#auth-profile')).toHaveText('Test proxy')
   await expect(page.locator('#auth-password')).toBeFocused()
+  expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([])
   await page.locator('#auth-username').fill('new-user')
   await page.locator('#auth-password').fill('private-secret')
   await page.locator('#auth-submit').click()
@@ -1965,11 +1969,13 @@ test('authentication page keeps edits through verification, explains rejection a
   await expect(page.locator('#auth-username')).toHaveValue('new-user')
   await expect(page.locator('#auth-password')).toHaveValue('private-secret')
   await expect(page.locator('#auth-password')).toBeFocused()
+  expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([])
   await page.evaluate(() => {
     globalThis.authPhase = 'saved'
   })
   await expect(page.locator('#notice')).toHaveText('Данные приняты и сохранены.')
   await expect(page.locator('#auth-password')).toHaveValue('')
+  expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([7])
   await expect(page.locator('#auth-cancel')).toHaveText('Закрыть')
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('private-secret')
 })

@@ -73,12 +73,22 @@ async function refresh() {
     return
   }
   try {
-    render(await send('authGet'))
+    const auth = await send('authGet')
+    render(auth)
+    if (auth.phase === 'saved') {
+      await closeDialog()
+    }
   } catch (error) {
     document.body.hidden = false
     username.disabled = password.disabled = submit.disabled = true
     showError(error)
   }
+}
+
+async function closeDialog() {
+  password.value = ''
+  const tab = await api.tabs.getCurrent()
+  await api.tabs.remove(tab.id)
 }
 
 form.onsubmit = async event => {
@@ -105,8 +115,7 @@ cancel.onclick = async () => {
   } catch {
     // An expired request should still allow its dialog to close.
   } finally {
-    const tab = await api.tabs.getCurrent()
-    await api.tabs.remove(tab.id)
+    await closeDialog()
   }
 }
 Promise.resolve(MegaI18n.ready)

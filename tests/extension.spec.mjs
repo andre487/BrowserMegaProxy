@@ -557,8 +557,9 @@ test('rejected proxy credentials open a focused dialog and save only after a suc
     )
     if (dialog) {
       await dialog.locator('#auth-password').fill('new-secret')
+      const closed = dialog.waitForEvent('close')
       await dialog.locator('#auth-submit').click()
-      await expect(dialog.locator('#notice')).toContainText('accepted and saved')
+      await closed
     } else {
       await authCommand({ command: 'authSubmit', username: 'new-user', password: 'new-secret' })
     }
@@ -566,6 +567,12 @@ test('rejected proxy credentials open a focused dialog and save only after a suc
       .poll(async () => (await browser.command({ command: 'get' })).state.profiles[0].password)
       .toBe('new-secret')
     expect((await browser.command({ command: 'get' })).state.profiles[0].username).toBe('new-user')
+    await expect
+      .poll(async () => {
+        const { tabs } = await browser.command({ command: 'testTabState' })
+        return tabs.some(tab => tab.id === authTab.id)
+      })
+      .toBe(false)
     if (navigation) {
       expect(await navigation).toBe(true)
     }
