@@ -190,6 +190,12 @@ remaining store requirements in the AMO dashboard. Later updates preserve the
 existing listing and submit version-level reviewer/build notes. Both first
 submissions and updates include the source ZIP for reproducible review.
 
+AMO reviewer notes are limited to 3,000 characters, including build instructions.
+When the full store notes exceed that limit, the submission points reviewers to
+`store/REVIEWER-NOTES.md` and `store/PERMISSIONS.md` in the attached source archive
+and keeps the build instructions in the AMO field. Recovery uses the current
+publishing script with the existing release archives, so this also handles older tags.
+
 Run **Actions → Firefox Add-ons → Run workflow** with an existing release tag and
 **dry_run** enabled (the default) to validate the archives, authenticate and check
 ownership of an existing listing. A missing listing is reported as an initial
