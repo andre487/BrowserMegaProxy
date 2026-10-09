@@ -2129,3 +2129,75 @@ test('Firefox warns when disabled MASQUE profiles are imported from a file', asy
   await page.locator('#apply-import').click()
   await expect(page.locator('.profile')).toHaveCount(0)
 })
+
+for (const scenario of ['add-profile', 'import-config']) {
+  test(`empty popup opens the ${scenario} settings scenario and hides actions after adding a profile`, async ({
+    page
+  }) => {
+    await page.addInitScript(() => {
+      globalThis.chrome.tabs.create = async ({ url }) => {
+        location.href = url
+        return { id: 1 }
+      }
+    })
+    await page.goto('http://127.0.0.1:8765/popup.html')
+    await expect(page.locator('#empty')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Добавить профиль', exact: true })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Импортировать конфиг', exact: true })
+    ).toBeVisible()
+    await page.locator(`#${scenario}`).click()
+    if (scenario === 'add-profile') {
+      await expect(page.locator('#editor')).toBeVisible()
+      await expect(page.locator('[name=name]')).toBeFocused()
+      await page.getByLabel('Хост прокси').fill('proxy.example')
+      await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+    } else {
+      await expect(page.locator('#import-start')).toBeVisible()
+      const chooser = page.waitForEvent('filechooser')
+      await page.locator('#import-file').click()
+      await (
+        await chooser
+      ).setFiles({
+        name: 'proxy.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(
+          JSON.stringify({
+            profiles: [
+              { name: 'Imported', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }
+            ]
+          })
+        )
+      })
+      await expect(page.locator('#import-review')).toBeVisible()
+      await page.locator('#apply-import').click()
+    }
+    await expect(page.locator('.profile')).toHaveCount(1)
+    await page.reload()
+    await expect(page.locator('dialog[open]')).toHaveCount(0)
+    await page.goto('http://127.0.0.1:8765/popup.html')
+    await expect(page.locator('.profile')).toHaveCount(1)
+    await expect(page.locator('#empty')).toBeHidden()
+    await expect(page.locator('#add-profile')).toBeHidden()
+    await expect(page.locator('#import-config')).toBeHidden()
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('testState'))
+      state.profiles = []
+      state.activeId = null
+      const newValue = JSON.stringify(state)
+      localStorage.setItem('testState', newValue)
+      window.dispatchEvent(new StorageEvent('storage', { key: 'testState', newValue }))
+    })
+    await expect(page.locator('#empty')).toBeVisible()
+  })
+}
+
+test('popup import scenario opens the existing URL import dialog', async ({ page }) => {
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await page.goto('http://127.0.0.1:8765/options.html#import-config')
+  await expect(page.locator('#import-start')).toBeVisible()
+  await page.locator('#import-from-url').click()
+  await expect(page.locator('#import-start')).not.toBeVisible()
+  await expect(page.locator('#url-import')).toBeVisible()
+  await expect(page.locator('#config-url')).toBeFocused()
+})

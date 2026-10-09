@@ -967,6 +967,15 @@ if (isOptions) {
   }
 
   $('#open-import').onclick = () => $('#import').click()
+  $('#import-file').onclick = () => {
+    $('#import-start').close()
+    $('#import').click()
+  }
+  $('#import-from-url').onclick = () => {
+    $('#import-start').close()
+    $('#url-import').showModal()
+  }
+  $('#cancel-import-start').onclick = () => $('#import-start').close()
   $('#import').onchange = () =>
     action(async () => {
       const file = $('#import').files[0]
@@ -1034,6 +1043,10 @@ if (isOptions) {
   $('#toggle-tab').onclick = () => action(() => send('toggleTab'))
   $('#disconnect').onclick = () => action(() => send('activate', { id: null }))
   $('#open-settings').onclick = () => action(() => api.runtime.openOptionsPage(), 'get')
+  for (const id of ['add-profile', 'import-config']) {
+    $(`#${id}`).onclick = () =>
+      action(() => api.tabs.create({ url: api.runtime.getURL(`options.html#${id}`) }))
+  }
 }
 
 $('#connection-mode').onchange = () =>
@@ -1066,6 +1079,16 @@ action(async () => {
   if (isOptions) {
     await refreshPrivateAccess()
     window.addEventListener('focus', refreshPrivateAccess)
+    const scenario = location.hash
+    if (['#add-profile', '#import-config'].includes(scenario)) {
+      document.body.hidden = false
+      history.replaceState(null, '', location.pathname + location.search)
+      if (scenario === '#add-profile') {
+        edit({ color: state.profiles.length % MegaProxy.colors.length })
+      } else {
+        $('#import-start').showModal()
+      }
+    }
   }
 }, 'get')
 

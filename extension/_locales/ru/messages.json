@@ -204,7 +204,7 @@
     "message": "Файл не содержит корректный JSON"
   },
   "popupEmpty": {
-    "message": "Добавьте профиль на странице настроек."
+    "message": "Профилей пока нет. Добавьте прокси вручную или импортируйте конфиг."
   },
   "openSettings": {
     "message": "Настройки"
@@ -1105,5 +1105,14 @@
   },
   "masqueImportDisabled": {
     "message": "MASQUE отключён: профили MASQUE пропущены."
+  },
+  "addProfile": {
+    "message": "Добавить профиль"
+  },
+  "importConfig": {
+    "message": "Импортировать конфиг"
+  },
+  "importFile": {
+    "message": "Выбрать файл"
   }
 }
