@@ -245,7 +245,20 @@ for (const scenario of ['auto', 'challenge']) {
       }
 
       const page = await context.newPage()
-      await page.goto('https://target.invalid/')
+      await page.goto('https://target.invalid/').catch(async error => {
+        await testInfo.attach('proxy-navigation', {
+          contentType: 'application/json',
+          body: JSON.stringify({
+            requests: requests.map(({ target, auth }) => ({
+              target,
+              authenticated: auth === credential
+            })),
+            authEvents: await browser.authEvents(),
+            networkErrors: await browser.networkErrors()
+          })
+        })
+        throw error
+      })
       await expect(page.locator('body')).toContainText('Reached target')
       const first = requests.find(r => r.target === 'target.invalid:443')
       if (target === 'firefox' && scenario === 'challenge') {
