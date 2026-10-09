@@ -520,6 +520,93 @@ test('context menu actions use the clicked tab and do not register shortcuts', a
   assert.ok(h.calls.some(([name]) => name === 'options'))
 })
 
+test('site exclusions reject knock conflicts and oversized bypass lists before persistence', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    const h = harness(target)
+    await profiles(h)
+    for (const [hostname, error] of [
+      ['knock.example', 'errorKnockBypass'],
+      ['extra.example', 'errorProfileFields']
+    ]) {
+      if (hostname === 'extra.example') {
+        await h.send({
+          command: 'save',
+          profile: { id: 'one', bypass: Array.from({ length: 1000 }, (_, i) => `b${i}.example`) }
+        })
+      }
+      const before = JSON.stringify(h.stored().state)
+      const result = await h.send({
+        command: 'excludeCurrentSite',
+        tab: { id: 5, url: `https://${hostname}/` }
+      })
+      assert.equal(result.error, error)
+      assert.equal(JSON.stringify(h.stored().state), before)
+      for (const profile of (await h.send({ command: 'get' })).state.profiles) {
+        assert.doesNotThrow(() => h.context.MegaProxy.profile(profile))
+      }
+    }
+  }
+})
+
+test('pending auth is cancelled on disconnect and synchronized credential changes', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    for (const change of ['direct', 'system', 'activate', 'sync']) {
+      const shared = {}
+      const h = harness(target, shared)
+      await profiles(h)
+      const details = {
+        requestId: 'r',
+        type: 'main_frame',
+        tabId: 4,
+        isProxy: true,
+        challenger: { host: 'proxy.example', port: 443 }
+      }
+      await new Promise(resolve => h.events.onAuthRequired(details, resolve))
+      let response
+      h.events.onAuthRequired(details, value => {
+        response = value
+      })
+      await new Promise(setImmediate)
+      if (['direct', 'system'].includes(change)) {
+        await h.send({ command: 'connectionMode', mode: change })
+      } else if (change === 'activate') {
+        await h.send({ command: 'activate', id: 'two' })
+      } else {
+        const sender = harness(target, shared)
+        await sender.flush()
+        await sender.send({ command: 'save', profile: { id: 'one', password: 'remote-secret' } })
+        h.events.changed({ megaConfig: {} }, 'sync')
+        await h.flush()
+      }
+      assert.equal(response?.cancel, true, change)
+    }
+  }
+})
+
+test('current-site and failed-resource actions support IPv6 literals', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    const h = harness(target)
+    await profiles(h)
+    const tab = { id: 5, url: 'https://[2001:db8::1]/' }
+    assert.equal((await h.send({ command: 'addCurrentSite', tab })).ok, true)
+    assert.equal((await h.send({ command: 'testRule', url: tab.url })).proxied, true)
+    assert.equal((await h.send({ command: 'excludeCurrentSite', tab })).ok, true)
+    assert.equal((await h.send({ command: 'testRule', url: tab.url })).proxied, false)
+    await vm.runInContext(
+      'countRequest({ tabId: 5, url: "https://[2001:db8::2]/", type: "image" }, true)',
+      h.context
+    )
+    assert.equal(
+      (await h.send({ command: 'addFailedDomains', tabId: 5, domains: ['[2001:db8::2]'] })).ok,
+      true
+    )
+    assert.equal(
+      (await h.send({ command: 'testRule', url: 'https://[2001:db8::2]/' })).proxied,
+      true
+    )
+  }
+})
+
 test('URL import bounds downloads, validates data, rejects unsafe schemes and does not apply before review', async () => {
   const config = {
     schema: 'net.megaproxy487.config',
