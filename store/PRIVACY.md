@@ -12,7 +12,7 @@ Browser settings synchronization and password synchronization are enabled by def
 
 Request counters and the network monitor are enabled by default and can be disabled together. The monitor retains up to 200 recent requests per tab and up to 50 tabs in memory. It stores domains, request types, status or error codes and routing information, not URL paths, query parameters or request bodies. Monitor entries are reset when the page navigates or the extension’s background process stops; counters are also not persistent. These records are not synchronized or sent to the developer.
 
-The diagnostic log is stored locally in IndexedDB and rotated according to a configurable 1–10 MiB text limit (3 MiB by default). It records selected extension events and safe diagnostic fields, excluding credentials, URLs and proxy hostnames. Database overhead can exceed the text limit. You can clear the log or export it to a file. Logs are not synchronized or uploaded by MegaProxy.
+The diagnostic log is stored locally in IndexedDB and rotated according to a configurable 1–10 MiB text limit (3 MiB by default). It records selected extension events and diagnostic fields. HTTP 5xx failures from extension requests may include up to 4,096 characters of server response text; known credentials, authorization fields and URLs are redacted before storage. Server responses may still include other data supplied by that server. Database overhead can exceed the text limit. You can clear the log or export it to a file. Logs are not synchronized or uploaded by MegaProxy.
 
 ## Network requests
 

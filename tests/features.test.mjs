@@ -124,6 +124,7 @@ function harness(target = 'firefox', shared = {}, fetch = globalThis.fetch, init
     btoa,
     structuredClone,
     fetch,
+    setTimeout: callback => setTimeout(callback, 0),
     AbortSignal
   })
   vm.runInContext(source, context)
@@ -1474,5 +1475,55 @@ test('cancelling or failing proxy verification never persists candidate credenti
       h.events.onAuthRequired({ ...details, isProxy: false }, resolve)
     )
     assert.deepEqual(JSON.parse(JSON.stringify(origin)), {})
+  }
+})
+
+test('config download exposes sanitized 5xx body in background errors', async () => {
+  let attempts = 0
+  const h = harness('chromium', {}, async () => {
+    attempts++
+    return new Response('configuration service down; token=private-token', { status: 500 })
+  })
+  const response = await h.send({
+    command: 'fetchConfig',
+    url: 'https://config.example/?token=private-token'
+  })
+  assert.equal(response.errorDetails.status, 500)
+  assert.match(response.errorDetails.responseBody, /configuration service down/)
+  assert.doesNotMatch(response.errorDetails.responseBody, /private-token/)
+  assert.equal(attempts, 3)
+})
+
+test('config downloads retry only 5xx with backoff and stop after success', async () => {
+  const config = JSON.stringify({
+    schema: 'net.megaproxy487.config',
+    version: 8,
+    profiles: [{ id: 'remote', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }]
+  })
+  for (const scenario of ['success', 'forbidden', 'network']) {
+    let attempts = 0
+    const waits = []
+    const h = harness('chromium', {}, async () => {
+      attempts++
+      if (scenario === 'network') {
+        throw new TypeError('Failed to fetch')
+      }
+      return scenario === 'forbidden'
+        ? new Response('', { status: 403 })
+        : attempts < 3
+          ? new Response('temporarily unavailable', { status: attempts === 1 ? 500 : 503 })
+          : new Response(config)
+    })
+    h.context.setTimeout = (callback, milliseconds) => {
+      waits.push(milliseconds)
+      callback()
+    }
+    const response = await h.send({ command: 'fetchConfig', url: 'https://config.example/' })
+    assert.equal(response.ok, scenario === 'success')
+    assert.equal(attempts, scenario === 'success' ? 3 : 1)
+    assert.deepEqual(waits, scenario === 'success' ? [1000, 2000] : [])
+    if (response.ok) {
+      assert.equal(response.data, config)
+    }
   }
 })

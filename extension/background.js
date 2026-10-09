@@ -351,6 +351,7 @@ function testPage(tabId, url, signal) {
   return new Promise((resolve, reject) => {
     let loaded = false
     let received = false
+    let httpFailure
     const updated = (id, change, tab) => {
       if (
         id === tabId &&
@@ -360,12 +361,12 @@ function testPage(tabId, url, signal) {
       ) {
         loaded = true
         if (received) {
-          finish()
+          finish(httpFailure)
         }
       }
     }
 
-    const abort = () => finish(new Error('errorCheckTimeout'))
+    const abort = () => finish(httpFailure || new Error('errorCheckTimeout'))
 
     const completed = details => {
       if (details.tabId === tabId && details.type === 'main_frame') {
@@ -378,7 +379,16 @@ function testPage(tabId, url, signal) {
             new URL(details.url).hostname !== new URL(url).hostname
               ? 'errorCheckRedirect'
               : 'errorCheckHTTP'
-          finish(Object.assign(new Error(code), { status: details.statusCode }))
+          const error = Object.assign(new Error(code), { status: details.statusCode })
+          if (code === 'errorCheckHTTP' && details.statusCode >= 500 && details.statusCode <= 599) {
+            httpFailure = error
+            received = true
+            if (loaded) {
+              finish(error)
+            }
+          } else {
+            finish(error)
+          }
         } else {
           received = true
           if (loaded) {
@@ -399,7 +409,27 @@ function testPage(tabId, url, signal) {
       api.webRequest.onCompleted.removeListener(completed)
       api.webRequest.onErrorOccurred.removeListener(failed)
       signal.removeEventListener('abort', abort)
-      if (error) {
+      if (error?.status >= 500 && error.status <= 599 && !loaded) {
+        error.responseBody = '[response body unavailable]'
+        reject(error)
+      } else if (error?.status >= 500 && error.status <= 599) {
+        api.scripting
+          .executeScript({
+            target: { tabId },
+            func: () => document.body?.innerText.slice(0, 16384) || ''
+          })
+          .then(results => {
+            error.responseBody =
+              MegaErrors.responseText(
+                results[0]?.result,
+                state.profiles.flatMap(p => [p.username, p.password, p.host, p.knockHost])
+              ) || '[empty response body]'
+          })
+          .catch(() => {
+            error.responseBody = '[response body unavailable]'
+          })
+          .finally(() => reject(error))
+      } else if (error) {
         reject(error)
       } else {
         resolve()
@@ -487,7 +517,11 @@ async function runConnectionCheck() {
           if (value) {
             return value
           }
-        } catch {}
+        } catch (error) {
+          if (error.status >= 500 && error.status <= 599) {
+            diagnosticLog?.write('diagnostic_http_failed', MegaErrors.details(error, 'check'))
+          }
+        }
 
         if (deadline.aborted) {
           break
@@ -1732,20 +1766,32 @@ async function fetchConfig(value) {
   }
 
   let response
+  const secrets = [
+    ...url.searchParams.values(),
+    ...state.profiles.flatMap(p => [p.username, p.password, p.host, p.knockHost])
+  ]
   try {
-    response = await fetch(url.href, {
-      signal: AbortSignal.timeout(30000),
-      credentials: 'omit',
-      cache: 'no-store',
-      referrerPolicy: 'no-referrer'
-    })
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch(url.href, {
+        signal: AbortSignal.timeout(30000),
+        credentials: 'omit',
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer'
+      })
+      if (!(response.status >= 500 && response.status <= 599) || attempt === 2) {
+        break
+      }
+      const error = await MegaErrors.httpError(response, 'errorHTTP', secrets)
+      diagnosticLog?.write('config_download_retried', MegaErrors.details(error, 'fetchConfig'))
+      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt))
+    }
   } catch (error) {
     throw new Error('errorConfigDownload', { cause: error })
   }
 
   if (!response.ok) {
-    throw Object.assign(new Error('errorConfigDownload', { cause: new Error('errorHTTP') }), {
-      status: response.status
+    throw new Error('errorConfigDownload', {
+      cause: await MegaErrors.httpError(response, 'errorHTTP', secrets)
     })
   }
   if (Number(response.headers.get('content-length')) > 1024 * 1024) {
@@ -2027,8 +2073,16 @@ async function rebuildMenus() {
   if (['ru', 'en'].includes(state.language)) {
     if (!menuCatalogs.has(state.language)) {
       const messages = await fetch(api.runtime.getURL(`_locales/${state.language}/messages.json`))
-        .then(r => r.json())
-        .catch(() => ({}))
+        .then(async response => {
+          if (!response.ok) {
+            throw await MegaErrors.httpError(response)
+          }
+          return response.json()
+        })
+        .catch(error => {
+          diagnosticLog?.write('locale_load_failed', MegaErrors.details(error, 'locale'))
+          return {}
+        })
       menuCatalogs.set(state.language, messages)
     }
 
@@ -2168,7 +2222,7 @@ function toolbarIcon(color) {
         try {
           const response = await fetch(api.runtime.getURL(path))
           if (!response.ok) {
-            throw Object.assign(new Error('errorHTTP'), { status: response.status })
+            throw await MegaErrors.httpError(response)
           }
           return [Number(size), await createImageBitmap(await response.blob())]
         } catch (error) {

@@ -690,7 +690,7 @@
     "message": "Diagnostic log"
   },
   "diagnosticLogHint": {
-    "message": "Stored only locally. No passwords, authorization headers or URLs. The viewer shows recent entries; export includes the entire retained log. Pending records may be lost if the browser crashes."
+    "message": "Stored only locally. HTTP 5xx errors include bounded server response excerpts with known credentials, authorization fields and URLs redacted. The viewer shows recent entries; export includes the entire retained log. Pending records may be lost if the browser crashes."
   },
   "logLimit": {
     "message": "Size limit (MiB)"

@@ -81,7 +81,7 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
         urls.push(url)
         queueMicrotask(() => {
           if (
-            (httpsFails && url.includes('example.com')) ||
+            (httpsFails === true && url.includes('example.com')) ||
             url.includes('ifconfig.me') ||
             url.includes('country') ||
             url.includes('ifconfig.co')
@@ -99,7 +99,8 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
               type: 'main_frame',
               requestId: String(urls.length),
               url,
-              statusCode: 200
+              statusCode:
+                typeof httpsFails === 'number' && url.includes('example.com') ? httpsFails : 200
             })
             for (const callback of listeners.get('updated') || []) {
               callback(id, { status: 'complete' }, { url })
@@ -110,7 +111,14 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
     },
     scripting: {
       executeScript: async () => [
-        { result: url.includes('api.ipify.org') ? 'invalid IP' : '203.0.113.9' }
+        {
+          result:
+            typeof httpsFails === 'number' && url.includes('example.com')
+              ? 'upstream unavailable; password=secret'
+              : url.includes('api.ipify.org')
+                ? 'invalid IP'
+                : '203.0.113.9'
+        }
       ]
     },
     webRequest: {
@@ -222,5 +230,20 @@ test('Direct and System checks preserve browser routing and close diagnostic tab
         assert.equal((await h.command({ command: 'get' })).state.connectionMode, mode)
       }
     }
+  }
+})
+
+test('connection check preserves 5xx page diagnostics and closes its tab', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    const h = harness([], 503, target)
+    const result = await h.command({ command: 'check' })
+    assert.equal(result.ok, false)
+    assert.equal(result.errorDetails.status, 503)
+    assert.deepEqual(h.urls, ['https://example.com/'])
+    assert.match(result.errorDetails.responseBody, /upstream unavailable/)
+    assert.doesNotMatch(result.errorDetails.responseBody, /secret/)
+    assert.deepEqual(h.removed, [7])
+    const saved = await h.command({ command: 'get' })
+    assert.equal(saved.connectionCheck.errorDetails.responseBody, result.errorDetails.responseBody)
   }
 })

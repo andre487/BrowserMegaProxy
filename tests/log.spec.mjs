@@ -161,6 +161,7 @@ test('log stores safe error context and exposes specific storage failures', asyn
       code: 'errorConfigDownload',
       reason: 'TimeoutError',
       status: 503,
+      responseBody: 'upstream unavailable; password=private-password; https://private.example/',
       resource: 'private-secret',
       password: 'private-password',
       url: 'https://private.example/'
@@ -170,6 +171,7 @@ test('log stores safe error context and exposes specific storage failures', asyn
   await expect(page.locator('#log-output')).toContainText('"operation":"fetchConfig"')
   await expect(page.locator('#log-output')).toContainText('"reason":"TimeoutError"')
   await expect(page.locator('#log-output')).toContainText('"status":503')
+  await expect(page.locator('#log-output')).toContainText('upstream unavailable')
   await expect(page.locator('#log-output')).not.toContainText('private')
   await page.evaluate(() => {
     globalThis.MegaDiagnosticLog.prototype.configure = async () => {

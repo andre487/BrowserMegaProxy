@@ -1,3 +1,4 @@
+import { requestWithRetry } from './http-request.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { appendFile, readFile } from 'node:fs/promises'
@@ -9,7 +10,7 @@ import { validateVersion } from './release.mjs'
 export async function publishChromeWebStore(
   tag,
   archive,
-  { env = process.env, request = fetch, wait = setTimeout, dryRun = false } = {}
+  { env = process.env, request = fetch, wait = setTimeout, retryWait, dryRun = false } = {}
 ) {
   assert.match(tag, /^v\d+\.\d+\.\d+$/)
   validateVersion(tag.slice(1))
@@ -22,10 +23,21 @@ export async function publishChromeWebStore(
   ]) {
     assert.ok(env[key]?.trim(), `Configure ${key}`)
   }
+  const secrets = [env.CWS_CLIENT_SECRET, env.CWS_REFRESH_TOKEN]
   const json = async (url, options = {}) => {
-    const response = await request(url, { ...options, signal: AbortSignal.timeout(60000) })
-    // Do not log response bodies: authentication errors can include credentials.
-    assert.ok(response.ok, `Chrome Web Store request failed: HTTP ${response.status}`)
+    const response = await requestWithRetry(
+      request,
+      url,
+      { ...options, signal: AbortSignal.timeout(60000) },
+      { secrets, wait: retryWait }
+    )
+    if (!response.ok) {
+      throw await globalThis.MegaErrors.httpError(
+        response,
+        `Chrome Web Store ${options.method || 'GET'} ${url} failed: HTTP ${response.status}`,
+        secrets
+      )
+    }
     return response.json()
   }
   const token = await json('https://oauth2.googleapis.com/token', {
@@ -38,6 +50,7 @@ export async function publishChromeWebStore(
     })
   })
   assert.ok(token.access_token, 'OAuth response missing access token')
+  secrets.push(token.access_token)
   const name = `publishers/${encodeURIComponent(env.CWS_PUBLISHER_ID)}/items/${encodeURIComponent(env.CWS_EXTENSION_ID)}`
   const base = `https://chromewebstore.googleapis.com/v2/${name}`
   const headers = { Authorization: `Bearer ${token.access_token}` }

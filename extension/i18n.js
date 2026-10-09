@@ -41,7 +41,7 @@
       try {
         const response = await fetch(api.runtime.getURL(`_locales/${locale}/messages.json`))
         if (!response.ok) {
-          throw Object.assign(new Error('errorHTTP'), { status: response.status })
+          throw await MegaErrors.httpError(response)
         }
 
         catalogs[locale] = await response.json()

@@ -1,3 +1,4 @@
+import { requestWithRetry } from './http-request.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHmac, randomUUID } from 'node:crypto'
@@ -9,7 +10,7 @@ import { validateVersion } from './release.mjs'
 export async function checkFirefoxRelease(
   tag,
   manifest,
-  { env = process.env, request = fetch } = {}
+  { env = process.env, request = fetch, retryWait } = {}
 ) {
   assert.match(tag || '', /^v\d+\.\d+\.\d+$/)
   validateVersion(tag.slice(1))
@@ -30,16 +31,29 @@ export async function checkFirefoxRelease(
     const signature = createHmac('sha256', env.WEB_EXT_API_SECRET)
       .update(unsigned)
       .digest('base64url')
-    const response = await request(`${base}${endpoint}`, {
-      redirect: 'error',
-      signal: AbortSignal.timeout(60000),
-      headers: { Authorization: `JWT ${unsigned}.${signature}` }
-    })
+    const response = await requestWithRetry(
+      request,
+      `${base}${endpoint}`,
+      {
+        redirect: 'error',
+        signal: AbortSignal.timeout(60000),
+        headers: { Authorization: `JWT ${unsigned}.${signature}` }
+      },
+      {
+        secrets: [env.WEB_EXT_API_KEY, env.WEB_EXT_API_SECRET, `${unsigned}.${signature}`],
+        wait: retryWait
+      }
+    )
     if (allowMissing && response.status === 404) {
       return null
     }
-    // API responses and JWTs must not be printed to release logs.
-    assert.ok(response.ok, `AMO access check failed: HTTP ${response.status}`)
+    if (!response.ok) {
+      throw await globalThis.MegaErrors.httpError(
+        response,
+        `AMO GET ${endpoint} failed: HTTP ${response.status}`,
+        [env.WEB_EXT_API_KEY, env.WEB_EXT_API_SECRET, `${unsigned}.${signature}`]
+      )
+    }
     return response.json()
   }
   const profile = await get('accounts/profile/')

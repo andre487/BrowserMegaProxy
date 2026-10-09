@@ -70,7 +70,80 @@
     'TypeError'
   ])
 
-  // Only controlled codes cross the UI/log boundary; native messages can contain credentials or URLs.
+  function responseText(value, secrets = []) {
+    let text = String(value || '')
+    for (const secret of secrets.filter(value => typeof value === 'string' && value)) {
+      for (const encoded of new Set([
+        secret,
+        encodeURIComponent(secret),
+        JSON.stringify(secret).slice(1, -1)
+      ])) {
+        text = text.split(encoded).join('[redacted]')
+        // A bounded read can end partway through an echoed credential.
+        for (let length = Math.min(encoded.length - 1, text.length); length >= 4; length--) {
+          if (text.endsWith(encoded.slice(0, length))) {
+            text = text.slice(0, -length) + '[redacted]'
+            break
+          }
+        }
+      }
+    }
+    const safe = text
+      .replace(/https?:\/\/[^\s"'<>]+/gi, '[URL redacted]')
+      .replace(/\b(?:Bearer|Basic|JWT)\s+[A-Za-z0-9._~+/=-]+/gi, '[authorization redacted]')
+      .replace(
+        /(["']?(?:password|username|sessionid|csrftoken|cookie|authorization|(?:access_|refresh_)?token|api[_-]?key|client_secret|secret)["']?\s*[:=]\s*)(?:"[^"\r\n]*"?|'[^'\r\n]*'?|[^\s,;<}]+)/gi,
+        '$1[redacted]'
+      )
+      .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
+    return safe.length > 4096 ? safe.slice(0, 4084) + ' [truncated]' : safe
+  }
+
+  async function httpError(response, message = 'errorHTTP', secrets = []) {
+    const error = Object.assign(new Error(message), { status: response.status })
+    if (response.status < 500 || response.status > 599) {
+      return error
+    }
+    let reader
+    try {
+      let text = ''
+      let bytes = 0
+      let truncated = false
+      reader = response.body?.getReader()
+      if (reader) {
+        const decoder = new TextDecoder()
+        while (bytes < 16384) {
+          const { done, value } = await reader.read()
+          if (done) {
+            break
+          }
+          const part = value.subarray(0, 16384 - bytes)
+          bytes += part.length
+          text += decoder.decode(part, { stream: true })
+        }
+        text += decoder.decode()
+        if (bytes === 16384) {
+          truncated = true
+        }
+      } else {
+        text = (await response.text()).slice(0, 16384)
+      }
+      error.responseBody = responseText(text, secrets) || '[empty response body]'
+      if (truncated && !error.responseBody.endsWith('[truncated]')) {
+        error.responseBody = error.responseBody.slice(0, 4084) + ' [truncated]'
+      }
+    } catch {
+      error.responseBody = '[response body unavailable]'
+    } finally {
+      await reader?.cancel().catch(() => {})
+    }
+    if (!codePattern.test(message)) {
+      error.message += `; response: ${error.responseBody}`
+    }
+    return error
+  }
+
+  // Keep native messages out of UI/logs; only controlled codes and sanitized 5xx excerpts cross this boundary.
   function details(error, operation = 'interface') {
     const supplied = error?.errorDetails || error
     const message = error?.message || error?.error || ''
@@ -116,6 +189,10 @@
     if (Number.isInteger(status) && status >= 100 && status <= 599) {
       result.status = status
     }
+    const responseBody = supplied?.responseBody || cause?.responseBody
+    if (status >= 500 && status <= 599 && typeof responseBody === 'string') {
+      result.responseBody = responseText(responseBody)
+    }
     const resource = supplied?.resource || cause?.resource
     if (resources.has(resource)) {
       result.resource = resource
@@ -140,12 +217,13 @@
     const reason = [
       explain(info.code),
       info.reason ? explain(info.reason) : '',
-      info.status ? `HTTP ${info.status}` : ''
+      info.status ? `HTTP ${info.status}` : '',
+      info.responseBody || ''
     ]
       .filter(Boolean)
       .join('; ')
     return `${t(label)}${info.resource ? ` (${info.resource})` : ''}: ${reason}`
   }
 
-  root.MegaErrors = { details, context, format }
+  root.MegaErrors = { details, context, format, httpError, responseText }
 })(globalThis)
