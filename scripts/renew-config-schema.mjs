@@ -62,7 +62,8 @@ const lock = {
   commit,
   overrides: [
     'Dynamic subscription source IDs: lowercase letters, digits, underscore or hyphen; up to 64 IDs per mode.',
-    'Optional browser routing strategy: manual, lists, profiles, tabs or failover.'
+    'Optional browser routing strategy: manual, lists, profiles, tabs or failover.',
+    'Experimental Firefox MASQUE proxy type and browser.masqueTemplate.'
   ],
   upstreamFiles: Object.fromEntries(
     files.map((file, index) => [

@@ -14,7 +14,11 @@ const stop = server =>
     server.close(resolve)
   })
 
-export async function launchExtension(target, dir, { grantPrivacy = false, systemProxy } = {}) {
+export async function launchExtension(
+  target,
+  dir,
+  { grantPrivacy = false, systemProxy, firefoxUserPrefs = {} } = {}
+) {
   let extension = path.resolve(`dist/${target}`)
   if (grantPrivacy) {
     const copied = `${dir}/privacy-addon`
@@ -160,6 +164,7 @@ export async function launchExtension(target, dir, { grantPrivacy = false, syste
               'network.proxy.no_proxies_on': 'localhost,127.0.0.1'
             }
           : {}),
+        ...firefoxUserPrefs,
         'devtools.debugger.remote-enabled': true,
         'devtools.debugger.prompt-connection': false
       }

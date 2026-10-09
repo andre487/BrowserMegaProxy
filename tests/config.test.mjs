@@ -407,3 +407,25 @@ test('Chromium downgrades obsolete profile assignments and inactive tab settings
   assert.deepEqual(imported.browserRouting.sites, [])
   assert.equal(imported.unsupportedSplitProxy, true)
 })
+
+test('MASQUE import and export preserve the Firefox template and reject Chromium', () => {
+  const config = structuredClone(portable)
+  config.profiles[0].proxy.type = 'MASQUE'
+  config.profiles[0].proxy.username = ''
+  config.profiles[0].proxy.password = ''
+  config.profiles[0].browser.masqueTemplate = '/custom/{target_host}/{target_port}/'
+  assert.ok(validate(config), JSON.stringify(validate.errors))
+  assert.equal(android(config), false)
+  const imported = M.importProfiles(config, 'firefox')
+  const state = M.mergeImport(M.defaults(), imported)
+  assert.equal(state.profiles[0].masqueTemplate, config.profiles[0].browser.masqueTemplate)
+  const exported = M.exportConfig(state, true)
+  assert.equal(exported.profiles[0].proxy.type, 'MASQUE')
+  assert.equal(
+    exported.profiles[0].browser.masqueTemplate,
+    config.profiles[0].browser.masqueTemplate
+  )
+  assert.ok(validate(exported), JSON.stringify(validate.errors))
+  assert.deepEqual(M.importProfiles(M.exportConfig(state, false), 'firefox').missingPasswords, [])
+  assert.throws(() => M.importProfiles(config, 'chromium'), /errorMasqueUnsupported/)
+})

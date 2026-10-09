@@ -304,7 +304,7 @@
 
   function profile(input, target = root.MEGA_TARGET) {
     const type = String(input.type || 'https').toLowerCase()
-    if (!['https', 'http', 'socks5'].includes(type)) {
+    if (!['https', 'http', 'socks5', 'masque'].includes(type)) {
       throw new Error('errorProtocol')
     }
 
@@ -335,6 +335,23 @@
       throw new Error('errorSocksCredentials')
     }
     root.MegaPlatform.create(target).validateProfile({ type, username, password })
+
+    const masqueTemplate = String(
+      input.masqueTemplate || '/.well-known/masque/udp/{target_host}/{target_port}/'
+    )
+    if (
+      type === 'masque' &&
+      ((input.masqueTemplate !== undefined && typeof input.masqueTemplate !== 'string') ||
+        masqueTemplate.length > 2048 ||
+        !masqueTemplate.startsWith('/') ||
+        masqueTemplate.startsWith('//') ||
+        /[\s\p{Cc}#\\]/u.test(masqueTemplate) ||
+        !masqueTemplate.includes('{target_host}') ||
+        !masqueTemplate.includes('{target_port}') ||
+        /[{}]/.test(masqueTemplate.replaceAll('{target_host}', '').replaceAll('{target_port}', '')))
+    ) {
+      throw new Error('errorMasqueTemplate')
+    }
 
     if (input.allowInvalidProxyCertificate) {
       throw new Error('errorCertificate')
@@ -391,6 +408,7 @@
       username,
       password,
       knockHost,
+      ...(type === 'masque' ? { masqueTemplate } : {}),
       bypass,
       authMode: input.authMode === 'challenge' ? 'challenge' : 'auto',
       ...(input.portable ? { portable: structuredClone(input.portable) } : {})
@@ -476,7 +494,7 @@
   function authProfile(details, state) {
     const p = state.profiles.find(p => p.id === details.profileId) || active(state)
     return p &&
-      p.type !== 'socks5' &&
+      !['socks5', 'masque'].includes(p.type) &&
       details.isProxy &&
       details.challenger?.host?.toLowerCase().replace(/^\[|\]$/g, '') === p.host &&
       Number(details.challenger.port) === p.port
@@ -500,6 +518,7 @@
   }
 
   function chromiumConfig(p, state = {}) {
+    root.MegaPlatform.create('chromium').validateProfile(p)
     if (state.browserRouting?.enabled || state.downloadRouting) {
       const proxyHost = p.host.includes(':') ? `[${p.host}]` : p.host
       const endpoint = `${p.type === 'socks5' ? 'SOCKS5' : p.type === 'https' ? 'HTTPS' : 'PROXY'} ${proxyHost}:${p.port}`
@@ -597,7 +616,7 @@ function FindProxyForURL(url, host) {
       ],
       '/profiles/*': ['id', 'name', 'color', 'countryCode', 'proxy', 'browser', 'routing'],
       '/profiles/*/proxy': ['type', 'host', 'port', 'username', 'password'],
-      '/profiles/*/browser': ['knockHost', 'bypass', 'authMode'],
+      '/profiles/*/browser': ['knockHost', 'bypass', 'authMode', 'masqueTemplate'],
       '/profiles/*/routing': ['bypassLocalNetworks']
     }
     let unknownFields = false
@@ -664,14 +683,15 @@ function FindProxyForURL(url, host) {
             throw new Error('errorImport')
           }
 
-          if (!['https:', 'http:', 'socks5:'].includes(url.protocol)) {
+          if (!['https:', 'http:', 'socks5:', 'masque:'].includes(url.protocol)) {
             skipped.push(url.protocol)
             continue
           }
 
           if (
             line.length > 65536 ||
-            (url.protocol !== 'socks5:' && !/^[a-z]+:\/\/[^/]*:[^/]*@/i.test(line))
+            (!['socks5:', 'masque:'].includes(url.protocol) &&
+              !/^[a-z]+:\/\/[^/]*:[^/]*@/i.test(line))
           ) {
             throw new Error('errorImport')
           }
@@ -697,7 +717,11 @@ function FindProxyForURL(url, host) {
                 host: url.hostname,
                 port:
                   url.port ||
-                  (url.protocol === 'socks5:' ? 1080 : url.protocol === 'https:' ? 443 : 80),
+                  (url.protocol === 'socks5:'
+                    ? 1080
+                    : ['https:', 'masque:'].includes(url.protocol)
+                      ? 443
+                      : 80),
                 username,
                 password,
                 color: randomImportColor(profiles)
@@ -827,7 +851,8 @@ function FindProxyForURL(url, host) {
           'password',
           'knockHost',
           'bypass',
-          'authMode'
+          'authMode',
+          'masqueTemplate'
         ]
         if (
           Object.keys(p).some(key => !fields.includes(key)) ||
@@ -855,7 +880,7 @@ function FindProxyForURL(url, host) {
         .toLowerCase()
       const type = rawType === 'ssl' ? 'https' : rawType === 'socks' ? 'socks5' : rawType
       if (
-        !['http', 'https', 'socks5'].includes(type) ||
+        !['http', 'https', 'socks5', 'masque'].includes(type) ||
         p.allowInvalidProxyCertificate ||
         originalEntries[index]?.proxy?.allowInvalidProxyCertificate
       ) {
@@ -899,11 +924,13 @@ function FindProxyForURL(url, host) {
           color,
           countryCode: entry.countryCode || entry.cc,
           type,
-          port: p.port || (type === 'socks5' ? 1080 : type === 'https' ? 443 : 80),
+          port:
+            p.port || (type === 'socks5' ? 1080 : ['https', 'masque'].includes(type) ? 443 : 80),
           host: p.host || p.hostname || p.address,
           knockHost: browserOptions.knockHost ?? p.knockHost ?? entry.knockHost,
           bypass: browserOptions.bypass ?? p.bypass ?? [],
           authMode: browserOptions.authMode || p.authMode,
+          masqueTemplate: browserOptions.masqueTemplate ?? p.masqueTemplate,
           ...(portable ? { portable: entry } : {})
         },
         target
@@ -913,7 +940,7 @@ function FindProxyForURL(url, host) {
       }
 
       ids.add(result.id)
-      if (portable && !Object.hasOwn(p, 'password')) {
+      if (portable && type !== 'masque' && !Object.hasOwn(p, 'password')) {
         missingPasswords.push(result.id)
       }
 
@@ -1241,7 +1268,9 @@ function FindProxyForURL(url, host) {
 
     if (
       state.profiles.some(
-        p => !['https', 'socks5'].includes(p.type) || (p.type === 'https' && p.host.includes(':'))
+        p =>
+          !['https', 'socks5', 'masque'].includes(p.type) ||
+          (p.type === 'https' && p.host.includes(':'))
       )
     ) {
       throw new Error('errorExportProtocol')
@@ -1282,7 +1311,8 @@ function FindProxyForURL(url, host) {
           ...(p.portable?.browser || {}),
           knockHost: p.knockHost,
           bypass: p.bypass,
-          authMode: p.authMode
+          authMode: p.authMode,
+          ...(p.type === 'masque' ? { masqueTemplate: p.masqueTemplate } : {})
         }
       }))
     }

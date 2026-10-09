@@ -684,9 +684,17 @@ function syncKnock() {
   }
 
   const form = $('#profile-form')
+  if (platform.id === 'chromium') {
+    form.querySelector('option[value=masque]')?.remove()
+  }
+  const masque = form.elements.type.value === 'masque'
+  $('#masque-template-field').hidden = !masque
+  $('#masque-hint').hidden = !masque
+  form.elements.masqueTemplate.disabled = !masque
+  form.elements.knockHost.disabled = masque
   const socksWithoutAuth = platform.id === 'chromium' && form.elements.type.value === 'socks5'
-  form.elements.username.disabled = socksWithoutAuth
-  form.elements.password.disabled = socksWithoutAuth
+  form.elements.username.disabled = socksWithoutAuth || masque
+  form.elements.password.disabled = socksWithoutAuth || masque
   $('#socks-auth-hint').hidden = !socksWithoutAuth
   const needed = platform.needsKnock({
     type: form.elements.type.value,
@@ -694,11 +702,13 @@ function syncKnock() {
     password: form.elements.password.value
   })
   $('#knock-hint').textContent = t(
-    form.elements.type.value === 'socks5'
-      ? 'knockSocksHint'
-      : needed
-        ? 'knockHint'
-        : 'knockDisabledHint'
+    masque
+      ? 'knockMasqueHint'
+      : form.elements.type.value === 'socks5'
+        ? 'knockSocksHint'
+        : needed
+          ? 'knockHint'
+          : 'knockDisabledHint'
   )
 }
 
@@ -924,7 +934,7 @@ if (isOptions) {
     event.preventDefault()
     action(async () => {
       const profile = Object.fromEntries(new FormData(event.target))
-      if (platform.id === 'chromium' && profile.type === 'socks5') {
+      if (profile.type === 'masque' || (platform.id === 'chromium' && profile.type === 'socks5')) {
         profile.username = ''
         profile.password = ''
       }

@@ -9,7 +9,7 @@
 [![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)](#build-and-install)
 
 Browser extensions for Chromium and Firefox.
-HTTP/HTTPS CONNECT and SOCKS5, multiple profiles, authentication, knock hosts, domain exclusions,
+HTTP/HTTPS CONNECT, SOCKS5 and experimental MASQUE (Firefox 146+), multiple profiles, authentication, knock hosts, domain exclusions,
 profile import/export, local-network bypass, connection checks, and light/dark themes
 (with automatic appearance in Firefox). The UI uses no external libraries or resources.
 
@@ -479,3 +479,58 @@ Release PR preparation, checks, tagging and archive publication are documented i
 English and Russian listings, screenshots, icons and promotional materials for Chrome Web Store,
 Firefox Add-ons and Opera Add-ons are available in [store/](store/README.md).
 Regenerate images with `npm run store:assets`.
+
+### Experimental MASQUE in Firefox
+
+Firefox 146+ can use a MASQUE proxy over HTTP/3 (QUIC). Select MASQUE in the
+profile editor and enter the proxy host and UDP port. The default path template
+is `/.well-known/masque/udp/{target_host}/{target_port}/`; custom paths must retain
+both placeholders. Username/password authentication is disabled: Firefox supplies the Basic header
+for CONNECT-TCP but omits it for CONNECT-UDP. Use an anonymous or IP-allowlisted proxy.
+Knock hosts are not used. Chromium rejects MASQUE profiles with a specific error.
+
+The proxy requires a trusted TLS certificate and reachable UDP port. Firefox must
+have HTTP/3 enabled. Firefox may disable HTTP/3 when third-party certificate roots
+are present; this extension does not change browser TLS or HTTP/3 preferences.
+This is browser HTTP(S) proxying, not a system VPN or a promise to route WebRTC.
+
+For **GOST 3.3.0**, use the native `http3` listener (its `h3` listener implements a
+different tunnel):
+
+```yaml
+services:
+  - name: masque
+    addr: :8443
+    handler:
+      type: masque
+    listener:
+      type: http3
+      metadata:
+        enableDatagrams: true
+      tls:
+        certFile: cert.pem
+        keyFile: key.pem
+```
+
+JSON imports/exports preserve `proxy.type: "MASQUE"` and
+`browser.masqueTemplate`. This is currently a browser schema addition, recorded
+in `config-schema/schema-lock.json`; clients must explicitly support it.
+`masque://proxy.example:8443` imports use the default template.
+
+Run the standalone real Firefox/GOST test without Docker:
+
+```sh
+npm run build
+npm run prepare:gost-e2e
+npx playwright test tests/masque.spec.mjs --project=firefox
+```
+
+The test downloads GOST 3.3.0 with a pinned SHA-256 checksum and temporary TLS
+certificates. HTTP/HTTPS CONNECT-TCP and failure without a direct fallback pass.
+The separate CONNECT-UDP test reproduces a **GOST 3.3.0 limitation**: the inner
+HTTP/3 server's QUIC datagram exceeds the outer tunnel's datagram size and GOST
+closes the tunnel with `DATAGRAM frame too large`. Successful HTTP/3 page loading
+through GOST is therefore not confirmed. This test asserts that specific failure;
+it must become a successful-load test when upgrading to a GOST version that fixes
+oversized datagrams. Test-specific certificate exceptions stay in the temporary
+Firefox profile.

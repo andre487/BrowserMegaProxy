@@ -150,7 +150,7 @@
     "message": "Set the port separately"
   },
   "errorProtocol": {
-    "message": "Only HTTP, HTTPS CONNECT and SOCKS5 are supported"
+    "message": "Supported protocols: HTTP, HTTPS CONNECT, SOCKS5 and MASQUE (Firefox 146+)."
   },
   "errorPort": {
     "message": "Port must be between 1 and 65535"
@@ -288,10 +288,10 @@
     "message": "Unsupported MegaProxy configuration version"
   },
   "errorExportProtocol": {
-    "message": "HTTP profiles and HTTPS profiles with IPv6 hosts cannot be exported compatibly. SOCKS5 exports require a client that supports SOCKS5."
+    "message": "HTTP profiles and HTTPS profiles with IPv6 hosts cannot be exported compatibly. SOCKS5 and MASQUE exports require a client that supports that protocol."
   },
   "errorKnockDisabled": {
-    "message": "Knock is not needed for SOCKS5 or Firefox profiles with saved credentials."
+    "message": "Knock is not needed for SOCKS5, MASQUE or Firefox profiles with saved credentials."
   },
   "errorCheckInactive": {
     "message": "Connect a profile before testing"
@@ -1075,5 +1075,26 @@
   },
   "knockSocksHint": {
     "message": "SOCKS5 does not use HTTP authentication; knock is not needed."
+  },
+  "errorMasqueUnsupported": {
+    "message": "MASQUE proxies are supported only in Firefox 146 or later."
+  },
+  "errorMasqueVersion": {
+    "message": "MASQUE requires Firefox 146 or later. Update your browser."
+  },
+  "errorMasqueTemplate": {
+    "message": "MASQUE path must start with / and contain {target_host} and {target_port}, without spaces or other placeholders."
+  },
+  "masqueTemplate": {
+    "message": "MASQUE path template"
+  },
+  "masqueHint": {
+    "message": "Experimental: Firefox 146+, HTTP/3 over QUIC. A trusted proxy TLS certificate is required. Username/password authentication is unavailable: Firefox omits it in CONNECT-UDP. GOST uses the default path template. GOST 3.3.0 can fail on HTTP/3 sites because of datagram size limits."
+  },
+  "knockMasqueHint": {
+    "message": "MASQUE does not use a knock host."
+  },
+  "errorMasqueAuthUnsupported": {
+    "message": "Firefox does not send saved MASQUE credentials in CONNECT-UDP requests. Use a proxy without username/password authentication."
   }
 }

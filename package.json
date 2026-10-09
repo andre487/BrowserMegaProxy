@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "test": "node scripts/test.mjs unit",
-    "test:e2e": "npm run prepare:server-e2e && playwright test",
+    "test:e2e": "npm run prepare:server-e2e && npm run prepare:gost-e2e && playwright test",
     "check": "npm run lint && npm run build && npm test && npm run test:e2e",
     "lint": "npm run lint:js && npm run format:check",
     "lint:fix": "npm run lint:js -- --fix && npm run format",
@@ -21,7 +21,8 @@
     "release:assets": "node scripts/release.mjs package",
     "store:materials": "node scripts/release.mjs store-materials",
     "test:android": "node scripts/test.mjs android-firefox",
-    "test:android:chromium": "node scripts/test.mjs android-vivaldi"
+    "test:android:chromium": "node scripts/test.mjs android-vivaldi",
+    "prepare:gost-e2e": "node scripts/prepare-gost-e2e.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

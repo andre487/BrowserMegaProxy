@@ -2054,3 +2054,31 @@ test('SOCKS5 credentials are disabled with an explanation only in Chromium', asy
   expect(saved.username).toBe(browserName === 'chromium' ? '' : 'user')
   expect(saved.password).toBe(browserName === 'chromium' ? '' : 'secret')
 })
+
+test('MASQUE editor is Firefox-only and preserves its path template', async ({
+  page,
+  browserName
+}) => {
+  await page.locator('#new').click()
+  const form = page.locator('#profile-form')
+  if (browserName === 'chromium') {
+    await expect(form.locator('option[value=masque]')).toHaveCount(0)
+    return
+  }
+  await form.locator('[name=type]').selectOption('masque')
+  await form.locator('[name=host]').fill('proxy.example')
+  await expect(form.locator('[name=knockHost]')).toBeDisabled()
+  await expect(form.locator('[name=username]')).toBeDisabled()
+  await expect(page.locator('#masque-hint')).toContainText('Firefox 146+')
+  await form.locator('[name=masqueTemplate]').fill('/custom/{target_host}/{target_port}/')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('.profile')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click()
+  await expect(form.locator('[name=type]')).toHaveValue('masque')
+  await expect(form.locator('[name=masqueTemplate]')).toHaveValue(
+    '/custom/{target_host}/{target_port}/'
+  )
+  await form.locator('[name=type]').selectOption('https')
+  await expect(page.locator('#masque-template-field')).toBeHidden()
+  await expect(form.locator('[name=knockHost]')).toBeEnabled()
+})

@@ -150,7 +150,7 @@
     "message": "Порт задаётся отдельно"
   },
   "errorProtocol": {
-    "message": "Поддерживаются HTTP, HTTPS CONNECT и SOCKS5"
+    "message": "Поддерживаются HTTP, HTTPS CONNECT, SOCKS5 и MASQUE (Firefox 146+)."
   },
   "errorPort": {
     "message": "Порт должен быть от 1 до 65535"
@@ -288,10 +288,10 @@
     "message": "Неподдерживаемая версия конфига MegaProxy"
   },
   "errorExportProtocol": {
-    "message": "HTTP-профили и HTTPS-профили с IPv6-хостами нельзя экспортировать совместимо. Для SOCKS5 нужен клиент с поддержкой SOCKS5."
+    "message": "Профили HTTP и HTTPS с IPv6-адресами нельзя экспортировать совместимо. Для профилей SOCKS5 и MASQUE нужен клиент с поддержкой соответствующего протокола."
   },
   "errorKnockDisabled": {
-    "message": "Knock не нужен для SOCKS5 и профилей Firefox с сохранёнными данными авторизации."
+    "message": "Knock не нужен для SOCKS5, MASQUE и профилей Firefox с сохранёнными логином и паролем."
   },
   "errorCheckInactive": {
     "message": "Подключите профиль перед проверкой"
@@ -1075,5 +1075,26 @@
   },
   "knockSocksHint": {
     "message": "SOCKS5 не использует HTTP-авторизацию; knock не нужен."
+  },
+  "errorMasqueUnsupported": {
+    "message": "Прокси MASQUE поддерживаются только в Firefox 146 и новее."
+  },
+  "errorMasqueVersion": {
+    "message": "Для MASQUE нужен Firefox 146 или новее. Обновите браузер."
+  },
+  "errorMasqueTemplate": {
+    "message": "Путь MASQUE должен начинаться с / и содержать {target_host} и {target_port}, без пробелов и других переменных."
+  },
+  "masqueTemplate": {
+    "message": "Шаблон пути MASQUE"
+  },
+  "masqueHint": {
+    "message": "Экспериментально: Firefox 146+, HTTP/3 через QUIC. Нужен доверенный сертификат TLS прокси. Авторизация логином и паролем недоступна: Firefox не передаёт их в CONNECT-UDP. Для GOST подходит шаблон по умолчанию. GOST 3.3.0 может не открывать сайты HTTP/3 из-за ограничения размера датаграмм."
+  },
+  "knockMasqueHint": {
+    "message": "Для MASQUE knock host не используется."
+  },
+  "errorMasqueAuthUnsupported": {
+    "message": "Firefox не передаёт сохранённые данные авторизации MASQUE в CONNECT-UDP. Используйте прокси без авторизации логином и паролем."
   }
 }

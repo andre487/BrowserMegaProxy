@@ -5,6 +5,7 @@
       type: profile.type === 'socks5' ? 'socks' : profile.type,
       host: profile.host,
       port: profile.port,
+      ...(profile.type === 'masque' ? { masqueTemplate: profile.masqueTemplate } : {}),
       ...(profile.type === 'socks5'
         ? {
             proxyDNS: true,
@@ -35,7 +36,11 @@
     }
 
     needsKnock(profile) {
-      return Boolean(profile && profile.type !== 'socks5' && !this.core.hasCredentials(profile))
+      return Boolean(
+        profile &&
+        !['socks5', 'masque'].includes(profile.type) &&
+        !this.core.hasCredentials(profile)
+      )
     }
 
     supportsWebRTC() {
@@ -66,7 +71,11 @@
 
     validateKnock() {}
 
-    validateProfile() {}
+    validateProfile(profile) {
+      if (profile?.type === 'masque' && (profile.username || profile.password)) {
+        throw new Error('errorMasqueAuthUnsupported')
+      }
+    }
 
     async checkPrivateAccess() {}
 
@@ -125,10 +134,13 @@
     }
 
     needsKnock(profile) {
-      return Boolean(profile && profile.type !== 'socks5')
+      return Boolean(profile && !['socks5', 'masque'].includes(profile.type))
     }
 
     validateProfile(profile) {
+      if (profile?.type === 'masque') {
+        throw new Error('errorMasqueUnsupported')
+      }
       if (profile?.type === 'socks5' && (profile.username || profile.password)) {
         throw new Error('errorSocksAuthUnsupported')
       }
@@ -240,6 +252,12 @@
 
   class FirefoxPlatform extends BrowserPlatform {
     async apply(state) {
+      if (this.core.active(state)?.type === 'masque') {
+        const { version } = await this.api.runtime.getBrowserInfo()
+        if (Number(version.split('.')[0]) < 146) {
+          throw new Error('errorMasqueVersion')
+        }
+      }
       if ((await this.api.runtime.getPlatformInfo?.())?.os === 'android') {
         // Android routes through onRequest; proxy.settings exists but rejects every call.
         await this.checkPrivateAccess()
