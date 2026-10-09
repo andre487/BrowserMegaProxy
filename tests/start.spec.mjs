@@ -186,7 +186,18 @@ test('development launcher reloads current code and retains the dedicated Chrome
       bounds: { width: 560, height: 700 }
     })
     await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThanOrEqual(560)
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+    for (const gutter of ['auto', 'stable']) {
+      await page.evaluate(gutter => {
+        document.documentElement.style.scrollbarGutter = gutter
+      }, gutter)
+      expect(
+        await page.evaluate(() => {
+          const root = document.documentElement
+          return root.scrollWidth - root.clientWidth
+        })
+      ).toBe(0)
+    }
+    await page.evaluate(() => document.documentElement.style.removeProperty('scrollbar-gutter'))
     const main = await page.locator('main').boundingBox()
     expect(main.x).toBeGreaterThanOrEqual(0)
     expect(main.x + main.width).toBeLessThanOrEqual(560)
