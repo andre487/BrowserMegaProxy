@@ -3,7 +3,8 @@
   "commit": "2ac1f58a1e98b42b25dcc406f2e62c14c05cef0d",
   "overrides": [
     "Dynamic subscription source IDs: lowercase letters, digits, underscore or hyphen; up to 64 IDs per mode.",
-    "Optional browser routing strategy: manual, lists, profiles, tabs or failover."
+    "Optional browser routing strategy: manual, lists, profiles, tabs or failover.",
+    "Experimental Firefox MASQUE proxy type and browser.masqueTemplate."
   ],
   "upstreamFiles": {
     "megaproxy-v8.schema.json": "e3d27906ad6b09a063d90a766953749b4289301943ab3cca26e13eef21de9a97",
@@ -11,7 +12,7 @@
     "LICENSE": "6c13885cba42ec32ee2f3720283ee61256643bd4a12fa736b4b6d9823e6e4ccc"
   },
   "files": {
-    "megaproxy-v8.schema.json": "4bc2fb0cf33ce678e6762df789a32c4e4f8dd82505bac4472a8ca0a68c6f98af",
+    "megaproxy-v8.schema.json": "40be7f1bdf6f9a9f4917ef3d1cd773720865153fb9c3d05aba2f3e2b99a4f69c",
     "android-v8.schema.json": "65d2718871c89b930142122301cad194cb4856662d416493aa1e734c2c80b221",
     "LICENSE": "6c13885cba42ec32ee2f3720283ee61256643bd4a12fa736b4b6d9823e6e4ccc"
   }

@@ -48,6 +48,10 @@ const ready = Promise.all([
       browserRouting: M.routing(data.state?.browserRouting),
       profiles: (data.state?.profiles || []).map(p => M.profile(p))
     }
+    if (state.masqueEnabled !== true && M.active(state)?.type === 'masque') {
+      state.activeId = null
+      state.connectionMode = 'system'
+    }
     delete state.failoverMode
     delete state.failoverProfileIds
   }),
@@ -920,20 +924,22 @@ async function handle(message) {
   }
 
   if (message.command === 'previewImport') {
-    const result = M.importProfiles(message.data)
+    const result = M.importProfiles(message.data, MEGA_TARGET, state.masqueEnabled === true)
     return {
       ok: true,
       added: result.profiles.filter(p => !state.profiles.some(old => old.id === p.id)).length,
       updated: result.profiles.filter(p => state.profiles.some(old => old.id === p.id)).length,
       skipped: result.skipped,
+      skippedMasque: result.skippedMasque,
       unknownFields: result.unknownFields || false,
       unsupportedSplitProxy: result.unsupportedSplitProxy || false,
       unsupportedWebRTC: result.unsupportedWebRTC || false,
-      absent: result.config
-        ? state.profiles
-            .filter(p => !result.profiles.some(next => next.id === p.id))
-            .map(p => ({ id: p.id, name: p.name || p.host }))
-        : []
+      absent:
+        result.config && result.profiles.length
+          ? state.profiles
+              .filter(p => !result.profiles.some(next => next.id === p.id))
+              .map(p => ({ id: p.id, name: p.name || p.host }))
+          : []
     }
   }
 
@@ -941,6 +947,9 @@ async function handle(message) {
   if (message.command === 'save') {
     const old = next.profiles.find(p => p.id === message.profile.id)
     const p = M.profile({ ...old, ...message.profile })
+    if (p.type === 'masque' && next.masqueEnabled !== true) {
+      throw new Error('errorMasqueDisabled')
+    }
     const index = next.profiles.findIndex(item => item.id === p.id)
     if (index < 0) {
       if (next.profiles.length >= 1000) {
@@ -1004,8 +1013,9 @@ async function handle(message) {
       next.activeId = null
     }
   } else if (message.command === 'import') {
-    const result = M.importProfiles(message.data)
+    const result = M.importProfiles(message.data, MEGA_TARGET, state.masqueEnabled === true)
     next = M.mergeImport(next, result, message.removeIds || [])
+    message.skippedMasque = result.skippedMasque
     message.skipped = result.skipped
     message.unsupportedSplitProxy = result.unsupportedSplitProxy
     message.unsupportedWebRTC = result.unsupportedWebRTC
@@ -1045,6 +1055,15 @@ async function handle(message) {
     }
 
     next.bypassLocalNetworks = message.enabled
+  } else if (message.command === 'masqueEnabled') {
+    if (platform.id !== 'firefox' || typeof message.enabled !== 'boolean') {
+      throw new Error('errorProfileFields', { cause: new Error('errorBooleanSetting') })
+    }
+    next.masqueEnabled = message.enabled
+    if (!message.enabled && M.active(next)?.type === 'masque') {
+      next.activeId = null
+      next.connectionMode = 'system'
+    }
   } else if (message.command === 'statistics') {
     if (typeof message.enabled !== 'boolean') {
       throw new Error('errorProfileFields', { cause: new Error('errorBooleanSetting') })
@@ -1163,12 +1182,16 @@ async function handle(message) {
     skipped: message.skipped,
     unsupportedSplitProxy: message.unsupportedSplitProxy,
     warningDetails:
-      message.unsupportedSplitProxy || message.unsupportedWebRTC ? undefined : startupErrorDetails,
-    warning: message.unsupportedSplitProxy
-      ? 'splitUnsupportedWarning'
-      : message.unsupportedWebRTC
-        ? 'errorWebRTCUnsupported'
-        : startupError
+      message.skippedMasque || message.unsupportedSplitProxy || message.unsupportedWebRTC
+        ? undefined
+        : startupErrorDetails,
+    warning: message.skippedMasque
+      ? 'masqueImportDisabled'
+      : message.unsupportedSplitProxy
+        ? 'splitUnsupportedWarning'
+        : message.unsupportedWebRTC
+          ? 'errorWebRTCUnsupported'
+          : startupError
   }
 }
 
@@ -1831,7 +1854,7 @@ async function fetchConfig(value) {
   }
 
   const data = new TextDecoder().decode(bytes)
-  M.importProfiles(data)
+  M.importProfiles(data, MEGA_TARGET, state.masqueEnabled === true)
   return data
 }
 

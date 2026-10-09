@@ -116,6 +116,9 @@ test.beforeEach(async ({ page, browserName, context }) => {
             state.activeId = message.id
           }
 
+          if (message.command === 'masqueEnabled') {
+            state.masqueEnabled = message.enabled
+          }
           if (message.command === 'statistics') {
             state.statisticsEnabled = message.enabled
           }
@@ -184,7 +187,11 @@ test.beforeEach(async ({ page, browserName, context }) => {
           }
           if (message.command === 'previewImport') {
             try {
-              const result = M.importProfiles(message.data)
+              const result = M.importProfiles(
+                message.data,
+                globalThis.MEGA_TARGET,
+                state.masqueEnabled === true
+              )
               return {
                 ok: true,
                 added: result.profiles.filter(p => !state.profiles.some(old => old.id === p.id))
@@ -192,6 +199,7 @@ test.beforeEach(async ({ page, browserName, context }) => {
                 updated: result.profiles.filter(p => state.profiles.some(old => old.id === p.id))
                   .length,
                 skipped: result.skipped,
+                skippedMasque: result.skippedMasque,
                 unknownFields: result.unknownFields || false,
                 unsupportedSplitProxy: result.unsupportedSplitProxy || false,
                 absent: result.config
@@ -222,7 +230,11 @@ test.beforeEach(async ({ page, browserName, context }) => {
             state.bypassLocalNetworks = message.enabled
           }
           if (message.command === 'import') {
-            const result = M.importProfiles(message.data)
+            const result = M.importProfiles(
+              message.data,
+              globalThis.MEGA_TARGET,
+              state.masqueEnabled === true
+            )
             Object.assign(state, M.mergeImport(state, result, message.removeIds))
             localStorage.setItem('testState', JSON.stringify(state))
 
@@ -2053,4 +2065,67 @@ test('SOCKS5 credentials are disabled with an explanation only in Chromium', asy
   expect(saved.type).toBe('socks5')
   expect(saved.username).toBe(browserName === 'chromium' ? '' : 'user')
   expect(saved.password).toBe(browserName === 'chromium' ? '' : 'secret')
+})
+
+test('MASQUE editor is Firefox-only and preserves its path template', async ({
+  page,
+  browserName
+}) => {
+  await page.locator('#new').click()
+  const form = page.locator('#profile-form')
+  if (browserName === 'chromium') {
+    await expect(form.locator('option[value=masque]')).toHaveCount(0)
+    await expect(page.locator('#masque-setting')).toBeHidden()
+    return
+  }
+  await expect(page.locator('#masque-enabled')).not.toBeChecked()
+  await expect(form.locator('option[value=masque]')).toHaveAttribute('disabled', '')
+  await page.locator('#cancel-profile').click()
+  await page.locator('#settings').evaluate(element => {
+    element.open = true
+  })
+  await page.locator('#masque-enabled').check()
+  await page.reload()
+  await expect(page.locator('#masque-enabled')).toBeChecked()
+  await page.locator('#new').click()
+  await expect(form.locator('option[value=masque]')).not.toHaveAttribute('disabled', '')
+  await form.locator('[name=type]').selectOption('masque')
+  await form.locator('[name=host]').fill('proxy.example')
+  await expect(form.locator('[name=knockHost]')).toBeDisabled()
+  await expect(form.locator('[name=username]')).toBeDisabled()
+  await expect(page.locator('#masque-hint')).toContainText('Firefox 146+')
+  await form.locator('[name=masqueTemplate]').fill('/custom/{target_host}/{target_port}/')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('.profile')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click()
+  await expect(form.locator('[name=type]')).toHaveValue('masque')
+  await expect(form.locator('[name=masqueTemplate]')).toHaveValue(
+    '/custom/{target_host}/{target_port}/'
+  )
+  await form.locator('[name=type]').selectOption('https')
+  await expect(page.locator('#masque-template-field')).toBeHidden()
+  await expect(form.locator('[name=knockHost]')).toBeEnabled()
+})
+
+test('Firefox warns when disabled MASQUE profiles are imported from a file', async ({
+  page,
+  browserName
+}) => {
+  test.skip(browserName !== 'firefox')
+  await page.locator('#import').setInputFiles({
+    name: 'masque.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(
+      JSON.stringify({
+        profiles: [
+          { name: 'Experimental', proxy: { type: 'MASQUE', host: 'proxy.example', port: 443 } }
+        ]
+      })
+    )
+  })
+  await expect(page.locator('#import-warnings')).toContainText(
+    'MASQUE отключён: профили MASQUE пропущены.'
+  )
+  await page.locator('#apply-import').click()
+  await expect(page.locator('.profile')).toHaveCount(0)
 })

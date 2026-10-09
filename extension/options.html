@@ -70,6 +70,7 @@
                 <option value="https">HTTPS · TLS</option>
                 <option value="http">HTTP</option>
                 <option value="socks5">SOCKS5</option>
+                <option value="masque">MASQUE · HTTP/3</option>
               </select></label
             >
             <label
@@ -96,6 +97,16 @@
               ><input name="password" type="password" autocomplete="off"
             /></label>
           </div>
+          <label id="masque-template-field" hidden
+            ><span data-i18n="masqueTemplate">MASQUE path template</span
+            ><input
+              name="masqueTemplate"
+              value="/.well-known/masque/udp/{target_host}/{target_port}/"
+              maxlength="2048"
+              autocapitalize="none"
+              spellcheck="false"
+          /></label>
+          <p class="hint" id="masque-hint" hidden data-i18n="masqueHint"></p>
           <input name="authMode" type="hidden" value="auto" />
           <p class="hint" id="socks-auth-hint" hidden data-i18n="errorSocksAuthUnsupported"></p>
           <label
@@ -193,6 +204,11 @@
         </details>
         <details id="settings">
           <summary data-i18n="generalPreferences">General preferences</summary>
+          <label id="masque-setting" class="checkbox preferences" hidden
+            ><input id="masque-enabled" type="checkbox" /><span data-i18n="masqueEnabled"
+              >Enable experimental MASQUE support</span
+            ></label
+          >
           <label class="preferences"
             ><span data-i18n="webRTC">WebRTC</span
             ><select id="webrtc">

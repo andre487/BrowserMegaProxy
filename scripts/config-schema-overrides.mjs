@@ -9,5 +9,9 @@ export function dynamicSubscriptionSchema(schema) {
     type: 'string',
     enum: ['manual', 'lists', 'profiles', 'tabs', 'failover']
   }
+  if (!schema.$defs.proxy.properties.type.enum.includes('MASQUE')) {
+    schema.$defs.proxy.properties.type.enum.push('MASQUE')
+  }
+  schema.$defs.browserProfile.properties.masqueTemplate = { type: 'string', maxLength: 2048 }
   return schema
 }
