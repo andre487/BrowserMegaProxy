@@ -55,7 +55,8 @@ Open Settings from the popup: profiles, import/export, routing, language and app
 are on a separate page. Add a profile with a server address, port, username and password.
 The popup provides quick actions to select and connect a profile, disconnect and knock.
 Disconnect selects System and releases MegaProxy's proxy control. Changes to the active profile apply immediately.
-Knock opens a separate background tab, which closes automatically after a successful load.
+Knock opens a separate tab, active when credentials are missing and otherwise in the background,
+which closes automatically after a successful load.
 Settings → Language offers Auto, Russian and English. Auto is the default:
 `i18n.getUILanguage()` selects Russian for `ru` and its regional variants, and English
 for other browser languages. Manual choices persist and apply immediately,
@@ -239,13 +240,22 @@ list sources belonging to inactive routing modes. Manual list updates remain ava
 | Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
 
 A knock host is optional: its absence does not prevent connecting a profile or show a warning.
-When configured, a normal HTTPS tab opens in the background. Without saved credentials,
-the browser displays its authentication dialog. Passwords entered there remain in the
-browser; the extension does not read them or copy them into a profile.
+When configured, a normal HTTPS tab opens, active when credentials are missing and otherwise in the background. Without a saved username
+and password, MegaProxy leaves authentication to the browser's native dialog.
+A repeated 407 challenge after supplying saved credentials opens MegaProxy's authentication window with focus requested,
+including challenges from a background knock tab. On Android, the extension opens
+an active authentication tab instead. Only one active dialog is opened per profile.
+The dialog retains edits after a rejected attempt and allows cancellation. New
+credentials stay in memory until the challenged request completes with an HTTP
+response other than 407; then they are saved to that profile, the dialog closes automatically, and they are synchronized
+according to the existing sync preferences. Network failures, cancellation, profile
+changes, and failed local storage writes do not replace the saved credentials.
+If a request expires while the dialog is open, reload its original page to retry.
 Firefox disables the knock field and button when both username and password are saved,
 without deleting the saved knock host.
 After a successful HTTP response and completed load, the knock tab closes automatically.
-Load errors, cancellation or unsuccessful authentication leave it open. Chromium
+Load errors, cancellation or unsuccessful authentication leave it open; a successful
+retry still closes it after the page finishes loading. Chromium
 retries a knock load once after `ERR_NETWORK_CHANGED`; subsequent errors leave
 the tab open. Each new knock URL gets a random `r` query parameter to avoid
 reusing a cached page; browser proxy-authentication caches still apply.
@@ -259,8 +269,10 @@ such servers. `browser.authMode` remains for legacy imports, but Firefox always
 requests immediate submission of saved credentials.
 
 The `onAuthRequired` handler responds only to the active proxy, matching host/port
-and `isProxy`. A repeated challenge for the same request is canceled. Credentials
-are never added to destination-site headers or used for its 401 response.
+and `isProxy`. It first supplies saved credentials, then holds a repeated challenge
+while the user edits credentials in the extension dialog. Concurrent requests do
+not open additional dialogs. Credentials are never added to destination-site
+headers or used for its 401 response.
 
 For MegaProxyServer with `probe_resistance` enabled, add an allowed name to the
 server's `knock` setting and use the same name in the extension profile.

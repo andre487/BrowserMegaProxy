@@ -121,7 +121,7 @@ export async function launchExtension(target, dir, { grantPrivacy = false, syste
         let result
 
         try {
-          result = command.command === 'testTabState' ? { ok: true, tabs: await Promise.all((await api.tabs.query({})).map(async tab => ({ id: tab.id, url: tab.url, badge: await api.action.getBadgeText({tabId: tab.id}), title: await api.action.getTitle({tabId: tab.id}) }))) } : command.command === 'testCapabilities' ? {ok: true, sync: await api.storage.sync.get(null), policy: (await api.privacy.network.webRTCIPHandlingPolicy.get({})).value, peer: (await api.privacy.network.peerConnectionEnabled.get({})).value, menus: await Promise.all(['toggleTab', ...state.profiles.map(p => 'profile:' + p.id)].map(async id => { await api.contextMenus.update(id, {enabled: true}); return {id} }))} : command.command === 'testAuthEvents' ? {ok: true, events: authEvents} : command.command === 'testNetworkErrors' ? {ok: true, networkErrors} : command.command === 'testTabsCreated' ? {ok: true, createdTabs} : await handle(command)
+          result = command.command === 'testWindows' ? {ok: true, windows: await api.windows.getAll({populate: true})} : command.command === 'testTabState' ? { ok: true, tabs: await Promise.all((await api.tabs.query({})).map(async tab => ({ id: tab.id, url: tab.url, badge: await api.action.getBadgeText({tabId: tab.id}), title: await api.action.getTitle({tabId: tab.id}) }))) } : command.command === 'testCapabilities' ? {ok: true, sync: await api.storage.sync.get(null), policy: (await api.privacy.network.webRTCIPHandlingPolicy.get({})).value, peer: (await api.privacy.network.peerConnectionEnabled.get({})).value, menus: await Promise.all(['toggleTab', ...state.profiles.map(p => 'profile:' + p.id)].map(async id => { await api.contextMenus.update(id, {enabled: true}); return {id} }))} : command.command === 'testAuthEvents' ? {ok: true, events: authEvents} : command.command === 'testNetworkErrors' ? {ok: true, networkErrors} : command.command === 'testTabsCreated' ? {ok: true, createdTabs} : await handle(command)
         } catch (error) {
           result = {ok: false, error: error.message}
         }
@@ -194,7 +194,12 @@ export async function launchExtension(target, dir, { grantPrivacy = false, syste
                     }))
                   )
                 }))
-              : commandPage.evaluate(message => chrome.runtime.sendMessage(message), message),
+              : message.command === 'testWindows'
+                ? commandPage.evaluate(async () => ({
+                    ok: true,
+                    windows: await chrome.windows.getAll({ populate: true })
+                  }))
+                : commandPage.evaluate(message => chrome.runtime.sendMessage(message), message),
     networkErrors: async () =>
       target === 'firefox'
         ? (await firefoxCommand({ command: 'testNetworkErrors' })).networkErrors

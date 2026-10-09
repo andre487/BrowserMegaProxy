@@ -92,7 +92,10 @@ function harness(target = 'chromium', session = {}, opened = new Map(), savedCre
       onRemoved: event('removed')
     },
     webRequest: Object.fromEntries(
-      ['onCompleted', 'onErrorOccurred', 'onAuthRequired'].map(name => [name, event(name)])
+      ['onBeforeRequest', 'onCompleted', 'onErrorOccurred', 'onAuthRequired'].map(name => [
+        name,
+        event(name)
+      ])
     )
   }
   const context = vm.createContext({
@@ -185,7 +188,8 @@ test('Chromium retries a knock interrupted by proxy settings once, then closes o
     if (repeatedFailure) {
       h.events.onErrorOccurred(error)
       await h.flush()
-      assert.equal(h.session.knockTabs.length, 0)
+      assert.equal(h.session.knockTabs.length, 1)
+      assert.equal(h.session.knockTabs[0].received, false)
       assert.equal(h.opened.has(99), true)
     } else {
       h.opened.get(99).url = error.url
@@ -319,6 +323,78 @@ test('IPv6 knock success is recognized without marking its own host for refresh'
 })
 
 for (const target of ['chromium', 'firefox']) {
+  test(`${target} keeps a fast knock response when loading notifications arrive after it`, async () => {
+    const h = harness(target, {}, tabs(), false)
+    await h.send({ command: 'knock' })
+    h.events.onBeforeRequest({ tabId: 99, type: 'main_frame', url: 'https://knock.example/' })
+    h.complete(200)
+    h.events.updated(
+      99,
+      { status: 'loading', url: 'https://knock.example/' },
+      { url: 'https://knock.example/' }
+    )
+    h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+    await h.flush()
+    assert.equal(h.opened.has(99), false)
+  })
+
+  test(`${target} keeps failed knock tabs tracked and closes them after a successful retry`, async () => {
+    for (const failure of ['http', 'network']) {
+      const h = harness(target, {}, tabs(), false)
+      await h.send({ command: 'knock' })
+      if (failure === 'http') {
+        h.complete(407)
+      } else {
+        h.events.onErrorOccurred({ tabId: 99, type: 'main_frame', url: 'https://knock.example/' })
+      }
+      h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+      await h.flush()
+      assert.equal(h.opened.has(99), true)
+      assert.equal(h.session.knockTabs.length, 1)
+      h.events.onBeforeRequest({ tabId: 99, type: 'main_frame', url: 'https://knock.example/' })
+      h.complete(200)
+      await h.flush()
+      assert.equal(h.opened.has(99), true, 'the retry must finish loading before closing')
+      h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+      await h.flush()
+      assert.equal(h.opened.has(99), false)
+      assert.equal(h.session.knockTabs.length, 0)
+      assert.equal(h.opened.has(1), true)
+    }
+  })
+
+  test(`${target} closes an active native-auth knock tab only after a successful response and full load`, async () => {
+    for (const loadFirst of [false, true]) {
+      const h = harness(target, {}, tabs(), false)
+      await h.send({ command: 'knock' })
+      assert.equal(h.created[0].active, true)
+      const auth = await new Promise(resolve =>
+        h.events.onAuthRequired(
+          { isProxy: true, requestId: 'native', challenger: { host: 'proxy.example', port: 443 } },
+          resolve
+        )
+      )
+      assert.deepEqual(JSON.parse(JSON.stringify(auth)), {})
+      const loaded = () =>
+        h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+      if (loadFirst) {
+        loaded()
+      } else {
+        h.complete(200)
+      }
+      await h.flush()
+      assert.equal(h.opened.has(99), true, 'both a successful response and full load are required')
+      if (loadFirst) {
+        h.complete(200)
+      } else {
+        loaded()
+      }
+      await h.flush()
+      assert.equal(h.opened.has(99), false)
+      assert.equal(h.opened.has(1), true)
+    }
+  })
+
   test(`${target} closes only successful fully loaded knock tabs and leaves failures open`, async () => {
     for (const outcome of ['success', 'http', 'network']) {
       const h = harness(target, {}, tabs(), target !== 'firefox')
@@ -348,7 +424,7 @@ for (const target of ['chromium', 'firefox']) {
     await first.flush()
     await first.send({ command: 'knock' })
     assert.equal(first.created.length, 1)
-    assert.equal(first.created[0].active, false)
+    assert.equal(first.created[0].active, target === 'firefox')
     first.complete(200)
     await first.flush()
     assert.equal(opened.has(99), true)

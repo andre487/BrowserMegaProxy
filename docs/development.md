@@ -29,6 +29,7 @@ Persistent, separate browser profiles live in `.browser-profiles/chrome` and
 `.browser-profiles/firefox`; this directory is excluded from Git. Proxy profiles,
 language, theme and other browser data survive restarts. Close the previous session
 before launching again. Exit by closing the browser or pressing Ctrl+C in the terminal.
+Ctrl+C stops watching and waits for a normal browser shutdown so the profile is saved cleanly.
 
 Chrome opens the extension UI in a tab. Current regular Chrome
 [disables `--load-extension`](https://groups.google.com/a/chromium.org/g/chromium-extensions/c/1-g8EFx2BBY),

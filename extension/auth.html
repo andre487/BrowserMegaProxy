@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MegaProxy</title>
+    <link rel="icon" href="icons/icon.svg" type="image/svg+xml" sizes="any" />
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body class="auth-page" hidden>
+    <main>
+      <header>
+        <img class="brand" src="icons/icon.svg" width="48" height="48" alt="MegaProxy" />
+        <h1 data-i18n="authTitle">Proxy authentication</h1>
+      </header>
+      <strong id="auth-profile"></strong>
+      <p id="auth-endpoint"></p>
+      <p class="hint" data-i18n="authHint">
+        Enter new credentials. MegaProxy will save them only after the proxy accepts them.
+      </p>
+      <form id="auth-form">
+        <label>
+          <span data-i18n="username">Username</span>
+          <input
+            id="auth-username"
+            name="username"
+            autocomplete="username"
+            maxlength="4096"
+            required
+          />
+        </label>
+        <label>
+          <span data-i18n="password">Password</span>
+          <input
+            id="auth-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            maxlength="16384"
+            required
+          />
+        </label>
+        <p id="notice" role="status" aria-live="polite"></p>
+        <p id="auth-retry-hint" class="hint" data-i18n="authRequestFailed" hidden></p>
+        <div class="actions">
+          <button id="auth-cancel" class="secondary" type="button" data-i18n="cancel">
+            Cancel
+          </button>
+          <button id="auth-submit" type="submit" data-i18n="authSubmit">Verify and save</button>
+        </div>
+      </form>
+    </main>
+    <script src="target.js"></script>
+    <script src="errors.js"></script>
+    <script src="platform.js"></script>
+    <script src="i18n.js"></script>
+    <script src="auth-ui.js"></script>
+  </body>
+</html>

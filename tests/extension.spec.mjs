@@ -56,6 +56,8 @@ for (const scenario of ['auto', 'challenge']) {
       )
       const requests = []
       const originHeaders = []
+      const resourceRoutes = new Map()
+      let splitLoad = 0
       const tlsOptions = {
         key: await readFile(`${dir}/key.pem`),
         cert: await readFile(`${dir}/cert.pem`)
@@ -71,10 +73,13 @@ for (const scenario of ['auto', 'challenge']) {
         }
         if (req.url === '/split') {
           res.setHeader('Content-Type', 'text/html')
-          res.end(`<p>Split routing page</p><img src="https://[::1]:${originPort}/resource">`)
+          res.end(
+            `<p>Split routing page</p><img src="https://[::1]:${originPort}/resource?load=${++splitLoad}">`
+          )
           return
         }
-        if (req.url === '/resource') {
+        if (req.url.startsWith('/resource?')) {
+          resourceRoutes.set(req.url, req.socket.remoteAddress)
           res.setHeader('Content-Type', 'image/svg+xml')
           res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>')
           return
@@ -240,7 +245,20 @@ for (const scenario of ['auto', 'challenge']) {
       }
 
       const page = await context.newPage()
-      await page.goto('https://target.invalid/')
+      await page.goto('https://target.invalid/').catch(async error => {
+        await testInfo.attach('proxy-navigation', {
+          contentType: 'application/json',
+          body: JSON.stringify({
+            requests: requests.map(({ target, auth }) => ({
+              target,
+              authenticated: auth === credential
+            })),
+            authEvents: await browser.authEvents(),
+            networkErrors: await browser.networkErrors()
+          })
+        })
+        throw error
+      })
       await expect(page.locator('body')).toContainText('Reached target')
       const first = requests.find(r => r.target === 'target.invalid:443')
       if (target === 'firefox' && scenario === 'challenge') {
@@ -286,26 +304,28 @@ for (const scenario of ['auto', 'challenge']) {
         })
         await page.goto('https://target.invalid/split')
         await expect(page.locator('img')).toHaveJSProperty('naturalWidth', 1)
-        const proxiedResources = requests.filter(r => r.target === `[::1]:${originPort}`).length
-        expect(proxiedResources).toBeGreaterThan(0)
+        const resourceRoute = async tab => {
+          const url = new URL(await tab.locator('img').getAttribute('src'))
+          return resourceRoutes.get(url.pathname + url.search)
+        }
+        expect(await resourceRoute(page)).toBe('::ffff:127.0.0.1')
         await direct.reload()
         await expect(direct.locator('img')).toHaveJSProperty('naturalWidth', 1)
-        expect(requests.filter(r => r.target === `[::1]:${originPort}`).length).toBe(
-          proxiedResources
-        )
+        expect(await resourceRoute(direct)).toBe('::1')
         await direct.bringToFront()
         expect((await command({ command: 'currentSite' })).currentSite.hostname).toBe('::1')
+        const proxiedLoad = direct.waitForEvent('load')
         const proxied = await command({ command: 'toggleTab' })
         expect(proxied.currentSite.proxied).toBe(true)
-        await expect
-          .poll(() => requests.filter(r => r.target === `[::1]:${originPort}`).length)
-          .toBeGreaterThan(proxiedResources)
-        await direct.waitForLoadState('load')
-        const afterToggle = requests.filter(r => r.target === `[::1]:${originPort}`).length
+        await proxiedLoad
+        await expect(direct.locator('img')).toHaveJSProperty('naturalWidth', 1)
+        expect(await resourceRoute(direct)).toBe('::ffff:127.0.0.1')
+        const unproxiedLoad = direct.waitForEvent('load')
         const unproxied = await command({ command: 'toggleTab' })
         expect(unproxied.currentSite.proxied).toBe(false)
-        await direct.waitForLoadState('load')
-        expect(requests.filter(r => r.target === `[::1]:${originPort}`).length).toBe(afterToggle)
+        await unproxiedLoad
+        await expect(direct.locator('img')).toHaveJSProperty('naturalWidth', 1)
+        expect(await resourceRoute(direct)).toBe('::1')
       }
       if (target === 'firefox') {
         const secondaryRequests = []
@@ -428,6 +448,207 @@ for (const scenario of ['auto', 'challenge']) {
         await stop(origin)
       }
 
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+}
+
+for (const authentication of ['saved', 'native']) {
+  // eslint-disable-next-line no-empty-pattern
+  test(`proxy authentication (${authentication}) verifies credentials and closes successful knock tabs`, async ({}, testInfo) => {
+    test.skip(
+      authentication === 'native' && testInfo.project.name === 'firefox',
+      'Native HTTP credentials are supplied through Chromium automation'
+    )
+    const dir = await mkdtemp(path.join(tmpdir(), 'mega-auth-dialog-'))
+    const sockets = new Set()
+    const proxyAttempts = []
+    let browser, origin, proxy
+    try {
+      execFileSync(
+        'openssl',
+        [
+          'req',
+          '-x509',
+          '-newkey',
+          'rsa:2048',
+          '-nodes',
+          '-keyout',
+          `${dir}/key.pem`,
+          '-out',
+          `${dir}/cert.pem`,
+          '-subj',
+          '/CN=knock.invalid',
+          '-days',
+          '1'
+        ],
+        { stdio: 'ignore' }
+      )
+      origin = https.createServer(
+        { key: await readFile(`${dir}/key.pem`), cert: await readFile(`${dir}/cert.pem`) },
+        (req, res) => res.end('Authenticated')
+      )
+      const originPort = await listen(origin)
+      const credential = `Basic ${Buffer.from('new-user:new-secret').toString('base64')}`
+      proxy = http.createServer((req, res) =>
+        res.writeHead(407, { 'Proxy-Authenticate': 'Basic realm="MegaProxy"' }).end()
+      )
+      proxy.on('connect', (req, client, head) => {
+        sockets.add(client)
+        client.on('error', () => {})
+        proxyAttempts.push(req.headers['proxy-authorization'] === credential)
+        if (req.headers['proxy-authorization'] !== credential) {
+          client.end(
+            'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="MegaProxy"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n'
+          )
+          return
+        }
+        const upstream = net.connect(originPort, '127.0.0.1', () => {
+          client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+          if (head.length) {
+            upstream.write(head)
+          }
+          client.pipe(upstream).pipe(client)
+        })
+        sockets.add(upstream)
+        upstream.on('error', () => client.destroy())
+        client.on('close', () => upstream.destroy())
+      })
+      const proxyPort = await listen(proxy)
+      browser = await launchExtension(testInfo.project.name, dir)
+      await browser.command({ command: 'sync', enabled: false, includePasswords: false })
+      await browser.command({
+        command: 'save',
+        profile: {
+          id: 'p',
+          name: 'Auth test',
+          type: 'http',
+          host: '127.0.0.1',
+          port: proxyPort,
+          username: authentication === 'native' ? '' : 'old-user',
+          password: authentication === 'native' ? '' : 'old-secret',
+          knockHost: 'knock.invalid'
+        }
+      })
+      let knockPagePromise
+      if (authentication === 'native') {
+        await browser.context.setHTTPCredentials({ username: 'new-user', password: 'wrong' })
+        knockPagePromise = browser.context.waitForEvent('page')
+      }
+      await browser.command({ command: 'activate', id: 'p' })
+      if (authentication === 'native') {
+        const knockPage = await knockPagePromise
+        await expect
+          .poll(async () =>
+            (await browser.networkErrors()).some(event => event.url?.includes('knock.invalid'))
+          )
+          .toBe(true)
+        expect(knockPage.isClosed()).toBe(false)
+        await browser.command({ command: 'get' })
+        await browser.context.setHTTPCredentials({ username: 'new-user', password: 'new-secret' })
+        // Reload through the extension API: Playwright may try to return a navigation
+        // Response after the extension has already closed this short-lived page.
+        await browser.context.serviceWorkers()[0].evaluate(async () => {
+          const tab = (await chrome.tabs.query({})).find(tab =>
+            tab.url?.startsWith('https://knock.invalid/')
+          )
+          await chrome.tabs.reload(tab.id)
+        })
+        await expect.poll(() => knockPage.isClosed()).toBe(true)
+        expect(proxyAttempts).toContain(false)
+        expect(proxyAttempts).toContain(true)
+        expect(browser.context.pages().some(page => page.url().includes('/auth.html'))).toBe(false)
+        expect((await browser.command({ command: 'get' })).state.profiles[0].password).toBe('')
+        return
+      }
+      let navigation
+      if (testInfo.project.name === 'firefox') {
+        const page = await browser.context.newPage()
+        navigation = page.goto('https://knock.invalid/').then(
+          () => true,
+          () => false
+        )
+      }
+      let authTab
+      await expect
+        .poll(async () => {
+          if (testInfo.project.name === 'chromium') {
+            const page = browser.context.pages().find(page => page.url().includes('/auth.html?id='))
+            if (page) {
+              authTab = {
+                ...(await page.evaluate(() => chrome.tabs.getCurrent())),
+                url: page.url()
+              }
+            }
+          } else {
+            const { tabs } = await browser.command({ command: 'testTabState' })
+            authTab = tabs.find(tab => tab.url?.includes('/auth.html?id='))
+          }
+          return Boolean(authTab)
+        })
+        .toBe(true)
+      const token = new URL(authTab.url).searchParams.get('id')
+      const { windows } = await browser.command({ command: 'testWindows' })
+      expect(windows.find(window => window.tabs.some(tab => tab.id === authTab.id)).focused).toBe(
+        true
+      )
+      const dialog =
+        testInfo.project.name === 'chromium'
+          ? browser.context.pages().find(page => page.url() === authTab.url)
+          : undefined
+      const authCommand = message =>
+        dialog
+          ? dialog.evaluate(message => chrome.runtime.sendMessage(message), { token, ...message })
+          : browser.command({ token, ...message })
+      expect(JSON.stringify(await authCommand({ command: 'authGet' }))).not.toContain('old-secret')
+      if (dialog) {
+        await expect(dialog.locator('#auth-username')).toHaveValue('old-user')
+        await dialog.locator('#auth-username').fill('new-user')
+        await dialog.locator('#auth-password').fill('wrong')
+        await dialog.locator('#auth-submit').click()
+      } else {
+        await authCommand({ command: 'authSubmit', username: 'new-user', password: 'wrong' })
+      }
+      await expect
+        .poll(async () => (await authCommand({ command: 'authGet' })).auth.phase)
+        .toBe('rejected')
+      expect((await browser.command({ command: 'get' })).state.profiles[0].password).toBe(
+        'old-secret'
+      )
+      if (dialog) {
+        await dialog.locator('#auth-password').fill('new-secret')
+        const closed = dialog.waitForEvent('close')
+        await dialog.locator('#auth-submit').click()
+        await closed
+      } else {
+        await authCommand({ command: 'authSubmit', username: 'new-user', password: 'new-secret' })
+      }
+      await expect
+        .poll(async () => (await browser.command({ command: 'get' })).state.profiles[0].password)
+        .toBe('new-secret')
+      expect((await browser.command({ command: 'get' })).state.profiles[0].username).toBe(
+        'new-user'
+      )
+      await expect
+        .poll(async () => {
+          const { tabs } = await browser.command({ command: 'testTabState' })
+          return tabs.some(tab => tab.id === authTab.id)
+        })
+        .toBe(false)
+      if (navigation) {
+        expect(await navigation).toBe(true)
+      }
+    } finally {
+      await browser?.close()
+      for (const socket of sockets) {
+        socket.destroy()
+      }
+      if (proxy) {
+        await stop(proxy)
+      }
+      if (origin) {
+        await stop(origin)
+      }
       await rm(dir, { recursive: true, force: true })
     }
   })

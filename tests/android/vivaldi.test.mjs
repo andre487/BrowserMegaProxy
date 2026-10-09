@@ -1,6 +1,6 @@
 /* global chrome, handle */
 import assert from 'node:assert/strict'
-import { after, before, describe, it } from 'node:test'
+import { after, afterEach, before, describe, it } from 'node:test'
 import { execFile } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import http from 'node:http'
@@ -384,6 +384,20 @@ describe('Vivaldi Android', { concurrency: false }, () => {
   it('saved credentials and authenticated HTTP proxy load', async () => {
     await visit('http://mobile.megaproxy.test/auth')
     assert.ok(requests.some(r => r.url === 'http://mobile.megaproxy.test/auth' && r.authenticated))
+  })
+
+  afterEach(async () => {
+    knockStatus = 200
+    if (worker) {
+      await worker.evaluate(async () => {
+        const ids = (await chrome.tabs.query({}))
+          .filter(tab => tab.url?.startsWith('https://knock.megaproxy.test/'))
+          .map(tab => tab.id)
+        if (ids.length) {
+          await chrome.tabs.remove(ids)
+        }
+      })
+    }
   })
 
   it('authenticated HTTPS knock opens inactive and closes after success', async () => {

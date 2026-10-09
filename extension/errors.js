@@ -40,6 +40,9 @@
     'logExport',
     'logConfigure',
     'authentication',
+    'authGet',
+    'authSubmit',
+    'authCancel',
     'request'
   ])
   const resources = new Set([

@@ -300,6 +300,22 @@ test('profile lifecycle, import, themes and responsive keyboard-accessible form'
 
   await page.getByRole('button', { name: 'Настройки', exact: true }).click()
   await expect(page).toHaveURL(/options\.html$/)
+  for (const [label, value] of [
+    ['Пароль', 'new-secret'],
+    ['Логин', 'new-user']
+  ]) {
+    await page.getByRole('button', { name: 'Изменить' }).click()
+    await page.getByLabel(label, { exact: true }).fill(value)
+    await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+    if (browserName === 'chromium') {
+      await expect(page.locator('#notice')).toContainText('полностью закройте браузер')
+    } else {
+      await expect(page.locator('#notice')).toBeEmpty()
+    }
+  }
+  await page.getByRole('button', { name: 'Изменить' }).click()
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('#notice')).toBeEmpty()
   await page.getByRole('button', { name: 'Изменить' }).click()
   await page.getByLabel('Хост прокси').fill('https://wrong.example')
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
@@ -1902,4 +1918,64 @@ test('UI explains transport failures and transferred background errors with thei
   await page.locator('#check').click()
   await expect(page.locator('#notice')).toContainText('Загрузка иконки тулбара (toolbar32.png):')
   await expect(page.locator('#notice')).not.toContainText('Failed to fetch')
+})
+
+test('authentication page keeps rejected edits and closes after credentials are saved', async ({
+  page
+}) => {
+  await page.addInitScript(() => {
+    globalThis.authPhase = 'waiting'
+    globalThis.authMessages = []
+    globalThis.authClosedTabs = []
+    chrome.tabs.getCurrent = async () => ({ id: 7 })
+    chrome.tabs.remove = async id => globalThis.authClosedTabs.push(id)
+    chrome.runtime.sendMessage = async message => {
+      globalThis.authMessages.push(message)
+      if (message.command === 'authSubmit') {
+        globalThis.authPhase = 'checking'
+      }
+      return {
+        ok: true,
+        auth: {
+          phase: globalThis.authPhase,
+          name: 'Test proxy',
+          host: 'proxy.example',
+          port: 443,
+          username: 'old-user',
+          language: 'ru',
+          theme: 'dark',
+          errorDetails:
+            globalThis.authPhase === 'rejected'
+              ? { code: 'errorAuthRejected', operation: 'authentication' }
+              : undefined
+        }
+      }
+    }
+  })
+  await page.goto('http://127.0.0.1:8765/auth.html?id=test')
+  await expect(page.locator('body')).toBeVisible()
+  await expect(page.locator('#auth-profile')).toHaveText('Test proxy')
+  await expect(page.locator('#auth-password')).toBeFocused()
+  expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([])
+  await page.locator('#auth-username').fill('new-user')
+  await page.locator('#auth-password').fill('private-secret')
+  await page.locator('#auth-submit').click()
+  await expect(page.locator('#auth-submit')).toBeDisabled()
+  await expect(page.locator('#notice')).toContainText('Ожидаем подтверждения')
+  await page.evaluate(() => {
+    globalThis.authPhase = 'rejected'
+  })
+  await expect(page.locator('#notice')).toContainText('Прокси отклонил эти данные')
+  await expect(page.locator('#auth-username')).toHaveValue('new-user')
+  await expect(page.locator('#auth-password')).toHaveValue('private-secret')
+  await expect(page.locator('#auth-password')).toBeFocused()
+  expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([])
+  await page.evaluate(() => {
+    globalThis.authPhase = 'saved'
+  })
+  await expect(page.locator('#notice')).toHaveText('Данные приняты и сохранены.')
+  await expect(page.locator('#auth-password')).toHaveValue('')
+  expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([7])
+  await expect(page.locator('#auth-cancel')).toHaveText('Закрыть')
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('private-secret')
 })

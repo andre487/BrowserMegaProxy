@@ -902,8 +902,19 @@ if (isOptions) {
   $('#profile-form').onsubmit = event => {
     event.preventDefault()
     action(async () => {
-      await send('save', { profile: Object.fromEntries(new FormData(event.target)) })
+      const profile = Object.fromEntries(new FormData(event.target))
+      const previous = state.profiles.find(p => p.id === profile.id)
+      const result = await send('save', { profile })
+      const saved = result.state.profiles.find(p => p.id === profile.id)
       $('#editor').close()
+      if (
+        platform.id === 'chromium' &&
+        previous &&
+        saved &&
+        (previous.username !== saved.username || previous.password !== saved.password)
+      ) {
+        $('#notice').textContent = t('credentialsRestartChromium')
+      }
     })
   }
 
