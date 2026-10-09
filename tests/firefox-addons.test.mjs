@@ -119,6 +119,35 @@ test('Firefox initial metadata is localized; updates preserve existing listing f
   assert.throws(() => firefoxMetadata({ en: listings.en, ru: {} }, 'Privacy', 'Notes', false))
 })
 
+test('Firefox reviewer metadata respects the AMO limit for new listings and updates', async () => {
+  const reviewerNotes = await readFile(
+    new URL('../store/REVIEWER-NOTES.md', import.meta.url),
+    'utf8'
+  )
+  const listings = Object.fromEntries(
+    ['en', 'ru'].map(locale => [
+      locale,
+      Object.fromEntries(
+        ['name', 'summary', 'description', 'homepage', 'support'].map(field => [field, field])
+      )
+    ])
+  )
+  const overhead = firefoxMetadata({}, '', '', true).version.approval_notes.length
+  for (const exists of [false, true]) {
+    const atLimit = 'x'.repeat(3000 - overhead)
+    const unchanged = firefoxMetadata(listings, '', atLimit, exists).version.approval_notes
+    assert.equal(unchanged.length, 3000)
+    assert.ok(unchanged.startsWith(atLimit))
+    for (const notes of [atLimit + 'x', reviewerNotes, '😀'.repeat(3000)]) {
+      const metadata = firefoxMetadata(listings, '', notes, exists)
+      assert.ok(metadata.version.approval_notes.length <= 3000)
+      assert.match(metadata.version.approval_notes, /store\/REVIEWER-NOTES\.md/)
+      assert.match(metadata.version.approval_notes, /store\/PERMISSIONS\.md/)
+      assert.match(metadata.version.approval_notes, /npm ci && npm run build/)
+    }
+  }
+})
+
 test('Firefox CLI validates released archives and delegates submission with source; dry run never invokes web-ext', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'mega-amo-'))
   try {
@@ -142,7 +171,10 @@ test('Firefox CLI validates released archives and delegates submission with sour
       )
     }
     await write('source/store/PRIVACY.md', 'Privacy')
-    await write('source/store/REVIEWER-NOTES.md', 'Review notes')
+    await write(
+      'source/store/REVIEWER-NOTES.md',
+      await readFile(new URL('../store/REVIEWER-NOTES.md', import.meta.url), 'utf8')
+    )
     await mkdir(`${directory}/dist/release`, { recursive: true })
     for (const [target, archive] of [
       ['extension', 'firefox'],
@@ -193,10 +225,10 @@ test('Firefox CLI validates released archives and delegates submission with sour
     assert.match(command, /--upload-source-code\ndist\/release\/MegaProxy-source-v0\.1\.1\.zip/)
     assert.match(command, /--approval-timeout\n0/)
     assert.ok(!command.includes(env.WEB_EXT_API_SECRET))
-    assert.equal(
-      JSON.parse(await readFile(`${directory}/dist/amo-metadata.json`, 'utf8')).version.license,
-      'MIT'
-    )
+    const metadata = JSON.parse(await readFile(`${directory}/dist/amo-metadata.json`, 'utf8'))
+    assert.equal(metadata.version.license, 'MIT')
+    assert.ok(metadata.version.approval_notes.length <= 3000)
+    assert.match(metadata.version.approval_notes, /store\/REVIEWER-NOTES\.md/)
     await rm(capture)
     assert.match(run(true), /dry run passed/)
     await assert.rejects(readFile(capture), { code: 'ENOENT' })

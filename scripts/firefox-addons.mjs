@@ -58,9 +58,15 @@ export async function checkFirefoxRelease(
 }
 
 export function firefoxMetadata(listings, privacy, reviewerNotes, exists) {
+  const buildNotes =
+    'Build from the attached source archive with Node.js 22+: npm ci && npm run build. The Firefox package is dist/firefox. Uploads use the listed channel.'
+  const approvalNotes = `${reviewerNotes}\n\n${buildNotes}`
   const version = {
     license: 'MIT',
-    approval_notes: `${reviewerNotes}\n\nBuild from the attached source archive with Node.js 22+: npm ci && npm run build. The Firefox package is dist/firefox. Uploads use the listed channel.`
+    approval_notes:
+      approvalNotes.length <= 3000
+        ? approvalNotes
+        : `Full review steps and permission justifications are in store/REVIEWER-NOTES.md and store/PERMISSIONS.md in the attached source archive.\n\n${buildNotes}`
   }
   if (exists) {
     return { version }
