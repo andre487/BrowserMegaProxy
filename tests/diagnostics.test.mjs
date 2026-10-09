@@ -239,6 +239,7 @@ test('connection check preserves 5xx page diagnostics and closes its tab', async
     const result = await h.command({ command: 'check' })
     assert.equal(result.ok, false)
     assert.equal(result.errorDetails.status, 503)
+    assert.deepEqual(h.urls, ['https://example.com/'])
     assert.match(result.errorDetails.responseBody, /upstream unavailable/)
     assert.doesNotMatch(result.errorDetails.responseBody, /secret/)
     assert.deepEqual(h.removed, [7])

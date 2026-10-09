@@ -267,7 +267,7 @@ Release API calls (Chrome, Firefox, Opera and release-note generation), schema/c
 renewal and extension downloads include response excerpts for HTTP 500–599 errors.
 The shared handler reads at most 16 KiB and outputs at most 4,096 characters, with
 known credentials, authorization fields, URLs and control characters redacted.
-Errors identify the method and endpoint in release logs. Release and maintenance API calls retry HTTP 5xx up to three total attempts with 1 and 2 second delays; each failed attempt logs its response excerpt. HTTP 4xx and transport failures are not retried by this handler. Empty or unreadable bodies
+Errors identify the method and endpoint in release logs. Release and maintenance API calls and extension configuration downloads retry HTTP 5xx up to three total attempts with 1 and 2 second delays; each failed attempt logs its response excerpt. Connection checks do not retry requests. HTTP 4xx and transport failures are not retried by this handler. Empty or unreadable bodies
 are marked explicitly; HTTP 4xx response bodies are not logged.
 
 Extension 5xx diagnostics are also retained across error wrapping and displayed in

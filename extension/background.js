@@ -1766,23 +1766,32 @@ async function fetchConfig(value) {
   }
 
   let response
+  const secrets = [
+    ...url.searchParams.values(),
+    ...state.profiles.flatMap(p => [p.username, p.password, p.host, p.knockHost])
+  ]
   try {
-    response = await fetch(url.href, {
-      signal: AbortSignal.timeout(30000),
-      credentials: 'omit',
-      cache: 'no-store',
-      referrerPolicy: 'no-referrer'
-    })
+    for (let attempt = 0; attempt < 3; attempt++) {
+      response = await fetch(url.href, {
+        signal: AbortSignal.timeout(30000),
+        credentials: 'omit',
+        cache: 'no-store',
+        referrerPolicy: 'no-referrer'
+      })
+      if (!(response.status >= 500 && response.status <= 599) || attempt === 2) {
+        break
+      }
+      const error = await MegaErrors.httpError(response, 'errorHTTP', secrets)
+      diagnosticLog?.write('config_download_retried', MegaErrors.details(error, 'fetchConfig'))
+      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt))
+    }
   } catch (error) {
     throw new Error('errorConfigDownload', { cause: error })
   }
 
   if (!response.ok) {
     throw new Error('errorConfigDownload', {
-      cause: await MegaErrors.httpError(response, 'errorHTTP', [
-        ...url.searchParams.values(),
-        ...state.profiles.flatMap(p => [p.username, p.password, p.host, p.knockHost])
-      ])
+      cause: await MegaErrors.httpError(response, 'errorHTTP', secrets)
     })
   }
   if (Number(response.headers.get('content-length')) > 1024 * 1024) {
