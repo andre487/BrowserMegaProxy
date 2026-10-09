@@ -16,6 +16,37 @@ test.beforeEach(async ({ page }) => {
   await expect(page.locator('body')).toBeVisible()
 })
 
+test('select all inside the log selects only log entries with either platform shortcut', async ({
+  page
+}) => {
+  await page.evaluate(async () => {
+    const log = new globalThis.MegaDiagnosticLog()
+    log.write('background_started', { mode: 'direct' })
+    log.write('settings_changed', { profile: 7 })
+    await log.flush()
+  })
+  const output = page.locator('#log-output')
+  await expect(output).toContainText('"profile":7')
+  await output.click()
+  await expect(output).toBeFocused()
+  for (const shortcut of ['Control+a', 'Meta+a']) {
+    await page.evaluate(() => window.getSelection().removeAllRanges())
+    await page.keyboard.press(shortcut)
+    const selection = await output.evaluate(node => {
+      const range = window.getSelection().getRangeAt(0)
+      return {
+        insideLog: range.startContainer === node && range.endContainer === node,
+        start: range.startOffset,
+        end: range.endOffset,
+        entries: node.childNodes.length
+      }
+    })
+    expect(selection.insideLog).toBe(true)
+    expect(selection.start).toBe(0)
+    expect(selection.end).toBe(selection.entries)
+  }
+})
+
 test('log persists, bounds its volume, coalesces repetitions, sanitizes and exports retained entries', async ({
   page
 }) => {

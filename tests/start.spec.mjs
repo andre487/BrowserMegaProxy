@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
@@ -127,8 +127,15 @@ test('development launcher reloads current code and retains the dedicated Chrome
   const backgroundFile = 'dist/chromium/background.js'
   const backgroundOriginal = await readFile(backgroundFile, 'utf8')
   const backgroundVersion = async () => {
+    const extensionURL = session.context
+      .pages()[0]
+      .url()
+      .replace(/\/[^/]*$/, '/')
     const worker =
-      session.context.serviceWorkers()[0] || (await session.context.waitForEvent('serviceworker'))
+      session.context.serviceWorkers().find(worker => worker.url().startsWith(extensionURL)) ||
+      (await session.context.waitForEvent('serviceworker', worker =>
+        worker.url().startsWith(extensionURL)
+      ))
     return worker.evaluate(() => globalThis.testLaunchVersion)
   }
   let session
@@ -143,7 +150,7 @@ test('development launcher reloads current code and retains the dedicated Chrome
       session = await launchBrowser('chrome', { headless: true, profileDir })
     } catch (error) {
       test.skip(
-        error.message.includes("Chromium distribution 'chrome' is not found"),
+        error.message.startsWith('Install Google Chrome'),
         'Install Google Chrome to check the development launcher'
       )
       throw error
@@ -179,7 +186,18 @@ test('development launcher reloads current code and retains the dedicated Chrome
       bounds: { width: 560, height: 700 }
     })
     await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThanOrEqual(560)
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0)
+    for (const gutter of ['auto', 'stable']) {
+      await page.evaluate(gutter => {
+        document.documentElement.style.scrollbarGutter = gutter
+      }, gutter)
+      expect(
+        await page.evaluate(() => {
+          const root = document.documentElement
+          return root.scrollWidth - root.clientWidth
+        })
+      ).toBe(0)
+    }
+    await page.evaluate(() => document.documentElement.style.removeProperty('scrollbar-gutter'))
     const main = await page.locator('main').boundingBox()
     expect(main.x).toBeGreaterThanOrEqual(0)
     expect(main.x + main.width).toBeLessThanOrEqual(560)
@@ -218,5 +236,54 @@ test('development launcher reloads current code and retains the dedicated Chrome
     await writeFile(file, original)
     await writeFile(backgroundFile, backgroundOriginal)
     await rm(profileDir, { recursive: true, force: true })
+  }
+})
+
+test('development Chrome exports logs across restarts with retained download history', async ({
+  browserName
+}) => {
+  test.skip(browserName !== 'chromium', 'Native Chrome downloads are checked once')
+  test.setTimeout(60000)
+  await build()
+  const directory = await mkdtemp(path.join(tmpdir(), 'mega-native-downloads-'))
+  const profileDir = path.join(directory, 'profile')
+  const downloads = path.join(directory, 'downloads')
+  await mkdir(path.join(profileDir, 'Default'), { recursive: true })
+  await mkdir(downloads)
+  await writeFile(
+    path.join(profileDir, 'Default', 'Preferences'),
+    JSON.stringify({ download: { default_directory: downloads, prompt_for_download: false } })
+  )
+  let session
+  try {
+    for (let run = 0; run < 3; run++) {
+      session = await launchBrowser('chrome', { headless: true, profileDir })
+      const page = session.context.pages()[0]
+      await page.goto(page.url().replace('popup.html', 'log.html'))
+      await expect(page.locator('body')).toBeVisible()
+      await page.evaluate(async run => {
+        const log = new globalThis.MegaDiagnosticLog()
+        log.write('settings_changed', { profile: run })
+        await log.flush()
+      }, run)
+      const previous = await readdir(downloads)
+      await page.locator('#log-export').click()
+      await expect
+        .poll(async () => (await readdir(downloads)).filter(file => file.endsWith('.log')).length)
+        .toBe(run + 1)
+      const exported = (await readdir(downloads)).find(
+        file => file.endsWith('.log') && !previous.includes(file)
+      )
+      expect(await readFile(path.join(downloads, exported), 'utf8')).toContain(`"profile":${run}`)
+      expect(session.context.browser().isConnected()).toBe(true)
+      await session.close()
+      const preferences = JSON.parse(
+        await readFile(path.join(profileDir, 'Default', 'Preferences'), 'utf8')
+      )
+      expect(preferences.profile.exit_type).toBe('Normal')
+    }
+  } finally {
+    await session?.close()
+    await rm(directory, { recursive: true, force: true })
   }
 })

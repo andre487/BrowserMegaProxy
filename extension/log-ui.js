@@ -11,6 +11,21 @@ let refreshing = false
 output.addEventListener('scroll', () => {
   follow = output.scrollHeight - output.scrollTop - output.clientHeight <= 4
 })
+output.addEventListener('keydown', event => {
+  if (
+    (event.metaKey || event.ctrlKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === 'a'
+  ) {
+    event.preventDefault()
+    const range = document.createRange()
+    range.selectNodeContents(output)
+    const selection = window.getSelection()
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
+})
 
 function preferences(state) {
   MegaI18n.apply(state.language || 'auto')
