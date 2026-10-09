@@ -180,6 +180,39 @@ function edit(p = {}) {
   form.elements.name.focus()
 }
 
+async function openSettings(scenario = '') {
+  const url = api.runtime.getURL('options.html')
+  const { id: windowId } = await api.windows.getCurrent()
+  const view = api.extension
+    .getViews({ type: 'tab', windowId })
+    .find(view => view.location.href.split(/[?#]/)[0] === url)
+  if (view) {
+    const tab = await (view.browser || view.chrome).tabs.getCurrent()
+    await api.tabs.update(tab.id, {
+      active: true,
+      ...(scenario ? { url: `${url}#${scenario}` } : {})
+    })
+  } else {
+    await api.tabs.create({ url: scenario ? `${url}#${scenario}` : url })
+  }
+}
+
+function openSettingsScenario() {
+  const scenario = location.hash
+  if (!['#add-profile', '#import-config'].includes(scenario)) {
+    return
+  }
+  document.body.hidden = false
+  history.replaceState(null, '', location.pathname + location.search)
+  if (scenario === '#add-profile') {
+    if (!$('#editor').open) {
+      edit({ color: state.profiles.length % MegaProxy.colors.length })
+    }
+  } else {
+    $('#import-start').showModal()
+  }
+}
+
 function render() {
   if (draggingProfile) {
     return
@@ -1042,10 +1075,9 @@ if (isOptions) {
     })
   $('#toggle-tab').onclick = () => action(() => send('toggleTab'))
   $('#disconnect').onclick = () => action(() => send('activate', { id: null }))
-  $('#open-settings').onclick = () => action(() => api.runtime.openOptionsPage(), 'get')
+  $('#open-settings').onclick = () => action(() => openSettings(), 'get')
   for (const id of ['add-profile', 'import-config']) {
-    $(`#${id}`).onclick = () =>
-      action(() => api.tabs.create({ url: api.runtime.getURL(`options.html#${id}`) }))
+    $(`#${id}`).onclick = () => action(() => openSettings(id))
   }
 }
 
@@ -1079,16 +1111,8 @@ action(async () => {
   if (isOptions) {
     await refreshPrivateAccess()
     window.addEventListener('focus', refreshPrivateAccess)
-    const scenario = location.hash
-    if (['#add-profile', '#import-config'].includes(scenario)) {
-      document.body.hidden = false
-      history.replaceState(null, '', location.pathname + location.search)
-      if (scenario === '#add-profile') {
-        edit({ color: state.profiles.length % MegaProxy.colors.length })
-      } else {
-        $('#import-start').showModal()
-      }
-    }
+    openSettingsScenario()
+    window.addEventListener('hashchange', openSettingsScenario)
   }
 }, 'get')
 

@@ -526,3 +526,38 @@ test('profile icons preserve the logo, show a colored dot and keep full names in
     await rm(dir, { recursive: true, force: true })
   }
 })
+
+test('installed popup reuses the current window settings tab for each scenario', async ({
+  browserName
+}) => {
+  test.skip(browserName !== 'chromium', 'Firefox does not expose extension pages to Playwright')
+  const dir = await mkdtemp(path.join(tmpdir(), 'mega-settings-tab-'))
+  let browser
+  try {
+    browser = await launchExtension(browserName, dir)
+    const settings = await browser.context.newPage()
+    await settings.goto(browser.popupURL.replace('popup.html', 'options.html'))
+    await expect(settings.locator('body')).toBeVisible()
+    const popup = await browser.context.newPage()
+    await popup.goto(browser.popupURL)
+    await expect(popup.locator('#empty')).toBeVisible()
+    const tabCount = browser.context.pages().length
+    await popup.locator('#add-profile').click()
+    await expect(settings.locator('#editor')).toBeVisible()
+    await settings.locator('[name=name]').fill('Unsaved profile')
+    await popup.bringToFront()
+    await popup.locator('#add-profile').click()
+    await expect(settings.locator('[name=name]')).toHaveValue('Unsaved profile')
+    await settings.locator('#cancel-profile').click()
+    await popup.bringToFront()
+    await popup.locator('#import-config').click()
+    await expect(settings.locator('#import-start')).toBeVisible()
+    await settings.locator('#cancel-import-start').click()
+    await popup.bringToFront()
+    await popup.locator('#open-settings').click()
+    expect(browser.context.pages()).toHaveLength(tabCount)
+  } finally {
+    await browser?.close()
+    await rm(dir, { recursive: true, force: true })
+  }
+})
