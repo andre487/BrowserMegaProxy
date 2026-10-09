@@ -9,7 +9,7 @@
 [![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)](#build-and-install)
 
 Browser extensions for Chromium and Firefox.
-HTTP/HTTPS CONNECT, multiple profiles, authentication, knock hosts, domain exclusions,
+HTTP/HTTPS CONNECT and SOCKS5, multiple profiles, authentication, knock hosts, domain exclusions,
 profile import/export, local-network bypass, connection checks, and light/dark themes
 (with automatic appearance in Firefox). The UI uses no external libraries or resources.
 
@@ -311,7 +311,7 @@ effective checksums. Review those overrides when adopting a newer upstream schem
 
 Imports accept MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON (`https`/`ssl`,
 `hostname`/`address`), ProxyList and Android-compatible SuperProxy format.
-Supported HTTP profiles are accepted too. SSH, jump chains, PAC and disabled
+HTTP and SOCKS5 profiles are accepted too. SSH, jump chains, PAC and disabled
 certificate verification are skipped with a warning. FoxyProxy URL rules are not
 transferred. Unknown or unsupported fields trigger one warning before applying:
 “Configuration contains unknown fields.” Those fields are neither retained nor
@@ -326,23 +326,31 @@ Changes to an already active profile apply after confirming the import.
 
 Exports use MegaProxy JSON version 8. Passwords are included by default and can
 be excluded with a separate toggle. Unsupported Android fields are discarded on
-import with the general warning. The Android version 8 baseline used by the shared contract does not support HTTP
-or IPv6 literals in the proxy host field; exporting such profiles fails explicitly without
-changing their protocol. Android ignores new `browser` blocks but currently drops
+import with the general warning. The Android version 8 baseline used by the shared contract does not support HTTP, SOCKS5
+or IPv6 literals in the proxy host field. HTTP and HTTPS/IPv6 exports fail explicitly
+without changing their protocol; SOCKS5 exports use the shared schema and require
+a supporting client. Android ignores new `browser` blocks but currently drops
 them on export: a complete round trip through Android requires the application to
 preserve unknown fields.
+
+SOCKS5 uses proxy-side DNS. Firefox supports SOCKS5 username/password authentication;
+Chromium supports only anonymous SOCKS5. Its profile editor disables the credential
+fields with an explanation, and imports with SOCKS5 credentials report an explicit
+compatibility error. SOCKS5 does not use HTTP proxy authorization or knock hosts.
+The shared configuration accepts `SOCKS5`; current Android clients require an update
+to support that value and must report unsupported profiles instead of changing the protocol.
 
 ## ZeroOmega import compatibility
 
 Import accepts ZeroOmega/SwitchyOmega settings JSON (`schemaVersion` 1 or 2,
 `+name` profiles), from files or the existing config URL importer. It transfers
-compatible HTTP/HTTPS fixed profiles, credentials, simple hostname bypasses,
+compatible HTTP/HTTPS/SOCKS5 fixed profiles, credentials, simple hostname bypasses,
 virtual-profile references and a selected switch profile's hostname rules.
 `*.example.com` becomes an apex-and-subdomains domain rule; exact hostnames remain
 exact. Per-domain profile choices are not imported and produce a review warning. Imported settings never activate a profile.
 A knock host is optional.
 
-SOCKS, user PAC, downloaded rule lists, regex/full-URL/time conditions, unequal
+SOCKS4, user PAC, downloaded rule lists, regex/full-URL/time conditions, unequal
 per-protocol endpoints or credentials, multiple switch trees and incompatible
 rule ordering produce review warnings or skipped profiles. A fixed switch
 default cannot activate a local connection automatically and is warned about.
@@ -396,7 +404,7 @@ Legacy per-domain profile assignments are ignored on import with a general warni
 Their existing domain lists are retained; an obsolete `profiles` strategy becomes `manual`.
 Stored configurations and synchronized preferences receive the same normalization.
 
-We deliberately retain one global active profile. SOCKS/QUIC, user PAC files,
+We deliberately retain one global active profile. SOCKS4/QUIC, user PAC files,
 container/private-window profiles, regular expressions and full-URL routing,
 full request-content logs, automatic backups, enterprise policies and bulk editing are outside
 the scope of this client. New unit and Playwright scenarios run in the existing

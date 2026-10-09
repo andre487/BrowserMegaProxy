@@ -919,8 +919,8 @@ test('ZeroOmega imports compatible profiles and domain rules with warnings for u
     }
   }
   const preview = await h.send({ command: 'previewImport', data })
-  assert.equal(preview.added, 1)
-  assert.deepEqual(JSON.parse(JSON.stringify(preview.skipped)), ['socks'])
+  assert.equal(preview.added, 2)
+  assert.deepEqual(JSON.parse(JSON.stringify(preview.skipped)), [])
   assert.equal(preview.unknownFields, true)
   assert.equal((await h.send({ command: 'get' })).state.profiles.length, 0)
   await h.send({ command: 'import', data: JSON.stringify(data) })

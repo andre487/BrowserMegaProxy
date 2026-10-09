@@ -3,7 +3,7 @@
     "message": "MegaProxy"
   },
   "extensionDescription": {
-    "message": "HTTP/HTTPS proxy profiles with authentication and knock hosts."
+    "message": "HTTP/HTTPS and SOCKS5 proxy profiles with authentication and knock hosts."
   },
   "tagline": {
     "message": "Your route to the internet"
@@ -150,7 +150,7 @@
     "message": "Set the port separately"
   },
   "errorProtocol": {
-    "message": "Only HTTP and HTTPS CONNECT are supported"
+    "message": "Only HTTP, HTTPS CONNECT and SOCKS5 are supported"
   },
   "errorPort": {
     "message": "Port must be between 1 and 65535"
@@ -174,7 +174,7 @@
     "message": "Transfer FoxyProxy PAC/include/exclude rules manually; import cancelled"
   },
   "errorImportCompatible": {
-    "message": "No compatible HTTP/HTTPS profiles"
+    "message": "No compatible HTTP/HTTPS/SOCKS5 profiles"
   },
   "errorPrivateBrowsing": {
     "message": "Firefox: allow the extension in private windows in about:addons — this is required for proxy.settings"
@@ -288,10 +288,10 @@
     "message": "Unsupported MegaProxy configuration version"
   },
   "errorExportProtocol": {
-    "message": "Current Android supports portable HTTPS profiles with DNS/IPv4 hosts. HTTP or IPv6 proxy profiles cannot be exported compatibly."
+    "message": "HTTP profiles and HTTPS profiles with IPv6 hosts cannot be exported compatibly. SOCKS5 exports require a client that supports SOCKS5."
   },
   "errorKnockDisabled": {
-    "message": "Knock is disabled in Firefox with saved credentials"
+    "message": "Knock is not needed for SOCKS5 or Firefox profiles with saved credentials."
   },
   "errorCheckInactive": {
     "message": "Connect a profile before testing"
@@ -1066,5 +1066,14 @@
   },
   "credentialsRestartChromium": {
     "message": "The username or password has changed. To make Chrome use the new credentials, quit the browser completely using its Exit menu (on macOS, press ⌘Q), then launch it again. Until restarted, Chrome may use the previous authentication."
+  },
+  "errorSocksAuthUnsupported": {
+    "message": "Chromium does not support SOCKS5 username/password authentication. Use SOCKS5 without credentials or use Firefox."
+  },
+  "errorSocksCredentials": {
+    "message": "SOCKS5 username and password must each fit within 255 UTF-8 bytes."
+  },
+  "knockSocksHint": {
+    "message": "SOCKS5 does not use HTTP authentication; knock is not needed."
   }
 }

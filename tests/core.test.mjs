@@ -16,6 +16,49 @@ const p = M.profile({
   knockHost: 'knock.example'
 })
 const state = { profiles: [p], activeId: p.id }
+test('SOCKS5 uses remote DNS, native Firefox credentials and Chromium SOCKS5 PAC', () => {
+  const socks = M.profile(
+    { host: 'socks.example', port: 1080, type: 'SOCKS5', username: 'user', password: 'secret' },
+    'firefox'
+  )
+  const current = { profiles: [socks], activeId: socks.id }
+  assert.deepEqual(M.proxyInfo('https://target.example/', current), {
+    type: 'socks',
+    host: socks.host,
+    port: 1080,
+    proxyDNS: true,
+    username: 'user',
+    password: 'secret'
+  })
+  assert.deepEqual(
+    M.auth({ isProxy: true, challenger: { host: socks.host, port: 1080 } }, current, new Set()),
+    {}
+  )
+  for (const target of ['firefox', 'chromium']) {
+    assert.equal(globalThis.MegaPlatform.create(target).needsKnock(socks), false)
+  }
+  assert.throws(() => M.profile(socks, 'chromium'), /errorSocksAuthUnsupported/)
+  const anonymous = M.profile({ ...socks, username: '', password: '' }, 'chromium')
+  assert.equal(M.chromiumConfig(anonymous).rules.singleProxy.scheme, 'socks5')
+  assert.match(
+    M.chromiumConfig(anonymous, {
+      browserRouting: M.routing({ enabled: true, domains: ['target.example'] })
+    }).pacScript.data,
+    /SOCKS5 socks.example:1080/
+  )
+  const ipv6 = M.profile({ ...anonymous, host: '::1' }, 'chromium')
+  assert.match(
+    M.chromiumConfig(ipv6, { downloadRouting: { hosts: ['target.example'], throughProxy: true } })
+      .pacScript.data,
+    /SOCKS5 \[::1\]:1080/
+  )
+  assert.throws(
+    () => M.profile({ ...socks, password: 'ю'.repeat(128) }, 'firefox'),
+    /errorSocksCredentials/
+  )
+  assert.equal(M.profile({ ...socks, password: 'x'.repeat(255) }, 'firefox').password.length, 255)
+})
+
 test('validation rejects endpoint, credentials and knock bypass mistakes', () => {
   for (const patch of [
     { host: 'https://proxy.example' },

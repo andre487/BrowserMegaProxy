@@ -166,6 +166,7 @@
           "type": "string",
           "enum": [
             "HTTPS",
+            "SOCKS5",
             "HTTPS_JUMP",
             "SSH",
             "SSH_JUMP"

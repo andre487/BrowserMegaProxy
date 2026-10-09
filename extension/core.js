@@ -302,9 +302,9 @@
     return active(state)
   }
 
-  function profile(input) {
+  function profile(input, target = root.MEGA_TARGET) {
     const type = String(input.type || 'https').toLowerCase()
-    if (!['https', 'http'].includes(type)) {
+    if (!['https', 'http', 'socks5'].includes(type)) {
       throw new Error('errorProtocol')
     }
 
@@ -327,6 +327,14 @@
     if (!username && password) {
       throw new Error('errorUsername')
     }
+
+    if (
+      type === 'socks5' &&
+      [username, password].some(value => new TextEncoder().encode(value).length > 255)
+    ) {
+      throw new Error('errorSocksCredentials')
+    }
+    root.MegaPlatform.create(target).validateProfile({ type, username, password })
 
     if (input.allowInvalidProxyCertificate) {
       throw new Error('errorCertificate')
@@ -462,17 +470,13 @@
       return { type: 'direct' }
     }
 
-    return {
-      type: p.type,
-      host: p.host,
-      port: p.port,
-      ...(hasCredentials(p) ? { proxyAuthorizationHeader: basic(p) } : {})
-    }
+    return root.MegaPlatform.firefoxProxyInfo(p)
   }
 
   function authProfile(details, state) {
     const p = state.profiles.find(p => p.id === details.profileId) || active(state)
     return p &&
+      p.type !== 'socks5' &&
       details.isProxy &&
       details.challenger?.host?.toLowerCase().replace(/^\[|\]$/g, '') === p.host &&
       Number(details.challenger.port) === p.port
@@ -498,11 +502,11 @@
   function chromiumConfig(p, state = {}) {
     if (state.browserRouting?.enabled || state.downloadRouting) {
       const proxyHost = p.host.includes(':') ? `[${p.host}]` : p.host
-      const endpoint = `${p.type === 'https' ? 'HTTPS' : 'PROXY'} ${proxyHost}:${p.port}`
+      const endpoint = `${p.type === 'socks5' ? 'SOCKS5' : p.type === 'https' ? 'HTTPS' : 'PROXY'} ${proxyHost}:${p.port}`
       const patterns = [
         ...routingPatterns(state, 'domains'),
         ...(state.routingExtraDomains || []),
-        ...(p.knockHost ? [p.knockHost] : [])
+        ...(p.knockHost && p.type !== 'socks5' ? [p.knockHost] : [])
       ]
       return {
         mode: 'pac_script',
@@ -660,12 +664,15 @@ function FindProxyForURL(url, host) {
             throw new Error('errorImport')
           }
 
-          if (!['https:', 'http:'].includes(url.protocol)) {
+          if (!['https:', 'http:', 'socks5:'].includes(url.protocol)) {
             skipped.push(url.protocol)
             continue
           }
 
-          if (line.length > 65536 || !/^[a-z]+:\/\/[^/]*:[^/]*@/i.test(line)) {
+          if (
+            line.length > 65536 ||
+            (url.protocol !== 'socks5:' && !/^[a-z]+:\/\/[^/]*:[^/]*@/i.test(line))
+          ) {
             throw new Error('errorImport')
           }
 
@@ -682,16 +689,21 @@ function FindProxyForURL(url, host) {
           }
 
           profiles.push(
-            profile({
-              name: url.searchParams.get('title'),
-              countryCode: url.searchParams.get('cc'),
-              type: url.protocol.slice(0, -1),
-              host: url.hostname,
-              port: url.port || (url.protocol === 'https:' ? 443 : 80),
-              username,
-              password,
-              color: randomImportColor(profiles)
-            })
+            profile(
+              {
+                name: url.searchParams.get('title'),
+                countryCode: url.searchParams.get('cc'),
+                type: url.protocol.slice(0, -1),
+                host: url.hostname,
+                port:
+                  url.port ||
+                  (url.protocol === 'socks5:' ? 1080 : url.protocol === 'https:' ? 443 : 80),
+                username,
+                password,
+                color: randomImportColor(profiles)
+              },
+              target
+            )
           )
         }
 
@@ -711,7 +723,7 @@ function FindProxyForURL(url, host) {
       data.schemaVersion !== undefined &&
       Object.keys(data).some(key => key.startsWith('+'))
     ) {
-      return importZeroOmega(data)
+      return importZeroOmega(data, target)
     }
 
     let entries = Array.isArray(data) ? data : data?.profiles || data?.data
@@ -841,9 +853,9 @@ function FindProxyForURL(url, host) {
       const rawType = String(p.type || p.proxyType || '')
         .trim()
         .toLowerCase()
-      const type = rawType === 'ssl' ? 'https' : rawType
+      const type = rawType === 'ssl' ? 'https' : rawType === 'socks' ? 'socks5' : rawType
       if (
-        !['http', 'https'].includes(type) ||
+        !['http', 'https', 'socks5'].includes(type) ||
         p.allowInvalidProxyCertificate ||
         originalEntries[index]?.proxy?.allowInvalidProxyCertificate
       ) {
@@ -879,20 +891,23 @@ function FindProxyForURL(url, host) {
           ? paletteIndex
           : profiles.length
         : (entry.color ?? (portable ? profiles.length : randomImportColor(profiles)))
-      const result = profile({
-        ...p,
-        id: portable ? entry.id || `import-${profiles.length}` : undefined,
-        name: entry.name || entry.title,
-        color,
-        countryCode: entry.countryCode || entry.cc,
-        type,
-        port: p.port || (type === 'https' ? 443 : 80),
-        host: p.host || p.hostname || p.address,
-        knockHost: browserOptions.knockHost ?? p.knockHost ?? entry.knockHost,
-        bypass: browserOptions.bypass ?? p.bypass ?? [],
-        authMode: browserOptions.authMode || p.authMode,
-        ...(portable ? { portable: entry } : {})
-      })
+      const result = profile(
+        {
+          ...p,
+          id: portable ? entry.id || `import-${profiles.length}` : undefined,
+          name: entry.name || entry.title,
+          color,
+          countryCode: entry.countryCode || entry.cc,
+          type,
+          port: p.port || (type === 'socks5' ? 1080 : type === 'https' ? 443 : 80),
+          host: p.host || p.hostname || p.address,
+          knockHost: browserOptions.knockHost ?? p.knockHost ?? entry.knockHost,
+          bypass: browserOptions.bypass ?? p.bypass ?? [],
+          authMode: browserOptions.authMode || p.authMode,
+          ...(portable ? { portable: entry } : {})
+        },
+        target
+      )
       if (ids.has(result.id)) {
         throw new Error('errorDuplicateIds')
       }
@@ -926,7 +941,7 @@ function FindProxyForURL(url, host) {
     }
   }
 
-  function importZeroOmega(data) {
+  function importZeroOmega(data, target) {
     const entries = Object.entries(data).filter(([key]) => key.startsWith('+'))
     if (entries.length > 1000 || ![1, 2].includes(data.schemaVersion)) {
       throw new Error('errorImport')
@@ -964,7 +979,7 @@ function FindProxyForURL(url, host) {
 
       const [endpointKey, endpoint] = endpoints[0]
       if (
-        !['http', 'https'].includes(endpoint.scheme) ||
+        !['http', 'https', 'socks5'].includes(endpoint.scheme) ||
         endpoints.some(
           ([, p]) =>
             p.scheme !== endpoint.scheme || p.host !== endpoint.host || p.port !== endpoint.port
@@ -1011,17 +1026,20 @@ function FindProxyForURL(url, host) {
         }
       }
 
-      const p = profile({
-        id: `zero:${name}`,
-        name,
-        color: Math.max(0, colors.indexOf(String(entry.color).toLowerCase())),
-        type: endpoint.scheme,
-        host: endpoint.host,
-        port: endpoint.port,
-        username: credentials.username,
-        password: credentials.password,
-        bypass
-      })
+      const p = profile(
+        {
+          id: `zero:${name}`,
+          name,
+          color: Math.max(0, colors.indexOf(String(entry.color).toLowerCase())),
+          type: endpoint.scheme,
+          host: endpoint.host,
+          port: endpoint.port,
+          username: credentials.username,
+          password: credentials.password,
+          bypass
+        },
+        target
+      )
       profiles.push(p)
       byName.set(name, p.id)
     }
@@ -1221,7 +1239,11 @@ function FindProxyForURL(url, host) {
       throw new Error('errorImportCompatible')
     }
 
-    if (state.profiles.some(p => p.type !== 'https' || p.host.includes(':'))) {
+    if (
+      state.profiles.some(
+        p => !['https', 'socks5'].includes(p.type) || (p.type === 'https' && p.host.includes(':'))
+      )
+    ) {
       throw new Error('errorExportProtocol')
     }
 
@@ -1250,7 +1272,7 @@ function FindProxyForURL(url, host) {
         countryCode: p.countryCode,
         proxy: {
           ...(p.portable?.proxy || {}),
-          type: 'HTTPS',
+          type: p.type.toUpperCase(),
           host: p.host,
           port: p.port,
           username: p.username,

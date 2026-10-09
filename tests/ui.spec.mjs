@@ -828,7 +828,7 @@ test('ZeroOmega JSON imports profiles and a domain list through review', async (
     '+Unsupported': {
       name: 'Unsupported',
       profileType: 'FixedProfile',
-      fallbackProxy: { scheme: 'socks5', host: 'socks.example', port: 1080 }
+      fallbackProxy: { scheme: 'socks4', host: 'socks.example', port: 1080 }
     },
     '+Auto': {
       name: 'Auto',
@@ -2012,4 +2012,45 @@ test('authentication page keeps rejected edits and closes after credentials are 
   expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([7])
   await expect(page.locator('#auth-cancel')).toHaveText('Закрыть')
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('private-secret')
+})
+
+test('SOCKS5 credentials are disabled with an explanation only in Chromium', async ({
+  page,
+  browserName
+}) => {
+  await page.locator('#new').click()
+  const form = page.locator('#profile-form')
+  await form.locator('[name=host]').fill('socks.example')
+  await form.locator('[name=username]').fill('user')
+  await form.locator('[name=password]').fill('secret')
+  await form.locator('[name=type]').selectOption('socks5')
+  const username = form.locator('[name=username]')
+  const password = form.locator('[name=password]')
+  if (browserName === 'chromium') {
+    await expect(username).toBeDisabled()
+    await expect(password).toBeDisabled()
+    await expect(page.locator('#socks-auth-hint')).toContainText(
+      'не поддерживает SOCKS5 с логином и паролем'
+    )
+  } else {
+    await expect(username).toBeEnabled()
+    await expect(password).toBeEnabled()
+    await expect(page.locator('#socks-auth-hint')).toBeHidden()
+  }
+  await expect(page.locator('#knock-hint')).toContainText('knock не нужен')
+  await form.locator('[name=type]').selectOption('https')
+  await expect(username).toBeEnabled()
+  await expect(password).toBeEnabled()
+  await expect(username).toHaveValue('user')
+  await expect(page.locator('#socks-auth-hint')).toBeHidden()
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('.profile')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click()
+  await form.locator('[name=type]').selectOption('socks5')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('.profile')).toHaveCount(1)
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('testState')).profiles[0])
+  expect(saved.type).toBe('socks5')
+  expect(saved.username).toBe(browserName === 'chromium' ? '' : 'user')
+  expect(saved.password).toBe(browserName === 'chromium' ? '' : 'secret')
 })
