@@ -20,6 +20,7 @@ test.beforeEach(async ({ page, browserName, context }) => {
       route.fulfill({ contentType: 'text/javascript', body: 'globalThis.MEGA_TARGET = "firefox"' })
     )
   }
+  page.on('dialog', dialog => dialog.accept())
   // UI contract tests only. Actual extension and network tests live in extension.spec.mjs.
   await context.addInitScript(() => {
     const state = JSON.parse(localStorage.getItem('testState')) || {
@@ -418,10 +419,12 @@ test('manual language persists, preserves input and translates errors and dynami
     'Main proxy'
   )
   await page.getByRole('button', { name: 'Save profile' }).click()
-  await expect(page.locator('#notice')).toHaveText('Save profile: A password requires a username')
+  await expect(page.locator('#editor .dialog-error')).toHaveText(
+    'Save profile: A password requires a username'
+  )
   await page.getByLabel('Username').fill('user')
   await page.getByRole('button', { name: 'Save profile' }).click()
-  await expect(page.locator('#notice')).toContainText('without a scheme or path')
+  await expect(page.locator('#editor .dialog-error')).toContainText('without a scheme or path')
 
   await page.getByLabel('Proxy host').fill('proxy.example')
   await page.getByLabel('Username').fill('user')
@@ -535,7 +538,8 @@ test('language changes translate routing hints while preserving unsaved rules', 
 
 test('ProxyList and SuperProxy text formats are reviewed before importing', async ({ page }) => {
   const selection = page.waitForEvent('filechooser')
-  await page.getByRole('button', { name: 'Импорт настроек' }).click()
+  await page.locator('#open-import').click()
+  await page.locator('#import-file').click()
   await (
     await selection
   ).setFiles({
@@ -559,6 +563,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
   await page.getByLabel('Логин').fill('user')
   await page.getByLabel('Пароль', { exact: true }).fill('secret')
   await expect(page.getByLabel('Knock host')).toBeEnabled()
+  await page.locator('.profile-advanced > summary').click()
   await page.getByLabel('Knock host').fill('knock.example.com')
   if (browserName === 'firefox') {
     await expect(page.locator('#knock-hint')).toContainText('не использует knock host')
@@ -573,6 +578,9 @@ test('knock host stays editable and is saved with or without Firefox credentials
     await page.getByLabel('Пароль', { exact: true }).fill('')
     await expect(page.getByLabel('Knock host')).toBeEnabled()
     await expect(page.locator('#knock-hint')).not.toContainText('не использует knock host')
+    await page.locator('.profile-advanced').evaluate(element => {
+      element.open = true
+    })
     await page.getByLabel('Knock host').fill('other-knock.example.com')
     await page.getByRole('button', { name: 'Сохранить профиль' }).click()
     await page.getByRole('button', { name: 'Изменить' }).click()
@@ -1776,7 +1784,7 @@ test('routing autosaves consecutive changes without losing later edits and recov
   await page.locator('#routing-list').fill('fixed.example')
   await page.locator('#routing-list').blur()
   await page.evaluate('routingSaves')
-  await expect(page.locator('#notice')).toBeEmpty()
+  await expect(page.locator('#routing-settings #notice')).toHaveText('Сохранено')
   await page.reload()
   await page.locator('#routing-settings > summary').click()
   await expect(page.locator('#routing-list')).toHaveValue('fixed.example')
@@ -2045,6 +2053,10 @@ test('authentication page keeps rejected edits and closes after credentials are 
   expect(await page.evaluate(() => globalThis.authClosedTabs)).toEqual([])
   await page.locator('#auth-username').fill('new-user')
   await page.locator('#auth-password').fill('private-secret')
+  await page.locator('.password-toggle').click()
+  await expect(page.locator('#auth-password')).toHaveAttribute('type', 'text')
+  await page.locator('.password-toggle').click()
+  await expect(page.locator('#auth-password')).toHaveAttribute('type', 'password')
   await page.locator('#auth-submit').click()
   await expect(page.locator('#auth-submit')).toBeDisabled()
   await expect(page.locator('#notice')).toContainText('Ожидаем подтверждения')
@@ -2309,4 +2321,94 @@ test('existing settings handles popup scenarios without reloading or losing an o
     location.hash = 'import-config'
   })
   await expect(page.locator('#import-start')).toBeVisible()
+})
+
+test('profile editor previews colors, toggles passwords and keeps mobile save actions visible', async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 320, height: 640 })
+  await page.locator('#new').click()
+  await expect(page.locator('.profile-advanced')).not.toHaveAttribute('open', '')
+  await page.locator('#profile-color').selectOption('0')
+  await expect(page.locator('#color-preview')).toHaveCSS('background-color', 'rgb(244, 67, 54)')
+  const password = page.getByLabel('Пароль', { exact: true })
+  await password.fill('secret')
+  await page.locator('#editor .password-toggle').click()
+  await expect(password).toHaveAttribute('type', 'text')
+  await expect(page.locator('#editor .password-toggle')).toHaveText('Скрыть')
+  await page.locator('#editor .password-toggle').click()
+  await expect(password).toHaveAttribute('type', 'password')
+  await page.locator('#profile-form [name=name]').focus()
+  expect(
+    await page.locator('.editor-actions').evaluate(element => {
+      const actions = element.getBoundingClientRect()
+      const dialog = element.closest('dialog').getBoundingClientRect()
+      return actions.top >= dialog.top && actions.bottom <= dialog.bottom
+    })
+  ).toBe(true)
+  await page.locator('#cancel-profile').click()
+  await page.locator('#new').click()
+  await expect(password).toHaveAttribute('type', 'password')
+})
+
+test('saving indicates progress, reports errors inside the editor and preserves profile keyboard focus', async ({
+  page
+}) => {
+  await page.locator('#new').click()
+  await page.getByLabel('Название').fill('First')
+  await page.getByLabel('Хост прокси').fill('proxy.example')
+  await page.evaluate(() => {
+    const send = chrome.runtime.sendMessage
+    chrome.runtime.sendMessage = async message => {
+      if (message.command === 'save') {
+        await new Promise(resolve => {
+          globalThis.finishSave = resolve
+        })
+      }
+      return send(message)
+    }
+  })
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('#profile-form button[type=submit]')).toBeDisabled()
+  await expect(page.locator('#profile-form button[type=submit]')).toHaveText('Сохранение…')
+  await page.evaluate(() => globalThis.finishSave())
+  await expect(page.locator('#editor')).not.toHaveAttribute('open', '')
+  await page.locator('.profile .actions button').filter({ hasText: 'Выбрать' }).focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.profile-info')).toBeFocused()
+  await page.getByRole('button', { name: 'Изменить', exact: true }).click()
+  await page.getByLabel('Хост прокси').fill('https://invalid.example')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await page.evaluate(() => globalThis.finishSave())
+  await expect(page.locator('#editor .dialog-error')).toContainText('без схемы')
+  await expect(page.locator('#notice')).toBeEmpty()
+})
+
+test('import uses the same chooser and profile deletion can be cancelled', async ({ page }) => {
+  await page.locator('#open-import').click()
+  await expect(page.locator('#import-start')).toHaveAttribute('open', '')
+  await page.locator('#cancel-import-start').click()
+  await page.locator('#new').click()
+  await page.getByLabel('Название').fill('Keep me')
+  await page.getByLabel('Хост прокси').fill('proxy.example')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  page.removeAllListeners('dialog')
+  page.once('dialog', async dialog => {
+    expect(dialog.message()).toContain('Keep me')
+    await dialog.dismiss()
+  })
+  await page.locator('.profile-menu > summary').click()
+  await page.getByRole('button', { name: 'Удалить', exact: true }).click()
+  await expect(page.locator('.profile')).toHaveCount(1)
+  page.once('dialog', dialog => dialog.accept())
+  await page.getByRole('button', { name: 'Удалить', exact: true }).click()
+  await expect(page.locator('.profile')).toHaveCount(0)
+  await expect(page.locator('#new')).toBeFocused()
+  await page.locator('#settings > summary').click()
+  await page.locator('#bypass-local').uncheck()
+  await expect(page.locator('#settings #notice')).toHaveText('Сохранено')
+  await page.locator('#settings > summary').click()
+  await page.locator('#connection-mode').selectOption('direct')
+  await expect(page.locator('#notice')).toBeVisible()
+  await expect(page.locator('#notice')).toHaveText('Сохранено')
 })
