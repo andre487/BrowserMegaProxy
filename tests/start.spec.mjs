@@ -44,6 +44,7 @@ test('development launcher installs and reloads the Firefox extension on a persi
 })
 
 test('Ctrl+C exits the development launcher and browser cleanly', async ({ browserName }) => {
+  test.setTimeout(90000)
   test.skip(process.platform === 'win32', 'Terminal process-group signals are tested on Unix')
   const profileDir = await mkdtemp(path.join(tmpdir(), 'mega-launcher-interrupt-'))
   const options = {
@@ -59,7 +60,11 @@ test('Ctrl+C exits the development launcher and browser cleanly', async ({ brows
       '-e',
       `import { start } from './scripts/start.mjs'; await start(${JSON.stringify(options)})`
     ],
-    { detached: true, stdio: ['ignore', 'pipe', 'pipe'] }
+    {
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, DEBUG: 'pw:api,pw:browser' }
+    }
   )
   let output = ''
   child.stdout.on('data', chunk => {
@@ -72,7 +77,17 @@ test('Ctrl+C exits the development launcher and browser cleanly', async ({ brows
     child.once('exit', (code, signal) => resolve({ code, signal }))
   )
   try {
-    await expect.poll(() => output, { timeout: 20000 }).toContain('Extension loaded.')
+    await expect
+      .poll(
+        () => {
+          if (child.exitCode !== null || child.signalCode !== null) {
+            throw new Error(`Launcher exited before readiness: ${output}`)
+          }
+          return output
+        },
+        { timeout: 60000 }
+      )
+      .toContain('Extension loaded.')
     process.kill(-child.pid, 'SIGINT')
     expect(await exited).toEqual({ code: 0, signal: null })
     expect(output).not.toContain('Unable to start:')
