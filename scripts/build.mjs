@@ -56,7 +56,8 @@ const base = {
       16: 'icons/toolbar16.png',
       24: 'icons/toolbar24.png',
       32: 'icons/toolbar32.png',
-      48: 'icons/toolbar48.png'
+      48: 'icons/toolbar48.png',
+      64: 'icons/toolbar64.png'
     }
   },
   options_ui: { page: 'options.html', open_in_tab: true },
@@ -79,6 +80,7 @@ for (const target of ['chromium', 'firefox']) {
   } else {
     manifest.background = {
       scripts: [
+        'errors.js',
         'platform.js',
         'config-validator.js',
         'core.js',

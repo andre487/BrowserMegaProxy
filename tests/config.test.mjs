@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import vm from 'node:vm'
 import Ajv from 'ajv/dist/2020.js'
+import '../extension/errors.js'
 import '../extension/platform.js'
 import '../extension/core.js'
 import '../extension/subscription-catalog.js'
@@ -168,6 +169,7 @@ test('standalone browser validator rejects invalid optional fields at import', a
   await import('../scripts/build.mjs')
   const context = vm.createContext({ crypto, URL, TextEncoder, btoa, structuredClone })
   vm.runInContext(await readFile('dist/chromium/config-validator.js', 'utf8'), context)
+  vm.runInContext(await readFile('extension/errors.js', 'utf8'), context)
   vm.runInContext(await readFile('extension/platform.js', 'utf8'), context)
   vm.runInContext(await readFile('extension/core.js', 'utf8'), context)
   vm.runInContext(await readFile('extension/subscription-catalog.js', 'utf8'), context)

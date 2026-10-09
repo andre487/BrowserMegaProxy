@@ -1,4 +1,4 @@
-/* global chrome, MegaProxy, MegaI18n, MegaSubscriptions, MegaPlatform, MEGA_TARGET */
+/* global MegaErrors, chrome, MegaProxy, MegaI18n, MegaSubscriptions, MegaPlatform, MEGA_TARGET */
 const api = globalThis.browser || chrome
 const platform = MegaPlatform.create(MEGA_TARGET, api)
 
@@ -17,6 +17,7 @@ let pendingImport
 let currentSite
 let syncOptions = { enabled: true, includePasswords: true }
 let syncError
+let syncErrorDetails
 let routingDrafts
 let draggingProfile = false
 let routingDraftMode
@@ -49,9 +50,13 @@ async function refreshPrivateAccess() {
 }
 
 async function send(command, extra = {}) {
-  const result = await api.runtime.sendMessage({ command, ...extra })
+  const result = await api.runtime.sendMessage({ command, ...extra }).catch(error => {
+    throw MegaErrors.context(error, command)
+  })
   if (!result?.ok) {
-    throw new Error(t(result?.error || 'errorBackground'))
+    const error = new Error(result?.error || 'errorBackground')
+    error.errorDetails = result?.errorDetails || MegaErrors.details(error, command)
+    throw error
   }
 
   if (result.syncOptions) {
@@ -60,6 +65,7 @@ async function send(command, extra = {}) {
 
   if (Object.hasOwn(result, 'syncError')) {
     syncError = result.syncError
+    syncErrorDetails = result.syncErrorDetails
   }
 
   if (command === 'get' || command === 'telemetry') {
@@ -88,14 +94,18 @@ async function send(command, extra = {}) {
   }
 
   if (result.warning) {
-    $('#notice').textContent = t(result.warning)
+    $('#notice').textContent = MegaErrors.format(
+      { message: result.warning, errorDetails: result.warningDetails },
+      'startup',
+      t
+    )
     $('#notice').className = 'error'
   }
 
   return result
 }
 
-async function action(fn) {
+async function action(fn, operation = 'interface') {
   if (busy) {
     return
   }
@@ -110,11 +120,11 @@ async function action(fn) {
   try {
     await fn()
   } catch (error) {
-    $('#notice').textContent = t(error.message)
+    $('#notice').textContent = MegaErrors.format(error, operation, t)
     $('#notice').className = 'error'
     const dialogNotice = document.querySelector('dialog[open] .dialog-error')
     if (dialogNotice) {
-      dialogNotice.textContent = t(error.message)
+      dialogNotice.textContent = MegaErrors.format(error, operation, t)
     }
   } finally {
     busy = false
@@ -195,7 +205,9 @@ function render() {
     $('#sync-enabled').checked = syncOptions.enabled
     $('#sync-passwords').checked = syncOptions.includePasswords
     $('#sync-passwords').disabled = !syncOptions.enabled
-    $('#sync-status').textContent = syncError ? t(syncError) : ''
+    $('#sync-status').textContent = syncError
+      ? MegaErrors.format({ message: syncError, errorDetails: syncErrorDetails }, 'sync', t)
+      : ''
     $('#language').value = state.language || 'auto'
     $('#theme').value = platform.themePreference(state.theme)
     renderThemeHint()
@@ -207,6 +219,11 @@ function render() {
 
   const active = MegaProxy.active(state)
   if (!isOptions) {
+    $('#connection').classList.toggle('has-profile', Boolean(active))
+    $('#connection').style.setProperty(
+      '--profile-color',
+      active ? MegaProxy.colors[active.color % MegaProxy.colors.length] : ''
+    )
     $('#connection').textContent = active
       ? t('profileLabel', active.name || active.host)
       : t(state.connectionMode === 'direct' ? 'modeDirect' : 'modeSystem')
@@ -474,7 +491,7 @@ function saveRouting() {
       $('#notice').textContent = ''
       $('#notice').className = ''
     } catch (error) {
-      $('#notice').textContent = t(error.message)
+      $('#notice').textContent = MegaErrors.format(error, 'interface', t)
       $('#notice').className = 'error'
     } finally {
       routingSaving = false
@@ -487,7 +504,7 @@ function savePreference(command, message) {
   routingSaves = routingSaves
     .then(() => send(command, message))
     .catch(error => {
-      $('#notice').textContent = t(error.message)
+      $('#notice').textContent = MegaErrors.format(error, 'interface', t)
       $('#notice').className = 'error'
     })
   return routingSaves
@@ -578,8 +595,23 @@ function renderSubscriptions(mode) {
       : t('listsNotUpdated')
   const counts = MegaSubscriptions.counts(state, mode === 'tabs' ? 'sites' : 'domains')
   $('#lists-warning').textContent = [
-    state.subscriptionCatalog?.error ? t(state.subscriptionCatalog.error) : '',
-    cache?.error ? t(cache.error) : '',
+    state.subscriptionCatalog?.error
+      ? MegaErrors.format(
+          {
+            message: state.subscriptionCatalog.error,
+            errorDetails: state.subscriptionCatalog.errorDetails
+          },
+          'routingOpened',
+          t
+        )
+      : '',
+    cache?.error
+      ? MegaErrors.format(
+          { message: cache.error, errorDetails: cache.errorDetails },
+          'updateSubscriptions',
+          t
+        )
+      : '',
     ...(valid
       ? (cache.coverage?.[mode === 'tabs' ? 'sites' : 'domains'] || []).map(item => {
           const sources = MegaSubscriptions.catalog(state.subscriptionCatalog)
@@ -590,7 +622,13 @@ function renderSubscriptions(mode) {
           )
         })
       : []),
-    cache?.rankingError ? t(cache.rankingError) : '',
+    cache?.rankingError
+      ? MegaErrors.format(
+          { message: cache.rankingError, errorDetails: cache.rankingErrorDetails },
+          'updateSubscriptions',
+          t
+        )
+      : '',
     counts?.dropped ? t('listsTruncated', counts.dropped, MegaSubscriptions.limit) : '',
     counts?.dropped && counts.unranked ? t('listsUnranked', counts.unranked) : '',
     cache?.ignored ? t('listsIgnored', cache.ignored) : ''
@@ -624,7 +662,14 @@ function renderSite() {
   $('#add-current-site').disabled = !hasSite || !active
   $('#add-current-site').title = t('addCurrentSiteHint')
   const cache = state.subscriptionCache
-  $('#site-warning').textContent = hasSite && cache?.error ? t(cache.error) : ''
+  $('#site-warning').textContent =
+    hasSite && cache?.error
+      ? MegaErrors.format(
+          { message: cache.error, errorDetails: cache.errorDetails },
+          'updateSubscriptions',
+          t
+        )
+      : ''
   $('#site-warning').hidden = !$('#site-warning').textContent
   $('#toggle-tab').hidden =
     !platform.supportsTabRouting || config.mode !== 'tabs' || !config.enabled
@@ -717,11 +762,20 @@ function renderCheck() {
           .filter(Boolean)
           .join('\n')
       : check.stage === 'failed'
-        ? t(check.error)
+        ? MegaErrors.format({ message: check.error, errorDetails: check.errorDetails }, 'check', t)
         : t(`checkStage_${check.stage}`)
 }
 
-$('#check').onclick = () => action(() => send('check'))
+$('#check').onclick = async () => {
+  if (busy) {
+    return
+  }
+  await action(() => send('check'))
+  if (!isOptions) {
+    const content = $('.popup-content')
+    content.scrollTop = content.scrollHeight
+  }
+}
 
 if (isOptions) {
   if (platform.defaultTheme !== 'system') {
@@ -740,7 +794,7 @@ if (isOptions) {
   $('#routing-settings').addEventListener('toggle', () => {
     if ($('#routing-settings').open) {
       send('routingOpened').catch(error => {
-        $('#notice').textContent = error.message
+        $('#notice').textContent = MegaErrors.format(error, 'routingOpened', t)
         $('#notice').className = 'error'
       })
     }
@@ -783,8 +837,8 @@ if (isOptions) {
       await refreshNetwork()
     })
   $('#network-rows').onchange = renderNetworkActions
-  $('#network-tab').onchange = () => action(refreshNetwork)
-  $('#network-failed').onchange = () => action(refreshNetwork)
+  $('#network-tab').onchange = () => action(refreshNetwork, 'network')
+  $('#network-failed').onchange = () => action(refreshNetwork, 'network')
   $('#network-panel').ontoggle = () => {
     if ($('#network-panel').open) {
       action(refreshNetwork)
@@ -798,7 +852,7 @@ if (isOptions) {
       }
 
       await send('webRTC', { value })
-    })
+    }, 'webRTC')
   const saveSync = () =>
     action(() =>
       send('sync', {
@@ -862,13 +916,13 @@ if (isOptions) {
       }
 
       if (file.size > 1024 * 1024) {
-        throw new Error(t('errorFileSize'))
+        throw new Error('errorFileSize')
       }
 
       const data = await file.text()
       await reviewImport(data)
       $('#import').value = ''
-    })
+    }, 'previewImport')
   $('#apply-import').onclick = () =>
     action(async () => {
       const removeIds = [...$('#import-absent').querySelectorAll('input:checked')].map(
@@ -896,7 +950,7 @@ if (isOptions) {
           : t('imported')
       $('#import-review').hidden = true
       pendingImport = null
-    })
+    }, 'import')
   $('#cancel-import').onclick = () => {
     $('#import-review').hidden = true
     pendingImport = null
@@ -912,7 +966,7 @@ if (isOptions) {
       link.download = 'MegaProxy.json'
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-    })
+    }, 'export')
 } else {
   $('#add-current-site').onclick = () =>
     action(async () => {
@@ -920,7 +974,7 @@ if (isOptions) {
     })
   $('#toggle-tab').onclick = () => action(() => send('toggleTab'))
   $('#disconnect').onclick = () => action(() => send('activate', { id: null }))
-  $('#open-settings').onclick = () => action(() => api.runtime.openOptionsPage())
+  $('#open-settings').onclick = () => action(() => api.runtime.openOptionsPage(), 'get')
 }
 
 $('#connection-mode').onchange = () =>
@@ -954,7 +1008,7 @@ action(async () => {
     await refreshPrivateAccess()
     window.addEventListener('focus', refreshPrivateAccess)
   }
-})
+}, 'get')
 
 async function refreshNetwork() {
   if (!state.statisticsEnabled) {
@@ -1005,7 +1059,7 @@ async function refreshNetwork() {
     checkbox.disabled = !entry.failed
     checkbox.checked = checked.has(entry.domain)
     const profile = state.profiles.find(p => p.id === entry.profileId)
-    text.textContent = `${entry.domain} · ${entry.type || ''} · ${entry.error || entry.status || 'OK'} · ${profile ? profile.name || profile.host : t('modeDirect')}`
+    text.textContent = `${entry.domain} · ${entry.type || ''} · ${entry.failed ? MegaErrors.format({ message: entry.error, status: entry.status }, 'request', t) : entry.status || 'OK'} · ${profile ? profile.name || profile.host : t('modeDirect')}`
     row.append(checkbox, text)
     $('#network-rows').append(row)
   }

@@ -306,7 +306,7 @@
     "message": "HTTPS-проверка вернула неуспешный статус"
   },
   "errorCheckNetwork": {
-    "message": "Не удалось открыть сайт диагностики через прокси"
+    "message": "Не удалось открыть сайт диагностики"
   },
   "errorCheckIP": {
     "message": "Не удалось определить выходной IP"
@@ -537,7 +537,7 @@
     "message": "Введите HTTP или HTTPS URL без встроенного логина и пароля."
   },
   "errorConfigDownload": {
-    "message": "Не удалось скачать конфигурацию, либо файл слишком большой."
+    "message": "Не удалось скачать конфигурацию"
   },
   "errorRuleURL": {
     "message": "Для проверки правил используйте HTTP или HTTPS URL."
@@ -724,5 +724,299 @@
   },
   "privateAccessChromiumHint": {
     "message": "Откройте страницу расширений браузера → MegaProxy → «Подробнее» → разрешите работу в режиме инкогнито (приватных окнах)."
+  },
+  "operationGet": {
+    "message": "Загрузка состояния расширения"
+  },
+  "operationCurrentSite": {
+    "message": "Определение текущего сайта"
+  },
+  "operationNetwork": {
+    "message": "Чтение истории запросов"
+  },
+  "operationTelemetry": {
+    "message": "Чтение статистики"
+  },
+  "operationSave": {
+    "message": "Сохранение профиля"
+  },
+  "operationActivate": {
+    "message": "Переключение подключения"
+  },
+  "operationConnectionMode": {
+    "message": "Переключение режима подключения"
+  },
+  "operationClone": {
+    "message": "Копирование профиля"
+  },
+  "operationMove": {
+    "message": "Перемещение профиля"
+  },
+  "operationDelete": {
+    "message": "Удаление профиля"
+  },
+  "operationRouting": {
+    "message": "Сохранение правил маршрутизации"
+  },
+  "operationRoutingOpened": {
+    "message": "Загрузка списков маршрутизации"
+  },
+  "operationUpdateSubscriptions": {
+    "message": "Обновление списков маршрутизации"
+  },
+  "operationFetchConfig": {
+    "message": "Скачивание конфигурации"
+  },
+  "operationPreviewImport": {
+    "message": "Чтение конфигурации для импорта"
+  },
+  "operationImport": {
+    "message": "Импорт конфигурации"
+  },
+  "operationExport": {
+    "message": "Экспорт конфигурации"
+  },
+  "operationSync": {
+    "message": "Синхронизация настроек"
+  },
+  "operationCheck": {
+    "message": "Проверка подключения"
+  },
+  "operationKnock": {
+    "message": "Открытие страницы доступа к прокси"
+  },
+  "operationWebRTC": {
+    "message": "Изменение защиты WebRTC"
+  },
+  "operationTheme": {
+    "message": "Изменение темы"
+  },
+  "operationLanguage": {
+    "message": "Изменение языка"
+  },
+  "operationStatistics": {
+    "message": "Изменение настроек статистики"
+  },
+  "operationBypassLocalNetworks": {
+    "message": "Изменение обхода локальных сетей"
+  },
+  "operationTestRule": {
+    "message": "Проверка правила маршрутизации"
+  },
+  "operationAddCurrentSite": {
+    "message": "Добавление текущего сайта в маршрутизацию"
+  },
+  "operationExcludeCurrentSite": {
+    "message": "Исключение текущего сайта из маршрутизации"
+  },
+  "operationToggleTab": {
+    "message": "Переключение подключения для вкладки"
+  },
+  "operationClearNetwork": {
+    "message": "Очистка истории запросов"
+  },
+  "operationAddFailedDomains": {
+    "message": "Добавление недоступных доменов в маршрутизацию"
+  },
+  "operationStartup": {
+    "message": "Запуск расширения"
+  },
+  "operationToolbarIcon": {
+    "message": "Загрузка иконки тулбара"
+  },
+  "operationLocale": {
+    "message": "Загрузка переводов интерфейса"
+  },
+  "operationInterface": {
+    "message": "Выполнение действия в интерфейсе"
+  },
+  "operationLogRead": {
+    "message": "Чтение журнала диагностики"
+  },
+  "operationLogClear": {
+    "message": "Очистка журнала диагностики"
+  },
+  "operationLogExport": {
+    "message": "Экспорт журнала диагностики"
+  },
+  "operationLogConfigure": {
+    "message": "Изменение лимита журнала диагностики"
+  },
+  "operationAuthentication": {
+    "message": "Авторизация подключения к прокси"
+  },
+  "operationRequest": {
+    "message": "Загрузка сетевого ресурса"
+  },
+  "errorUnexpected": {
+    "message": "Не удалось выполнить операцию; браузер не сообщил распознаваемый код причины"
+  },
+  "errorNetwork": {
+    "message": "Браузер не смог выполнить сетевой запрос; проверьте доступ к сети и настройки подключения"
+  },
+  "errorHTTP": {
+    "message": "Сервер вернул неуспешный HTTP-ответ"
+  },
+  "errorLocale": {
+    "message": "Не удалось загрузить переводы интерфейса"
+  },
+  "errorIcon": {
+    "message": "Не удалось загрузить или декодировать иконку тулбара"
+  },
+  "reasonAbortError": {
+    "message": "Операция отменена"
+  },
+  "reasonTimeoutError": {
+    "message": "Превышено время ожидания"
+  },
+  "reasonQuotaExceededError": {
+    "message": "Превышен лимит хранилища браузера"
+  },
+  "reasonSecurityError": {
+    "message": "Браузер заблокировал доступ по правилам безопасности"
+  },
+  "reasonNotAllowedError": {
+    "message": "Браузер не предоставил разрешение"
+  },
+  "reasonInvalidStateError": {
+    "message": "Ресурс браузера недоступен в текущем состоянии"
+  },
+  "reasonNotFoundError": {
+    "message": "Запрошенный ресурс браузера больше не существует"
+  },
+  "reasonUnknownError": {
+    "message": "Браузер сообщил о внутреннем сбое без уточнения причины"
+  },
+  "reasonDataError": {
+    "message": "Данные не подходят для этой операции"
+  },
+  "reasonSyntaxError": {
+    "message": "Некорректный формат данных"
+  },
+  "reasonTypeError": {
+    "message": "Некорректные данные или сбой API браузера"
+  },
+  "reasonERR_NAME_NOT_RESOLVED": {
+    "message": "Не удалось определить IP-адрес по DNS"
+  },
+  "reasonERR_PROXY_CONNECTION_FAILED": {
+    "message": "Не удалось подключиться к серверу прокси"
+  },
+  "reasonERR_CONNECTION_REFUSED": {
+    "message": "Сервер отклонил подключение"
+  },
+  "reasonERR_CONNECTION_RESET": {
+    "message": "Соединение сброшено"
+  },
+  "reasonERR_TIMED_OUT": {
+    "message": "Превышено время ожидания сетевого запроса"
+  },
+  "reasonERR_TUNNEL_CONNECTION_FAILED": {
+    "message": "Прокси не смог установить туннель CONNECT"
+  },
+  "reasonERR_CERT_AUTHORITY_INVALID": {
+    "message": "Издатель сертификата не является доверенным"
+  },
+  "reasonNS_ERROR_CONNECTION_REFUSED": {
+    "message": "Сервер отклонил подключение"
+  },
+  "reasonNS_ERROR_UNKNOWN_HOST": {
+    "message": "Не удалось определить IP-адрес по DNS"
+  },
+  "reasonNS_ERROR_NET_TIMEOUT": {
+    "message": "Превышено время ожидания сетевого запроса"
+  },
+  "reasonNS_ERROR_PROXY_CONNECTION_REFUSED": {
+    "message": "Прокси отклонил подключение"
+  },
+  "reasonERR_INTERNET_DISCONNECTED": {
+    "message": "Нет подключения к сети"
+  },
+  "reasonERR_INVALID_AUTH_CREDENTIALS": {
+    "message": "Прокси отклонил данные авторизации"
+  },
+  "reasonERR_CERT_DATE_INVALID": {
+    "message": "Срок действия сертификата истёк или ещё не наступил; проверьте системное время"
+  },
+  "reasonSEC_ERROR_UNKNOWN_ISSUER": {
+    "message": "Издатель сертификата не является доверенным"
+  },
+  "reasonSSL_ERROR_BAD_CERT_DOMAIN": {
+    "message": "Сертификат не соответствует имени сервера"
+  },
+  "reasonNS_ERROR_NET_RESET": {
+    "message": "Соединение сброшено"
+  },
+  "reasonNS_ERROR_OFFLINE": {
+    "message": "Браузер находится в автономном режиме"
+  },
+  "errorRoutingOptions": {
+    "message": "Настройки маршрутизации должны быть объектом с логическим флагом enabled и поддерживаемым режимом/стратегией"
+  },
+  "errorRoutingList": {
+    "message": "Каждый список доменов/сайтов должен быть массивом не более чем из 1000 записей"
+  },
+  "errorRoutingAssignments": {
+    "message": "Назначения должны быть массивом не более чем из 1000 записей с непустыми ID профилей"
+  },
+  "errorRoutingSubdomains": {
+    "message": "includeSubdomains должен быть true или false"
+  },
+  "errorRoutingDuplicate": {
+    "message": "Один домен указан в нескольких назначениях"
+  },
+  "errorConfigSchema": {
+    "message": "Поля конфигурации не соответствуют схеме конфигурации версии 8"
+  },
+  "errorConfigPreferences": {
+    "message": "Язык конфигурации должен быть auto/ru/en, тема — system/light/dark"
+  },
+  "errorConfigLocalBypass": {
+    "message": "bypassLocalNetworks должен быть true или false"
+  },
+  "errorProfileId": {
+    "message": "Импортируемые профили должны иметь непустые строковые ID"
+  },
+  "errorProfileBrowserOptions": {
+    "message": "Список обхода профиля должен содержать строки, knockHost должен быть строкой, authMode — auto или challenge"
+  },
+  "errorProfileBypass": {
+    "message": "Список обхода профиля должен быть массивом не более чем из 1000 записей"
+  },
+  "errorWebRTCValue": {
+    "message": "Неподдерживаемое значение настройки защиты WebRTC"
+  },
+  "errorSubscriptionOptions": {
+    "message": "Настройки списков должны быть объектом; autoUpdate и throughProxy должны быть true или false"
+  },
+  "errorSubscriptionSources": {
+    "message": "Выбор источников должен быть массивом не более чем из 64 корректных идентификаторов источников"
+  },
+  "errorFailedDomainMode": {
+    "message": "Недоступные домены можно добавлять только в ручном режиме или режиме маршрутизации по вкладкам"
+  },
+  "errorFailedDomainSelection": {
+    "message": "Включите мониторинг запросов и выберите недоступные домены из текущей истории запросов"
+  },
+  "errorConnectionMode": {
+    "message": "Режим подключения должен быть proxy, direct или system"
+  },
+  "errorCheckRedirect": {
+    "message": "Сайт диагностики перенаправил запрос на неожиданный хост"
+  },
+  "errorProfileIdLength": {
+    "message": "ID профиля превышает 256 символов"
+  },
+  "errorProfileNameLength": {
+    "message": "Название профиля превышает 256 символов"
+  },
+  "errorProfileColor": {
+    "message": "Индекс цвета профиля должен быть целым числом от 0 до 2147483647"
+  },
+  "errorProfileCountry": {
+    "message": "Страна профиля должна быть указана кодом из двух букв"
+  },
+  "errorBooleanSetting": {
+    "message": "Значение настройки должно быть true или false"
   }
 }

@@ -1,4 +1,5 @@
 /* global MegaProxy, MegaSubscriptionCatalog */
+/* global MegaErrors */
 ;(root => {
   const base = 'https://raw.githubusercontent.com/itdoginfo/allow-domains/main/'
   const catalogURL =
@@ -38,8 +39,8 @@
     let data
     try {
       data = JSON.parse(text)
-    } catch {
-      throw new Error('errorListCatalog')
+    } catch (error) {
+      throw new Error('errorListCatalog', { cause: error })
     }
     if (
       !data ||
@@ -82,12 +83,16 @@
     }
     try {
       return parseCatalog(await download(catalogURL, 2 * 1024 * 1024, fetcher))
-    } catch {
+    } catch (error) {
       return {
         ...previous,
         sources: catalog(previous),
         attemptedAt: Date.now(),
-        error: 'errorListCatalog'
+        error: 'errorListCatalog',
+        errorDetails: MegaErrors.details(
+          new Error('errorListCatalog', { cause: error }),
+          'routingOpened'
+        )
       }
     }
   }
@@ -120,7 +125,7 @@
         key => input[key] !== undefined && typeof input[key] !== 'boolean'
       )
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorSubscriptionOptions') })
     }
 
     const result = {
@@ -134,7 +139,7 @@
         ids.length > 64 ||
         ids.some(id => typeof id !== 'string' || !sourceId.test(id))
       ) {
-        throw new Error('errorProfileFields')
+        throw new Error('errorProfileFields', { cause: new Error('errorSubscriptionSources') })
       }
 
       result[key] = [...new Set(ids)].sort()
@@ -285,7 +290,9 @@
       signal: AbortSignal.timeout(30000)
     })
     if (!response.ok) {
-      throw new Error('errorListDownload')
+      throw Object.assign(new Error('errorListDownload', { cause: new Error('errorHTTP') }), {
+        status: response.status
+      })
     }
 
     const stream = gzip ? response.body.pipeThrough(new DecompressionStream('gzip')) : response.body
@@ -339,6 +346,7 @@
     }
     let ranks = previous.ranks || {}
     let rankingError = null
+    let rankingErrorDetails
     let rankingId = previous.rankingId || null
     const overflow = Object.entries(modes).some(
       ([key, values]) => select(values, config.strategy ? [] : config[key], {}, limit).dropped > 0
@@ -370,8 +378,12 @@
         }
 
         rankingId = id
-      } catch {
+      } catch (error) {
         rankingError = 'errorRankingUnavailable'
+        rankingErrorDetails = MegaErrors.details(
+          new Error(rankingError, { cause: error }),
+          'updateSubscriptions'
+        )
       }
     }
 
@@ -401,6 +413,7 @@
       ranks,
       rankingId,
       rankingError,
+      rankingErrorDetails,
       error: null
     }
   }

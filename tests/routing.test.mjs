@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import vm from 'node:vm'
+import '../extension/errors.js'
 import '../extension/platform.js'
 import '../extension/core.js'
 import '../extension/subscription-catalog.js'
@@ -185,9 +186,14 @@ test('routing round-trips and Chromium explicitly downgrades unsupported Firefox
 })
 
 const scripts = await Promise.all(
-  ['platform.js', 'core.js', 'subscription-catalog.js', 'subscriptions.js', 'background.js'].map(
-    file => readFile(`extension/${file}`, 'utf8')
-  )
+  [
+    'errors.js',
+    'platform.js',
+    'core.js',
+    'subscription-catalog.js',
+    'subscriptions.js',
+    'background.js'
+  ].map(file => readFile(`extension/${file}`, 'utf8'))
 )
 function harness(target) {
   const events = {}

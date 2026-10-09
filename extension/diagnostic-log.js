@@ -1,3 +1,4 @@
+/* global MegaErrors */
 ;(root => {
   const request = value =>
     new Promise((resolve, reject) => {
@@ -24,11 +25,25 @@
       fields.type = details.type
     }
     if (details.code) {
-      fields.code = /^(?:NS_ERROR_[A-Z_]+|net::ERR_[A-Z_]+|ERR_[A-Z_]+|error[A-Z][A-Za-z]+)$/.test(
-        details.code
-      )
-        ? details.code.slice(0, 96)
-        : 'unexpected_error'
+      fields.code =
+        /^(?:(?:NS_ERROR_|SEC_ERROR_|SSL_ERROR_|MOZILLA_PKIX_ERROR_)[A-Z0-9_]+|(?:net::)?ERR_[A-Z0-9_]+|error[A-Z][A-Za-z]+)$/.test(
+          details.code
+        )
+          ? details.code.slice(0, 96)
+          : 'unexpected_error'
+    }
+    if (details.operation || details.reason || details.status || details.resource) {
+      const safe = MegaErrors.details(details)
+      fields.operation = safe.operation
+      if (safe.reason) {
+        fields.reason = safe.reason
+      }
+      if (safe.resource) {
+        fields.resource = safe.resource
+      }
+      if (safe.status) {
+        fields.status = safe.status
+      }
     }
     return fields
   }
@@ -63,13 +78,17 @@
       return new Promise((resolve, reject) => {
         const tx = db.transaction(['chunks', 'meta'], mode)
         let result
+        let failure
         tx.oncomplete = () => resolve(result)
-        tx.onabort = tx.onerror = () => reject(tx.error || new Error('errorLogStorage'))
+        tx.onabort = tx.onerror = () => reject(failure || tx.error || new Error('errorLogStorage'))
         Promise.resolve(work(tx.objectStore('chunks'), tx.objectStore('meta')))
           .then(value => {
             result = value
           })
-          .catch(() => tx.abort())
+          .catch(error => {
+            failure = error
+            tx.abort()
+          })
       })
     }
 

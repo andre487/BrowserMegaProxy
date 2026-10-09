@@ -101,14 +101,14 @@
       (input.strategy !== undefined &&
         !['manual', 'lists', 'profiles', 'tabs', 'failover'].includes(input.strategy))
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorRoutingOptions') })
     }
 
     const lists = {}
     for (const key of ['domains', 'sites']) {
       const values = input[key] ?? []
       if (!Array.isArray(values) || values.length > 1000) {
-        throw new Error('errorProfileFields')
+        throw new Error('errorProfileFields', { cause: new Error('errorRoutingList') })
       }
 
       lists[key] = [...new Set(values.map(domainPattern))]
@@ -120,7 +120,7 @@
       assignments.length > 1000 ||
       assignments.some(a => !a || typeof a.profileId !== 'string' || !a.profileId.trim())
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorRoutingAssignments') })
     }
 
     if (
@@ -128,7 +128,7 @@
         a => a.includeSubdomains !== undefined && typeof a.includeSubdomains !== 'boolean'
       )
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorRoutingSubdomains') })
     }
 
     const normalized = assignments.map(a => ({
@@ -141,7 +141,7 @@
     }
 
     if (new Set(normalized.map(a => a.domain)).size !== normalized.length) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorRoutingDuplicate') })
     }
 
     const subscriptions = root.MegaSubscriptions?.options(input.subscriptions) || {
@@ -357,7 +357,19 @@
       !/^([A-Z]{2})?$/.test(countryCode) ||
       bypass.length > 1000
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', {
+        cause: new Error(
+          id.length > 256
+            ? 'errorProfileIdLength'
+            : name.length > 256
+              ? 'errorProfileNameLength'
+              : !Number.isInteger(color) || color < 0 || color > 2147483647
+                ? 'errorProfileColor'
+                : !/^([A-Z]{2})?$/.test(countryCode)
+                  ? 'errorProfileCountry'
+                  : 'errorProfileBypass'
+        )
+      })
     }
 
     return {
@@ -701,7 +713,7 @@ function FindProxyForURL(url, host) {
 
     const portable = data?.schema === SCHEMA || data?.schema === 'dev.megaproxy.config'
     if (portable && data.version === 8 && root.MegaValidate && !root.MegaValidate(data)) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorConfigSchema') })
     }
 
     if (data?.schema && !portable) {
@@ -718,14 +730,14 @@ function FindProxyForURL(url, host) {
       (!['auto', 'ru', 'en'].includes(data.browser.language || 'auto') ||
         !['system', 'light', 'dark'].includes(data.browser.theme || 'system'))
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorConfigPreferences') })
     }
 
     if (
       data?.routing?.bypassLocalNetworks !== undefined &&
       typeof data.routing.bypassLocalNetworks !== 'boolean'
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorConfigLocalBypass') })
     }
 
     if (portable && data.version >= 7) {
@@ -837,7 +849,7 @@ function FindProxyForURL(url, host) {
       }
 
       if (portable && data.version >= 7 && (typeof entry.id !== 'string' || !entry.id.trim())) {
-        throw new Error('errorProfileFields')
+        throw new Error('errorProfileFields', { cause: new Error('errorProfileId') })
       }
 
       const browserOptions = entry.browser || {}
@@ -849,7 +861,7 @@ function FindProxyForURL(url, host) {
         (browserOptions.authMode !== undefined &&
           !['auto', 'challenge'].includes(browserOptions.authMode))
       ) {
-        throw new Error('errorProfileFields')
+        throw new Error('errorProfileFields', { cause: new Error('errorProfileBrowserOptions') })
       }
 
       const hexColor = !portable && /^#[0-9a-f]{6}$/i.test(entry.color)
@@ -972,7 +984,7 @@ function FindProxyForURL(url, host) {
 
       const bypass = []
       if (!Array.isArray(entry.bypassList || []) || (entry.bypassList || []).length > 1000) {
-        throw new Error('errorProfileFields')
+        throw new Error('errorProfileFields', { cause: new Error('errorProfileBypass') })
       }
 
       for (const rule of entry.bypassList || []) {
@@ -1259,7 +1271,7 @@ function FindProxyForURL(url, host) {
     stripSecrets(config)
     const exported = filterConfig(config).config
     if (root.MegaValidate && !root.MegaValidate(exported)) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorConfigSchema') })
     }
 
     return exported
@@ -1277,7 +1289,7 @@ function FindProxyForURL(url, host) {
         'disabled'
       ].includes(value)
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorWebRTCValue') })
     }
 
     return value

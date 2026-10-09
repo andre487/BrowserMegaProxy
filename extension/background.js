@@ -1,7 +1,8 @@
-/* global chrome, MegaProxy, MegaPlatform, MEGA_TARGET, MegaSubscriptions, MegaDiagnosticLog, importScripts */
+/* global MegaErrors, chrome, MegaProxy, MegaPlatform, MEGA_TARGET, MegaSubscriptions, MegaDiagnosticLog, importScripts */
 if (typeof importScripts === 'function') {
   importScripts(
     'target.js',
+    'errors.js',
     'platform.js',
     'config-validator.js',
     'core.js',
@@ -67,9 +68,21 @@ const ready = Promise.all([
 let queue = Promise.resolve()
 let recoverTransientProxy = false
 let startupError
+let startupErrorDetails
+function recordStartupError(error, operation = 'startup') {
+  startupError = error.message
+  startupErrorDetails = MegaErrors.details(error, operation)
+  diagnosticLog?.write('startup_failed', startupErrorDetails)
+}
+function operationFailure(error, operation) {
+  const errorDetails = MegaErrors.details(error, operation)
+  diagnosticLog?.write('operation_failed', errorDetails)
+  return { ok: false, error: error.message, errorDetails }
+}
 let downloadRouting
 let syncOptions = { enabled: true, includePasswords: true }
 let syncError
+let syncErrorDetails
 let syncRevision
 const menuCatalogs = new Map()
 
@@ -205,10 +218,10 @@ async function retryKnock(details) {
     } else {
       await api.tabs.reload(details.tabId, { bypassCache: true })
     }
-    diagnosticLog?.write('knock_retried', { code: details.error })
+    diagnosticLog?.write('knock_retried', MegaErrors.details(new Error(details.error), 'knock'))
     return true
   } catch (error) {
-    diagnosticLog?.write('knock_retry_failed', { code: error.message })
+    diagnosticLog?.write('knock_retry_failed', MegaErrors.details(error, 'knock'))
     return false
   }
 }
@@ -345,7 +358,11 @@ function testPage(tabId, url, signal) {
           details.statusCode < 200 ||
           details.statusCode >= 400
         ) {
-          finish(new Error('errorCheckHTTP'))
+          const code =
+            new URL(details.url).hostname !== new URL(url).hostname
+              ? 'errorCheckRedirect'
+              : 'errorCheckHTTP'
+          finish(Object.assign(new Error(code), { status: details.statusCode }))
         } else {
           received = true
           if (loaded) {
@@ -357,7 +374,7 @@ function testPage(tabId, url, signal) {
 
     const failed = details => {
       if (details.tabId === tabId && details.type === 'main_frame') {
-        finish(new Error('errorCheckNetwork'))
+        finish(new Error('errorCheckNetwork', { cause: new Error(details.error) }))
       }
     }
 
@@ -480,7 +497,13 @@ async function checkConnection() {
 
     return { ok: true, connectionCheck }
   } catch (error) {
-    connectionCheck = { stage: 'failed', mode, profileId: p?.id || null, error: error.message }
+    connectionCheck = {
+      stage: 'failed',
+      mode,
+      profileId: p?.id || null,
+      error: MegaErrors.details(error, 'check').code,
+      errorDetails: MegaErrors.details(error, 'check')
+    }
     await storeConnectionCheck()
     throw error
   } finally {
@@ -610,7 +633,12 @@ async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
     const code = /^errorList/.test(error.message) ? error.message : 'errorListDownload'
     state = {
       ...state,
-      subscriptionCache: { ...state.subscriptionCache, attemptedAt: Date.now(), error: code }
+      subscriptionCache: {
+        ...state.subscriptionCache,
+        attemptedAt: Date.now(),
+        error: code,
+        errorDetails: MegaErrors.details(new Error(code, { cause: error }), 'updateSubscriptions')
+      }
     }
     await api.storage.local.set({ state })
     throw new Error(code, { cause: error })
@@ -675,7 +703,9 @@ async function handle(message) {
       target: platform.id,
       syncOptions,
       syncError,
-      warning: startupError
+      syncErrorDetails,
+      warning: startupError,
+      warningDetails: startupErrorDetails
     }
   }
 
@@ -699,7 +729,7 @@ async function handle(message) {
   if (message.command === 'addFailedDomains') {
     const strategy = M.routingStrategy(state.browserRouting)
     if (!['manual', 'tabs'].includes(strategy)) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorFailedDomainMode') })
     }
     const rows = networkLog.get(message.tabId) || []
     if (
@@ -709,7 +739,7 @@ async function handle(message) {
       message.domains.length > NETWORK_ROWS ||
       message.domains.some(domain => !rows.some(row => row.failed && row.domain === domain))
     ) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorFailedDomainSelection') })
     }
 
     const domains = [...new Set(message.domains.map(M.host))]
@@ -897,7 +927,7 @@ async function handle(message) {
     }
   } else if (message.command === 'connectionMode') {
     if (!['proxy', 'direct', 'system'].includes(message.mode)) {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorConnectionMode') })
     }
 
     next.connectionMode = message.mode
@@ -944,13 +974,13 @@ async function handle(message) {
     message.reloadTabId = site.tabId
   } else if (message.command === 'bypassLocalNetworks') {
     if (typeof message.enabled !== 'boolean') {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorBooleanSetting') })
     }
 
     next.bypassLocalNetworks = message.enabled
   } else if (message.command === 'statistics') {
     if (typeof message.enabled !== 'boolean') {
-      throw new Error('errorProfileFields')
+      throw new Error('errorProfileFields', { cause: new Error('errorBooleanSetting') })
     }
 
     next.statisticsEnabled = message.enabled
@@ -996,7 +1026,7 @@ async function handle(message) {
     startupError = undefined
   } catch (error) {
     state = old
-    diagnosticLog?.write('settings_failed', { code: error.message })
+    diagnosticLog?.write('settings_failed', MegaErrors.details(error, message.command))
     await apply(old).catch(() => {})
     if (old.webRTC !== next.webRTC) {
       await applyWebRTC(old.webRTC).catch(() => {})
@@ -1039,7 +1069,7 @@ async function handle(message) {
     connectionCheck = null
     await storeConnectionCheck()
     await startKnock().catch(error => {
-      startupError = error.message
+      recordStartupError(error)
     })
   }
 
@@ -1057,10 +1087,13 @@ async function handle(message) {
     state,
     syncOptions,
     syncError,
+    syncErrorDetails,
     connectionCheck,
     target: platform.id,
     skipped: message.skipped,
     unsupportedSplitProxy: message.unsupportedSplitProxy,
+    warningDetails:
+      message.unsupportedSplitProxy || message.unsupportedWebRTC ? undefined : startupErrorDetails,
     warning: message.unsupportedSplitProxy
       ? 'splitUnsupportedWarning'
       : message.unsupportedWebRTC
@@ -1080,13 +1113,12 @@ api.runtime.onMessage.addListener((message, sender, respond) => {
   if (['get', 'currentSite', 'network', 'telemetry'].includes(message.command)) {
     handle(message)
       .then(respond)
-      .catch(error => respond({ ok: false, error: error.message }))
+      .catch(error => respond(operationFailure(error, message.command)))
   } else {
     queue = queue
       .then(() => handle(message))
       .catch(error => {
-        diagnosticLog?.write('operation_failed', { code: error.message })
-        return { ok: false, error: error.message }
+        return operationFailure(error, message.command)
       })
     queue.then(respond)
   }
@@ -1155,8 +1187,8 @@ api.webRequest.onAuthRequired.addListener(
         }
         respond(response)
       })
-      .catch(() => {
-        diagnosticLog?.write('proxy_auth_failed')
+      .catch(error => {
+        diagnosticLog?.write('proxy_auth_failed', MegaErrors.details(error, 'authentication'))
         respond({ cancel: true })
       })
   },
@@ -1251,7 +1283,10 @@ api.webRequest.onErrorOccurred.addListener(
   details => {
     attempts.delete(details.requestId)
     if (details.tabId >= 0 && ['main_frame', 'xmlhttprequest'].includes(details.type)) {
-      diagnosticLog?.write('request_failed', { type: details.type, code: details.error })
+      diagnosticLog?.write('request_failed', {
+        type: details.type,
+        ...MegaErrors.details(new Error(details.error), 'request')
+      })
     }
     if (details.type === 'main_frame') {
       queue = queue
@@ -1290,7 +1325,7 @@ for (const event of ['onInstalled', 'onStartup']) {
         }
       })
       .catch(error => {
-        startupError = error.message
+        recordStartupError(error)
       })
   })
 }
@@ -1401,12 +1436,17 @@ async function fetchConfig(value) {
       cache: 'no-store',
       referrerPolicy: 'no-referrer'
     })
-  } catch {
-    throw new Error('errorConfigDownload')
+  } catch (error) {
+    throw new Error('errorConfigDownload', { cause: error })
   }
 
-  if (!response.ok || Number(response.headers.get('content-length')) > 1024 * 1024) {
-    throw new Error('errorConfigDownload')
+  if (!response.ok) {
+    throw Object.assign(new Error('errorConfigDownload', { cause: new Error('errorHTTP') }), {
+      status: response.status
+    })
+  }
+  if (Number(response.headers.get('content-length')) > 1024 * 1024) {
+    throw new Error('errorFileSize')
   }
 
   const reader = response.body.getReader()
@@ -1509,6 +1549,8 @@ async function publishSync() {
     }
 
     syncError = /^errorSync/.test(error.message) ? error.message : 'errorSync'
+    syncErrorDetails = MegaErrors.details(new Error(syncError, { cause: error }), 'sync')
+    diagnosticLog?.write('sync_failed', syncErrorDetails)
   }
 }
 
@@ -1651,7 +1693,7 @@ async function receiveSync() {
       JSON.stringify(M.active(old)) !== JSON.stringify(M.active(next))
     ) {
       await startKnock().catch(error => {
-        startupError = error.message
+        recordStartupError(error)
       })
     }
 
@@ -1664,8 +1706,10 @@ async function receiveSync() {
       JSON.stringify(old.browserRouting.subscriptions) !==
       JSON.stringify(next.browserRouting.subscriptions)
     queue = queue.then(() => refreshSubscriptions(settingsChanged)).catch(() => {})
-  } catch {
+  } catch (error) {
     syncError = 'errorSync'
+    syncErrorDetails = MegaErrors.details(new Error(syncError, { cause: error }), 'sync')
+    diagnosticLog?.write('sync_failed', syncErrorDetails)
   }
 }
 
@@ -1747,7 +1791,7 @@ api.contextMenus?.onClicked.addListener((info, tab) => {
       )
     })
     .catch(error => {
-      startupError = error.message
+      recordStartupError(error)
     })
 })
 
@@ -1798,51 +1842,50 @@ queue = queue
     }
 
     await applyWebRTC(state.webRTC).catch(error => {
-      startupError = error.message
+      recordStartupError(error, 'webRTC')
     })
     await rebuildMenus()
   })
   .catch(error => {
-    startupError = error.message
+    recordStartupError(error)
   })
 
 const toolbarPaths = Object.fromEntries(
-  [16, 24, 32, 48].map(size => [size, `icons/toolbar${size}.png`])
+  [16, 24, 32, 48, 64].map(size => [size, `icons/toolbar${size}.png`])
 )
-const profileIcons = new Map()
+const toolbarIcons = new Map()
 const badgeVersions = new Map()
 let toolbarBitmaps
 
-function profileIcon(profile) {
-  const label = (profile.name || profile.host).replace(/\s+/g, ' ').trim() || profile.host
-  const color = M.colors[profile.color % M.colors.length]
-  const key = JSON.stringify([label, color])
-  if (!profileIcons.has(key)) {
-    // Keep icon memory bounded even with hundreds of imported profiles.
-    if (profileIcons.size >= 32) {
-      profileIcons.delete(profileIcons.keys().next().value)
-    }
+function toolbarIcon(color) {
+  if (!toolbarIcons.has(color)) {
     toolbarBitmaps ||= Promise.all(
-      Object.entries(toolbarPaths).map(async ([size, path]) => [
-        Number(size),
-        await createImageBitmap(await (await fetch(api.runtime.getURL(path))).blob())
-      ])
-    )
-    profileIcons.set(
-      key,
-      toolbarBitmaps.then(bitmaps => {
-        const luminance = rgb =>
-          rgb
-            .map(value => {
-              const component = value / 255
-              return component <= 0.04045 ? component / 12.92 : ((component + 0.055) / 1.055) ** 2.4
-            })
-            .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
-        let rgb = color.match(/[a-f\d]{2}/gi).map(value => parseInt(value, 16))
-        while (luminance(rgb) > 0.1) {
-          rgb = rgb.map(value => Math.floor(value * 0.9))
+      Object.entries(toolbarPaths).map(async ([size, path]) => {
+        try {
+          const response = await fetch(api.runtime.getURL(path))
+          if (!response.ok) {
+            throw Object.assign(new Error('errorHTTP'), { status: response.status })
+          }
+          return [Number(size), await createImageBitmap(await response.blob())]
+        } catch (error) {
+          const failure = MegaErrors.context(
+            Object.assign(new Error('errorIcon', { cause: error }), {
+              resource: path.split('/').at(-1)
+            }),
+            'toolbarIcon'
+          )
+          diagnosticLog?.write('icon_load_failed', failure.errorDetails)
+          throw failure
         }
-        const plateColor = `#${rgb.map(value => value.toString(16).padStart(2, '0')).join('')}`
+      })
+    ).catch(error => {
+      toolbarBitmaps = undefined
+      toolbarIcons.clear()
+      throw error
+    })
+    toolbarIcons.set(
+      color,
+      toolbarBitmaps.then(bitmaps => {
         return Object.fromEntries(
           bitmaps.map(([size, bitmap]) => {
             const canvas = new OffscreenCanvas(size, size)
@@ -1850,34 +1893,23 @@ function profileIcon(profile) {
             ctx.drawImage(bitmap, 0, 0, size, size)
             ctx.scale(size / 16, size / 16)
             ctx.beginPath()
-            ctx.roundRect(0, 8, 16, 8, 2)
-            ctx.fillStyle = plateColor
+            ctx.arc(12.5, 12.5, 3, 0, Math.PI * 2)
+            ctx.globalCompositeOperation = 'destination-out'
+            ctx.lineWidth = 3
+            ctx.stroke()
+            ctx.globalCompositeOperation = 'source-over'
+            ctx.fillStyle = color
             ctx.fill()
-            ctx.clip()
-            ctx.font = 'bold 7.5px Arial, Helvetica, sans-serif'
-            const short =
-              [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(label)]
-                .length <= 2
-            const width = ctx.measureText(label).width
-            if (short && width > 14) {
-              ctx.font = `bold ${(7.5 * 14) / width}px Arial, Helvetica, sans-serif`
-            }
-            ctx.fillStyle = '#ffffff'
-            ctx.fillText(label, 1, 14.5)
-            if (!short && width > 14) {
-              const fade = ctx.createLinearGradient(11, 0, 16, 0)
-              fade.addColorStop(0, `${plateColor}00`)
-              fade.addColorStop(1, plateColor)
-              ctx.fillStyle = fade
-              ctx.fillRect(11, 8, 5, 8)
-            }
+            ctx.strokeStyle = '#ffffff'
+            ctx.lineWidth = 1
+            ctx.stroke()
             return [size, ctx.getImageData(0, 0, size, size)]
           })
         )
       })
     )
   }
-  return profileIcons.get(key)
+  return toolbarIcons.get(color)
 }
 
 async function updateBadge(tabId, url) {
@@ -1906,16 +1938,13 @@ async function updateBadge(tabId, url) {
     : state.connectionMode === 'system' || (!M.active(state) && state.connectionMode !== 'direct')
       ? 'SYSTEM'
       : 'DIRECT'
-  const icon = p ? { tabId, imageData: await profileIcon(p) } : { tabId, path: toolbarPaths }
+  const color = p ? M.colors[p.color % M.colors.length] : label === 'SYSTEM' ? '#616161' : '#bdbdbd'
+  const icon = { tabId, imageData: await toolbarIcon(color) }
   if (badgeVersions.get(tabId) !== version) {
     return
   }
   await Promise.all([
-    api.action.setBadgeText({ tabId, text: p ? '' : label === 'SYSTEM' ? 'SYS' : 'DIR' }),
-    api.action.setBadgeBackgroundColor({
-      tabId,
-      color: p ? M.colors[p.color % M.colors.length] : '#64748b'
-    }),
+    api.action.setBadgeText({ tabId, text: '' }),
     api.action.setIcon(icon),
     api.action.setTitle({
       tabId,

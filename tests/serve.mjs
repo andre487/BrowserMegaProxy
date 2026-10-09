@@ -6,13 +6,14 @@ const types = {
   js: 'text/javascript',
   css: 'text/css',
   json: 'application/json',
-  png: 'image/png'
+  png: 'image/png',
+  svg: 'image/svg+xml'
 }
 http
   .createServer(async (req, res) => {
     const file = req.url.split('?')[0].slice(1) || 'popup.html'
     if (
-      !/^(?:[a-z0-9-]+\.(?:html|js|css)|icons\/(?:icon(?:16|32|48|128)?|toolbar(?:16|24|32|48))\.png|_locales\/(?:en|ru)\/messages\.json)$/.test(
+      !/^(?:[a-z0-9-]+\.(?:html|js|css)|icons\/(?:icon(?:16|32|48|128)?|toolbar(?:16|24|32|48|64))\.png|icons\/icon\.svg|_locales\/(?:en|ru)\/messages\.json)$/.test(
         file
       )
     ) {

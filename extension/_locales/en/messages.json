@@ -306,7 +306,7 @@
     "message": "The HTTPS check returned an unsuccessful status"
   },
   "errorCheckNetwork": {
-    "message": "Could not reach the diagnostic site through the proxy"
+    "message": "Could not open the diagnostic website"
   },
   "errorCheckIP": {
     "message": "Could not determine the exit IP"
@@ -537,7 +537,7 @@
     "message": "Enter an HTTP or HTTPS URL without embedded credentials."
   },
   "errorConfigDownload": {
-    "message": "Unable to download the configuration or file is too large."
+    "message": "Could not download the configuration"
   },
   "errorRuleURL": {
     "message": "Use HTTP or HTTPS URLs for the rule test."
@@ -724,5 +724,299 @@
   },
   "privateAccessChromiumHint": {
     "message": "Open your browser’s extensions page → MegaProxy → Details → Allow in incognito (private windows)."
+  },
+  "operationGet": {
+    "message": "Load extension state"
+  },
+  "operationCurrentSite": {
+    "message": "Read current site"
+  },
+  "operationNetwork": {
+    "message": "Read request history"
+  },
+  "operationTelemetry": {
+    "message": "Read statistics"
+  },
+  "operationSave": {
+    "message": "Save profile"
+  },
+  "operationActivate": {
+    "message": "Switch connection"
+  },
+  "operationConnectionMode": {
+    "message": "Switch connection mode"
+  },
+  "operationClone": {
+    "message": "Copy profile"
+  },
+  "operationMove": {
+    "message": "Move profile"
+  },
+  "operationDelete": {
+    "message": "Delete profile"
+  },
+  "operationRouting": {
+    "message": "Save routing rules"
+  },
+  "operationRoutingOpened": {
+    "message": "Load routing lists"
+  },
+  "operationUpdateSubscriptions": {
+    "message": "Update routing lists"
+  },
+  "operationFetchConfig": {
+    "message": "Download configuration"
+  },
+  "operationPreviewImport": {
+    "message": "Read configuration for import"
+  },
+  "operationImport": {
+    "message": "Import configuration"
+  },
+  "operationExport": {
+    "message": "Export configuration"
+  },
+  "operationSync": {
+    "message": "Synchronize settings"
+  },
+  "operationCheck": {
+    "message": "Check connection"
+  },
+  "operationKnock": {
+    "message": "Open proxy access page"
+  },
+  "operationWebRTC": {
+    "message": "Change WebRTC protection"
+  },
+  "operationTheme": {
+    "message": "Change theme"
+  },
+  "operationLanguage": {
+    "message": "Change language"
+  },
+  "operationStatistics": {
+    "message": "Change statistics settings"
+  },
+  "operationBypassLocalNetworks": {
+    "message": "Change local network bypass"
+  },
+  "operationTestRule": {
+    "message": "Test routing rule"
+  },
+  "operationAddCurrentSite": {
+    "message": "Add current site to routing"
+  },
+  "operationExcludeCurrentSite": {
+    "message": "Exclude current site from routing"
+  },
+  "operationToggleTab": {
+    "message": "Switch connection for this tab"
+  },
+  "operationClearNetwork": {
+    "message": "Clear request history"
+  },
+  "operationAddFailedDomains": {
+    "message": "Add failed domains to routing"
+  },
+  "operationStartup": {
+    "message": "Initialize extension"
+  },
+  "operationToolbarIcon": {
+    "message": "Load toolbar icon"
+  },
+  "operationLocale": {
+    "message": "Load interface translations"
+  },
+  "operationInterface": {
+    "message": "Perform interface action"
+  },
+  "operationLogRead": {
+    "message": "Read diagnostic log"
+  },
+  "operationLogClear": {
+    "message": "Clear diagnostic log"
+  },
+  "operationLogExport": {
+    "message": "Export diagnostic log"
+  },
+  "operationLogConfigure": {
+    "message": "Change diagnostic log limit"
+  },
+  "operationAuthentication": {
+    "message": "Authenticate proxy connection"
+  },
+  "operationRequest": {
+    "message": "Load network resource"
+  },
+  "errorUnexpected": {
+    "message": "The operation failed; the browser did not provide a recognized error code"
+  },
+  "errorNetwork": {
+    "message": "The browser could not complete the network request; check network access and connection settings"
+  },
+  "errorHTTP": {
+    "message": "The server returned an unsuccessful HTTP response"
+  },
+  "errorLocale": {
+    "message": "Could not load interface translations"
+  },
+  "errorIcon": {
+    "message": "Could not load or decode the toolbar icon"
+  },
+  "reasonAbortError": {
+    "message": "Operation was cancelled"
+  },
+  "reasonTimeoutError": {
+    "message": "The operation timed out"
+  },
+  "reasonQuotaExceededError": {
+    "message": "Browser storage quota exceeded"
+  },
+  "reasonSecurityError": {
+    "message": "The browser blocked access for security reasons"
+  },
+  "reasonNotAllowedError": {
+    "message": "The browser denied permission"
+  },
+  "reasonInvalidStateError": {
+    "message": "The browser resource is unavailable in its current state"
+  },
+  "reasonNotFoundError": {
+    "message": "The requested browser resource no longer exists"
+  },
+  "reasonUnknownError": {
+    "message": "The browser reported an unspecified internal error"
+  },
+  "reasonDataError": {
+    "message": "The data is invalid for this operation"
+  },
+  "reasonSyntaxError": {
+    "message": "The data has an invalid format"
+  },
+  "reasonTypeError": {
+    "message": "Invalid data or a browser API failure"
+  },
+  "reasonERR_NAME_NOT_RESOLVED": {
+    "message": "DNS lookup failed"
+  },
+  "reasonERR_PROXY_CONNECTION_FAILED": {
+    "message": "Could not connect to the proxy server"
+  },
+  "reasonERR_CONNECTION_REFUSED": {
+    "message": "The server refused the connection"
+  },
+  "reasonERR_CONNECTION_RESET": {
+    "message": "The connection was reset"
+  },
+  "reasonERR_TIMED_OUT": {
+    "message": "Network request timed out"
+  },
+  "reasonERR_TUNNEL_CONNECTION_FAILED": {
+    "message": "The proxy could not establish a CONNECT tunnel"
+  },
+  "reasonERR_CERT_AUTHORITY_INVALID": {
+    "message": "The certificate authority is not trusted"
+  },
+  "reasonNS_ERROR_CONNECTION_REFUSED": {
+    "message": "The server refused the connection"
+  },
+  "reasonNS_ERROR_UNKNOWN_HOST": {
+    "message": "DNS lookup failed"
+  },
+  "reasonNS_ERROR_NET_TIMEOUT": {
+    "message": "Network request timed out"
+  },
+  "reasonNS_ERROR_PROXY_CONNECTION_REFUSED": {
+    "message": "The proxy refused the connection"
+  },
+  "reasonERR_INTERNET_DISCONNECTED": {
+    "message": "No network connection"
+  },
+  "reasonERR_INVALID_AUTH_CREDENTIALS": {
+    "message": "The proxy rejected the credentials"
+  },
+  "reasonERR_CERT_DATE_INVALID": {
+    "message": "The certificate has expired or is not yet valid; check the system clock"
+  },
+  "reasonSEC_ERROR_UNKNOWN_ISSUER": {
+    "message": "The certificate authority is not trusted"
+  },
+  "reasonSSL_ERROR_BAD_CERT_DOMAIN": {
+    "message": "The certificate does not match the server hostname"
+  },
+  "reasonNS_ERROR_NET_RESET": {
+    "message": "The connection was reset"
+  },
+  "reasonNS_ERROR_OFFLINE": {
+    "message": "The browser is offline"
+  },
+  "errorRoutingOptions": {
+    "message": "Routing settings must be an object with a boolean enabled flag and a supported mode/strategy"
+  },
+  "errorRoutingList": {
+    "message": "Each domain/site list must be an array with at most 1,000 entries"
+  },
+  "errorRoutingAssignments": {
+    "message": "Assignments must be an array of at most 1,000 entries with nonempty profile IDs"
+  },
+  "errorRoutingSubdomains": {
+    "message": "includeSubdomains must be true or false"
+  },
+  "errorRoutingDuplicate": {
+    "message": "The same domain occurs in multiple assignments"
+  },
+  "errorConfigSchema": {
+    "message": "Configuration fields do not match the version 8 configuration schema"
+  },
+  "errorConfigPreferences": {
+    "message": "Configuration language must be auto/ru/en and theme must be system/light/dark"
+  },
+  "errorConfigLocalBypass": {
+    "message": "bypassLocalNetworks must be true or false"
+  },
+  "errorProfileId": {
+    "message": "Imported profiles must have nonempty string IDs"
+  },
+  "errorProfileBrowserOptions": {
+    "message": "Profile bypass must contain strings, knockHost must be a string, and authMode must be auto or challenge"
+  },
+  "errorProfileBypass": {
+    "message": "Profile bypass must be an array with at most 1,000 entries"
+  },
+  "errorWebRTCValue": {
+    "message": "Unsupported WebRTC protection setting"
+  },
+  "errorSubscriptionOptions": {
+    "message": "List preferences must be an object; autoUpdate and throughProxy must be true or false"
+  },
+  "errorSubscriptionSources": {
+    "message": "Source selections must be arrays of at most 64 valid source identifiers"
+  },
+  "errorFailedDomainMode": {
+    "message": "Failed domains can only be added in manual or tab routing mode"
+  },
+  "errorFailedDomainSelection": {
+    "message": "Enable request monitoring and select failed domains from the current request history"
+  },
+  "errorConnectionMode": {
+    "message": "Connection mode must be proxy, direct or system"
+  },
+  "errorCheckRedirect": {
+    "message": "The diagnostic website redirected to an unexpected host"
+  },
+  "errorProfileIdLength": {
+    "message": "Profile ID exceeds 256 characters"
+  },
+  "errorProfileNameLength": {
+    "message": "Profile name exceeds 256 characters"
+  },
+  "errorProfileColor": {
+    "message": "Profile color index must be an integer from 0 to 2147483647"
+  },
+  "errorProfileCountry": {
+    "message": "Profile country must be a two-letter country code"
+  },
+  "errorBooleanSetting": {
+    "message": "This setting must be true or false"
   }
 }

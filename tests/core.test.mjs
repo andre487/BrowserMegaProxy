@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import '../extension/errors.js'
 import '../extension/platform.js'
 import '../extension/core.js'
 import '../extension/subscription-catalog.js'

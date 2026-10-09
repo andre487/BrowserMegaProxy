@@ -5,9 +5,14 @@ import vm from 'node:vm'
 
 const source = (
   await Promise.all(
-    ['platform.js', 'core.js', 'subscription-catalog.js', 'subscriptions.js', 'background.js'].map(
-      name => readFile(`extension/${name}`, 'utf8')
-    )
+    [
+      'errors.js',
+      'platform.js',
+      'core.js',
+      'subscription-catalog.js',
+      'subscriptions.js',
+      'background.js'
+    ].map(name => readFile(`extension/${name}`, 'utf8'))
   )
 ).join('\n;\n')
 
