@@ -282,7 +282,7 @@ function render() {
     info.className = 'profile-info'
     const title = document.createElement('strong')
     const flag = countryFlag(p.countryCode)
-    title.textContent = `${flag} ${p.name || p.host}`.trim()
+    title.append(flag, `${flag.textContent ? ' ' : ''}${p.name || p.host}`)
 
     const endpoint = document.createElement('p')
     endpoint.textContent = `${p.type.toUpperCase()} · ${p.host}:${p.port}${selected ? ` · ${t('active')}` : ''}`
@@ -782,9 +782,12 @@ function renderStatistics() {
 }
 
 function countryFlag(code) {
-  return /^[A-Z]{2}$/.test(code || '')
+  const flag = document.createElement('span')
+  flag.className = 'country-flag'
+  flag.textContent = /^[A-Z]{2}$/.test(code || '')
     ? [...code].map(c => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65)).join('')
     : ''
+  return flag
 }
 
 function renderCheck() {
@@ -794,6 +797,7 @@ function renderCheck() {
 
   $('#check').disabled = busy
   const check = connectionCheck
+  const flag = countryFlag(check?.countryCode)
   const countryName = /^[A-Z]{2}$/.test(check?.countryCode || '')
     ? new Intl.DisplayNames([document.documentElement.lang], {
         type: 'region',
@@ -817,7 +821,7 @@ function renderCheck() {
           t(
             'checkSuccess',
             check.exitIp,
-            `${countryFlag(check.countryCode)} ${check.countryCode || '—'}${countryName ? ` (${countryName})` : ''}`.trim(),
+            `${flag.textContent} ${check.countryCode || '—'}${countryName ? ` (${countryName})` : ''}`.trim(),
             check.latencyMs
           )
         ]
@@ -826,6 +830,12 @@ function renderCheck() {
       : check.stage === 'failed'
         ? MegaErrors.format({ message: check.error, errorDetails: check.errorDetails }, 'check', t)
         : t(`checkStage_${check.stage}`)
+  if (check?.stage === 'complete' && flag.textContent) {
+    const result = $('#check-result')
+    const text = result.textContent
+    const index = text.lastIndexOf(flag.textContent)
+    result.replaceChildren(text.slice(0, index), flag, text.slice(index + flag.textContent.length))
+  }
 }
 
 $('#check').onclick = async () => {
