@@ -44,6 +44,9 @@
       if (safe.status) {
         fields.status = safe.status
       }
+      if (safe.responseBody) {
+        fields.responseBody = safe.responseBody
+      }
     }
     return fields
   }

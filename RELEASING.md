@@ -140,7 +140,7 @@ Before Opera publication, test the release in the target browser version.
 The workflow targets this existing item (`kfilelfnldddoncicbampiojjjcpbigo`).
 Chrome Web Store submission runs by default after a successful GitHub release.
 
-After the GitHub Release succeeds, **Submit to Chrome Web Store** downloads its
+After the GitHub Release succeeds, **Check or submit Chrome Web Store extension** downloads its
 exact Chromium ZIP, checks archive integrity and manifest version, authenticates,
 uploads through API v2, waits up to 150 seconds for processing, and submits with
 `DEFAULT_PUBLISH`. Google reviews the update and publishes it after approval;
@@ -260,6 +260,21 @@ dry run before retrying. Never share or commit the cookie value.
 
 API behavior is based on the [publish-browser-extension implementation](https://github.com/aklinker1/publish-browser-extension/blob/main/src/stores/opera-addons-store.ts);
 Opera's supported manual process is described in its [publishing guidelines](https://help.opera.com/en/extensions/publishing-guidelines/).
+
+## HTTP failure diagnostics
+
+Release API calls (Chrome, Firefox, Opera and release-note generation), schema/catalog
+renewal and extension downloads include response excerpts for HTTP 500–599 errors.
+The shared handler reads at most 16 KiB and outputs at most 4,096 characters, with
+known credentials, authorization fields, URLs and control characters redacted.
+Errors identify the method and endpoint in release logs. Release and maintenance API calls retry HTTP 5xx up to three total attempts with 1 and 2 second delays; each failed attempt logs its response excerpt. HTTP 4xx and transport failures are not retried by this handler. Empty or unreadable bodies
+are marked explicitly; HTTP 4xx response bodies are not logged.
+
+Extension 5xx diagnostics are also retained across error wrapping and displayed in
+the UI and local diagnostic log. Connection checks read the error page's visible
+text when accessible. The network monitor uses browser webRequest events, which
+provide status codes rather than arbitrary response bodies; it does not replay
+requests to collect bodies.
 
 ## Recovery after failure
 

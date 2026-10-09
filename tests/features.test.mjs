@@ -1476,3 +1476,18 @@ test('cancelling or failing proxy verification never persists candidate credenti
     assert.deepEqual(JSON.parse(JSON.stringify(origin)), {})
   }
 })
+
+test('config download exposes sanitized 5xx body in background errors', async () => {
+  const h = harness(
+    'chromium',
+    {},
+    async () => new Response('configuration service down; token=private-token', { status: 500 })
+  )
+  const response = await h.send({
+    command: 'fetchConfig',
+    url: 'https://config.example/?token=private-token'
+  })
+  assert.equal(response.errorDetails.status, 500)
+  assert.match(response.errorDetails.responseBody, /configuration service down/)
+  assert.doesNotMatch(response.errorDetails.responseBody, /private-token/)
+})

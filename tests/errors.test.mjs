@@ -76,3 +76,65 @@ test('errors retain operation, safe browser cause, HTTP status and resource acro
   )
   assert.deepEqual(secret, { operation: 'save', code: 'errorUnexpected' })
 })
+
+test('5xx response diagnostics read bounded JSON/HTML, redact credentials and survive UI serialization', async () => {
+  const secrets = ['private-session', 'private-token']
+  for (const body of [
+    JSON.stringify({
+      error: 'upstream unavailable',
+      password: 'unknown-password',
+      token: 'private-token',
+      trace: 'private-session'
+    }),
+    '<html>upstream unavailable; sessionid=private-session; Authorization: Bearer private-token; https://user:pass@example.org/?key=private-token</html>'
+  ]) {
+    const error = await globalThis.MegaErrors.httpError(
+      new Response(body, { status: 503 }),
+      'errorHTTP',
+      secrets
+    )
+    const transferred = JSON.parse(JSON.stringify(details(context(error, 'fetchConfig'))))
+    assert.equal(transferred.status, 503)
+    assert.match(transferred.responseBody, /upstream unavailable/)
+    assert.doesNotMatch(
+      transferred.responseBody,
+      /private-session|private-token|unknown-password|https:\/\//
+    )
+    assert.match(
+      format({ errorDetails: transferred }, 'fetchConfig', key => key),
+      /upstream unavailable/
+    )
+  }
+  const reader = {
+    read: async () => ({ done: false, value: new TextEncoder().encode('x'.repeat(20000)) }),
+    cancel: async () => {
+      reader.cancelled = true
+    }
+  }
+  const limited = await globalThis.MegaErrors.httpError(
+    { status: 500, body: { getReader: () => reader } },
+    'Server HTTP 500'
+  )
+  assert.ok(reader.cancelled)
+  assert.ok(limited.responseBody.length <= 4096)
+  assert.match(limited.message, /truncated/)
+  const broken = await globalThis.MegaErrors.httpError({
+    status: 502,
+    text: async () => {
+      throw new Error('secret')
+    }
+  })
+  assert.equal(broken.status, 502)
+  assert.equal(broken.responseBody, '[response body unavailable]')
+  const empty = await globalThis.MegaErrors.httpError(new Response('', { status: 599 }))
+  assert.equal(empty.responseBody, '[empty response body]')
+  const denied = await globalThis.MegaErrors.httpError({
+    status: 403,
+    text: () => assert.fail('Do not read 4xx bodies')
+  })
+  assert.equal(denied.responseBody, undefined)
+  assert.doesNotMatch(
+    globalThis.MegaErrors.responseText('trace: private-sess', secrets),
+    /private-sess/
+  )
+})

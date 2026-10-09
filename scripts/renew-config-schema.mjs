@@ -1,3 +1,4 @@
+import { requestWithRetry } from './http-request.mjs'
 import { createHash } from 'node:crypto'
 import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -14,12 +15,15 @@ const ref = args[0]?.slice(6) || 'main'
 const directory = fileURLToPath(new URL('../config-schema/', import.meta.url))
 
 async function download(url) {
-  const response = await fetch(url, {
+  const response = await requestWithRetry(fetch, url, {
     signal: AbortSignal.timeout(30000),
     headers: { 'User-Agent': 'MegaProxy-schema-sync', 'Cache-Control': 'no-cache' }
   })
   if (!response.ok) {
-    throw new Error(`Schema download failed: ${response.status} ${url}`)
+    throw await globalThis.MegaErrors.httpError(
+      response,
+      `Schema download failed: HTTP ${response.status} ${url}`
+    )
   }
 
   return response.text()

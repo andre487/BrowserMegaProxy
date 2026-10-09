@@ -1,3 +1,4 @@
+import { requestWithRetry } from './http-request.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -10,7 +11,7 @@ import { validateVersion } from './release.mjs'
 export async function submitOperaAddon(
   tag,
   archive,
-  { env = process.env, request = fetch, wait = setTimeout, dryRun = false } = {}
+  { env = process.env, request = fetch, wait = setTimeout, retryWait, dryRun = false } = {}
 ) {
   assert.match(tag || '', /^v\d+\.\d+\.\d+$/)
   const version = validateVersion(tag.slice(1))
@@ -21,25 +22,32 @@ export async function submitOperaAddon(
   const csrf = randomBytes(16).toString('hex')
   // ponytail: undocumented dashboard API; update endpoints if Opera changes the cabinet.
   const api = async (endpoint, { method = 'GET', body, raw = false } = {}) => {
-    const response = await request(`https://addons.opera.com/api/${endpoint}`, {
-      method,
-      redirect: 'error',
-      signal: AbortSignal.timeout(180000),
-      headers: {
-        Accept: 'application/json; version=1.0',
-        Cookie: `sessionid=${env.OPERA_SESSION_ID}; csrftoken=${csrf}`,
-        'X-CSRFToken': csrf,
-        Origin: 'https://addons.opera.com',
-        Referer: `https://addons.opera.com/developer/package/${packageId}/`,
-        ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {})
+    const response = await requestWithRetry(
+      request,
+      `https://addons.opera.com/api/${endpoint}`,
+      {
+        method,
+        redirect: 'error',
+        signal: AbortSignal.timeout(180000),
+        headers: {
+          Accept: 'application/json; version=1.0',
+          Cookie: `sessionid=${env.OPERA_SESSION_ID}; csrftoken=${csrf}`,
+          'X-CSRFToken': csrf,
+          Origin: 'https://addons.opera.com',
+          Referer: `https://addons.opera.com/developer/package/${packageId}/`,
+          ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {})
+        },
+        body:
+          body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body)
       },
-      body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body)
-    })
-    // Never log response bodies, cookies or request options from this authenticated API.
+      { secrets: [env.OPERA_SESSION_ID, csrf], wait: retryWait }
+    )
     if (!response.ok) {
-      throw Object.assign(new Error(`Opera ${method} failed: HTTP ${response.status}`), {
-        status: response.status
-      })
+      throw await globalThis.MegaErrors.httpError(
+        response,
+        `Opera ${method} ${endpoint} failed: HTTP ${response.status}`,
+        [env.OPERA_SESSION_ID, csrf]
+      )
     }
     if (raw) {
       return

@@ -290,9 +290,7 @@
       signal: AbortSignal.timeout(30000)
     })
     if (!response.ok) {
-      throw Object.assign(new Error('errorListDownload', { cause: new Error('errorHTTP') }), {
-        status: response.status
-      })
+      throw new Error('errorListDownload', { cause: await MegaErrors.httpError(response) })
     }
 
     const stream = gzip ? response.body.pipeThrough(new DecompressionStream('gzip')) : response.body
