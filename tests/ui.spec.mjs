@@ -2143,9 +2143,7 @@ for (const scenario of ['add-profile', 'import-config']) {
     await page.goto('http://127.0.0.1:8765/popup.html')
     await expect(page.locator('#empty')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Добавить профиль', exact: true })).toBeVisible()
-    await expect(
-      page.getByRole('button', { name: 'Импортировать конфиг', exact: true })
-    ).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Импорт настроек', exact: true })).toBeVisible()
     await page.locator(`#${scenario}`).click()
     if (scenario === 'add-profile') {
       await expect(page.locator('#editor')).toBeVisible()

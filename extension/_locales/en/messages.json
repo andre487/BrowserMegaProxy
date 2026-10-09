@@ -204,7 +204,7 @@
     "message": "The file is not valid JSON"
   },
   "popupEmpty": {
-    "message": "No profiles yet. Add a proxy manually or import a configuration."
+    "message": "No profiles yet. Add a proxy manually or import settings."
   },
   "openSettings": {
     "message": "Settings"
@@ -1108,9 +1108,6 @@
   },
   "addProfile": {
     "message": "Add profile"
-  },
-  "importConfig": {
-    "message": "Import configuration"
   },
   "importFile": {
     "message": "Choose file"
