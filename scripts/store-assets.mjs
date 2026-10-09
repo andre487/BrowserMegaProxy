@@ -65,14 +65,15 @@ async function demo(page, target, language, theme, strategy) {
     const file = url.pathname.slice(1)
     assert.match(
       file,
-      /^(?:[\w-]+\.(?:html|js|css)|icons\/\w+\.png|_locales\/(en|ru)\/messages\.json)$/
+      /^(?:[\w-]+\.(?:html|js|css)|icons\/\w+\.(?:png|svg)|_locales\/(en|ru)\/messages\.json)$/
     )
     const types = {
       html: 'text/html',
       js: 'text/javascript',
       css: 'text/css',
       json: 'application/json',
-      png: 'image/png'
+      png: 'image/png',
+      svg: 'image/svg+xml'
     }
     await route.fulfill({
       contentType: types[file.split('.').at(-1)],

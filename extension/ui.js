@@ -428,6 +428,7 @@ function renderRouting() {
     }
     $('#lists-auto').checked = autoUpdate
     $('#lists-proxy').checked = throughProxy
+    renderRoutingMode()
     return
   }
   renderedRoutingConfig = signature

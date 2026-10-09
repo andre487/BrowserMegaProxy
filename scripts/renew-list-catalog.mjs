@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises'
+import '../extension/errors.js'
 import '../extension/subscription-catalog.js'
 import '../extension/subscriptions.js'
 

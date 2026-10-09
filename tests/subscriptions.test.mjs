@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import vm from 'node:vm'
@@ -18,6 +19,21 @@ const fake = files => async url => {
   return new Response(files[url])
 }
 const mirror = 'https://raw.githubusercontent.com/wangmm001/tranco-top1m-cache/main/data/'
+
+test('catalog renewal reports its download error when offline', () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      "globalThis.fetch = async () => { throw new Error('offline') }; await import('./scripts/renew-list-catalog.mjs')"
+    ],
+    { encoding: 'utf8' }
+  )
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /Error: errorListCatalog/)
+  assert.doesNotMatch(result.stderr, /ReferenceError/)
+})
 
 test('domain lists generalize safely, remove covered subdomains and ignore IP, CIDR and non-domain entries', () => {
   const list = S.parseDomains(

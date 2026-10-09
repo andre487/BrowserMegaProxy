@@ -518,10 +518,6 @@ function FindProxyForURL(url, host) {
     return ${JSON.stringify(state.downloadRouting?.throughProxy ? endpoint : 'DIRECT')};
   }
 
-  if (${JSON.stringify(state.routingExtraDomains || [])}.indexOf(host) >= 0 || host === ${JSON.stringify(p.knockHost || '')}) {
-    return ${JSON.stringify(endpoint)};
-  }
-
   if (${state.bypassLocalNetworks !== false} && localHost(host)) {
     return 'DIRECT';
   }
@@ -1170,10 +1166,10 @@ function FindProxyForURL(url, host) {
         }
 
         if (old && result.missingPasswords.includes(p.id)) {
-          next.password = old.password
+          next.password = next.username ? old.password : ''
         }
 
-        return [p.id, next]
+        return [p.id, profile(next)]
       })
     )
     if (removeIds.some(id => imported.has(id) || !existing.has(id))) {

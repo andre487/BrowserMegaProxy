@@ -420,6 +420,24 @@ function testPage(tabId, url, signal) {
 }
 
 async function checkConnection() {
+  try {
+    const result = await runConnectionCheck()
+    await storeConnectionCheck()
+    return result
+  } catch (error) {
+    connectionCheck = {
+      stage: 'failed',
+      mode: connectionCheck.mode,
+      profileId: connectionCheck.profileId,
+      error: MegaErrors.details(error, 'check').code,
+      errorDetails: MegaErrors.details(error, 'check')
+    }
+    await storeConnectionCheck()
+    throw error
+  }
+}
+
+async function runConnectionCheck() {
   const p = M.active(state)
   const mode = p ? 'proxy' : state.connectionMode === 'direct' ? 'direct' : 'system'
 
@@ -432,21 +450,23 @@ async function checkConnection() {
     'https://ipapi.co/country_code/',
     'https://api.country.is/'
   ]
-  if (p && urls.some(url => M.bypassed(new URL(url).hostname, p, state))) {
-    throw new Error('errorCheckBypass')
-  }
-
-  const started = Date.now()
-  const deadline = AbortSignal.timeout(45000)
-  if (p) {
-    await platform.applyTransient({
-      ...state,
-      routingExtraDomains: urls.map(url => new URL(url).hostname)
-    })
-  }
   let tab
+  let transient = false
   connectionCheck = { stage: 'https', mode, profileId: p?.id || null }
   try {
+    if (p && urls.some(url => M.bypassed(new URL(url).hostname, p, state))) {
+      throw new Error('errorCheckBypass')
+    }
+
+    const started = Date.now()
+    const deadline = AbortSignal.timeout(45000)
+    if (p) {
+      transient = true
+      await platform.applyTransient({
+        ...state,
+        routingExtraDomains: urls.map(url => new URL(url).hostname)
+      })
+    }
     await storeConnectionCheck()
     tab = await api.tabs.create({ url: 'about:blank', active: false })
     if (p) {
@@ -509,26 +529,14 @@ async function checkConnection() {
       latencyMs,
       checkedAt: Date.now()
     }
-    await storeConnectionCheck()
-
     return { ok: true, connectionCheck }
-  } catch (error) {
-    connectionCheck = {
-      stage: 'failed',
-      mode,
-      profileId: p?.id || null,
-      error: MegaErrors.details(error, 'check').code,
-      errorDetails: MegaErrors.details(error, 'check')
-    }
-    await storeConnectionCheck()
-    throw error
   } finally {
     if (tab) {
       forcedTabs.delete(tab.id)
       await api.tabs.remove(tab.id).catch(() => {})
     }
 
-    if (p) {
+    if (transient) {
       await platform.applyTransient(state)
     }
   }
@@ -768,7 +776,10 @@ async function handle(message) {
       routing: {
         ...state.browserRouting,
         [key]: [
-          ...new Set([...state.browserRouting[key], ...domains.map(domain => `**.${domain}`)])
+          ...new Set([
+            ...state.browserRouting[key],
+            ...domains.map(domain => (domain.includes(':') ? domain : `**.${domain}`))
+          ])
         ]
       }
     })
@@ -979,17 +990,20 @@ async function handle(message) {
       ...next.browserRouting,
       enabled: true,
       strategy: key === 'sites' ? 'tabs' : 'manual',
-      [key]: [...next.browserRouting[key], `**.${site.hostname}`]
+      [key]: [
+        ...next.browserRouting[key],
+        site.hostname.includes(':') ? site.hostname : `**.${site.hostname}`
+      ]
     })
     message.reloadTabId = site.tabId
   } else if (message.command === 'excludeCurrentSite') {
     const site = await currentSite(message.tab)
-    const p = site && M.routeProfile(`https://${site.hostname}/`, next, `https://${site.hostname}/`)
+    const p = site && M.active(next)
     if (!p) {
       throw new Error('errorCurrentSite')
     }
 
-    p.bypass = [...new Set([...p.bypass, site.hostname])]
+    p.bypass = M.profile({ ...p, bypass: [...p.bypass, site.hostname] }).bypass
     message.reloadTabId = site.tabId
   } else if (message.command === 'bypassLocalNetworks') {
     if (typeof message.enabled !== 'boolean') {
@@ -1044,13 +1058,7 @@ async function handle(message) {
     await api.storage.local.set({ state: next })
     startupError = undefined
     if (['save', 'activate', 'delete', 'import', 'connectionMode'].includes(message.command)) {
-      for (const [id, dialog] of authDialogs) {
-        const profile = state.profiles.find(profile => profile.id === id)
-        if (dialog.phase === 'cancelled' || !sameAuthProfile(profile, dialog.profile)) {
-          cancelAuth(dialog)
-          authDialogs.delete(id)
-        }
-      }
+      reconcileAuthDialogs()
     }
   } catch (error) {
     state = old
@@ -1222,6 +1230,20 @@ function sameAuthProfile(profile, original) {
     profile &&
     ['host', 'port', 'type', 'username', 'password'].every(key => profile[key] === original[key])
   )
+}
+
+function reconcileAuthDialogs() {
+  const profile = M.active(state)
+  for (const [id, dialog] of authDialogs) {
+    if (
+      dialog.phase === 'cancelled' ||
+      profile?.id !== id ||
+      !sameAuthProfile(profile, dialog.profile)
+    ) {
+      cancelAuth(dialog)
+      authDialogs.delete(id)
+    }
+  }
 }
 
 function authView(dialog) {
@@ -1966,6 +1988,7 @@ async function receiveSync() {
       throw error
     }
 
+    reconcileAuthDialogs()
     tabOverrides.clear()
     connectionCheck = null
     await storeConnectionCheck()

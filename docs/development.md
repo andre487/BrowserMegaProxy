@@ -127,6 +127,8 @@ Code is written for this repository; source code from other extensions is not co
 The icon comes from [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy/blob/main/fastlane/metadata/android/en-US/images/icon.png)
 under MIT. The original PNG and browser sizes are in `extension/icons`, alongside
 the upstream license. The Android repository has no vector source.
-Toolbar icons are separate PNGs with rounded transparent corners at 16, 24, 32 and
-48 px. Regenerate them from the original logo with `node scripts/renew-toolbar-icons.mjs`
+Toolbar icons are separate PNGs with rounded transparent corners at 16, 24, 32,
+48 and 64 px. Vector sources are `extension/icons/icon.svg` and
+`extension/icons/toolbar.svg`. Regenerate the toolbar PNGs from their vector source
+with `node scripts/renew-toolbar-icons.mjs`
 (requires installed Playwright Chromium).
