@@ -683,12 +683,11 @@ function syncKnock() {
   }
 
   const form = $('#profile-form')
-  const disabled = !platform.needsKnock({
+  const needed = platform.needsKnock({
     username: form.elements.username.value,
     password: form.elements.password.value
   })
-  form.elements.knockHost.disabled = disabled
-  $('#knock-hint').textContent = t(disabled ? 'knockDisabledHint' : 'knockHint')
+  $('#knock-hint').textContent = t(needed ? 'knockHint' : 'knockDisabledHint')
 }
 
 function renderStatistics() {
@@ -770,7 +769,17 @@ $('#check').onclick = async () => {
   if (busy) {
     return
   }
-  await action(() => send('check'))
+  await action(async () => {
+    try {
+      await send('check')
+    } catch (error) {
+      connectionCheck = {
+        stage: 'failed',
+        error: error.message,
+        errorDetails: MegaErrors.details(error, 'check')
+      }
+    }
+  })
   if (!isOptions) {
     const content = $('.popup-content')
     content.scrollTop = content.scrollHeight
