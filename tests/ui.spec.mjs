@@ -1914,8 +1914,12 @@ test('UI explains transport failures and transferred background errors with thei
     }
   })
   await page.locator('#check').click()
-  await expect(page.locator('#notice')).toContainText('Проверка подключения:')
-  await expect(page.locator('#notice')).toContainText('Браузер не смог выполнить сетевой запрос')
+  await expect(page.locator('#check-result')).toContainText('Проверка подключения:')
+  await expect(page.locator('#check-result')).toContainText(
+    'Браузер не смог выполнить сетевой запрос'
+  )
+  await expect(page.locator('#check-result')).toHaveClass('error')
+  await expect(page.locator('#notice')).toBeEmpty()
   await page.evaluate(() => {
     chrome.runtime.sendMessage = async () => ({
       ok: false,
@@ -1929,8 +1933,11 @@ test('UI explains transport failures and transferred background errors with thei
     })
   })
   await page.locator('#check').click()
-  await expect(page.locator('#notice')).toContainText('Загрузка иконки тулбара (toolbar32.png):')
-  await expect(page.locator('#notice')).not.toContainText('Failed to fetch')
+  await expect(page.locator('#check-result')).toContainText(
+    'Загрузка иконки тулбара (toolbar32.png):'
+  )
+  await expect(page.locator('#check-result')).not.toContainText('Failed to fetch')
+  await expect(page.locator('#notice')).toBeEmpty()
 })
 
 test('authentication page keeps rejected edits and closes after credentials are saved', async ({

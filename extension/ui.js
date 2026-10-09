@@ -769,7 +769,17 @@ $('#check').onclick = async () => {
   if (busy) {
     return
   }
-  await action(() => send('check'))
+  await action(async () => {
+    try {
+      await send('check')
+    } catch (error) {
+      connectionCheck = {
+        stage: 'failed',
+        error: error.message,
+        errorDetails: MegaErrors.details(error, 'check')
+      }
+    }
+  })
   if (!isOptions) {
     const content = $('.popup-content')
     content.scrollTop = content.scrollHeight
