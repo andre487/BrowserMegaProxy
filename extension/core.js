@@ -38,6 +38,7 @@
     theme: 'system',
     language: 'auto',
     statisticsEnabled: true,
+    masqueEnabled: false,
     connectionMode: 'proxy',
     webRTC: 'browser',
     bypassLocalNetworks: true,
@@ -652,8 +653,9 @@ function FindProxyForURL(url, host) {
     return palette[Math.floor(Math.random() * palette.length)]
   }
 
-  function importProfiles(input, target = root.MEGA_TARGET) {
+  function importProfiles(input, target = root.MEGA_TARGET, masqueEnabled = false) {
     const client = root.MegaPlatform.create(target)
+    let skippedMasque = false
     let data = input
     if (typeof data === 'string') {
       const text = data.replace(/^\uFEFF/, '').trim()
@@ -685,6 +687,12 @@ function FindProxyForURL(url, host) {
 
           if (!['https:', 'http:', 'socks5:', 'masque:'].includes(url.protocol)) {
             skipped.push(url.protocol)
+            continue
+          }
+
+          if (url.protocol === 'masque:' && !masqueEnabled && client.id === 'firefox') {
+            skipped.push(url.searchParams.get('title') || url.hostname)
+            skippedMasque = true
             continue
           }
 
@@ -731,11 +739,11 @@ function FindProxyForURL(url, host) {
           )
         }
 
-        if (!profiles.length) {
+        if (!profiles.length && !skippedMasque) {
           throw new Error('errorImportCompatible')
         }
 
-        return { profiles, skipped, missingPasswords: [], unknownFields }
+        return { profiles, skipped, missingPasswords: [], unknownFields, skippedMasque }
       }
     }
 
@@ -888,6 +896,12 @@ function FindProxyForURL(url, host) {
         continue
       }
 
+      if (type === 'masque' && !masqueEnabled && client.id === 'firefox') {
+        skipped.push(entry.name || entry.title || p.host || type)
+        skippedMasque = true
+        continue
+      }
+
       if (p.pac || p.pacString) {
         skipped.push(entry.name || entry.title || type)
         continue
@@ -947,13 +961,14 @@ function FindProxyForURL(url, host) {
       profiles.push(result)
     }
 
-    if (!profiles.length) {
+    if (!profiles.length && !skippedMasque) {
       throw new Error('errorImportCompatible')
     }
 
     return {
       profiles,
       skipped,
+      skippedMasque,
       missingPasswords,
       unknownFields,
       ...(portable
@@ -1204,6 +1219,9 @@ function FindProxyForURL(url, host) {
   }
 
   function mergeImport(state, result, removeIds = []) {
+    if (!result.profiles.length && result.skippedMasque) {
+      return state
+    }
     const existing = new Map(state.profiles.map(p => [p.id, p]))
     const imported = new Map(
       result.profiles.map(p => {

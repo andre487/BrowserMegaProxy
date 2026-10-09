@@ -1096,5 +1096,14 @@
   },
   "errorMasqueAuthUnsupported": {
     "message": "Firefox не передаёт сохранённые данные авторизации MASQUE в CONNECT-UDP. Используйте прокси без авторизации логином и паролем."
+  },
+  "masqueEnabled": {
+    "message": "Включить экспериментальную поддержку MASQUE"
+  },
+  "errorMasqueDisabled": {
+    "message": "MASQUE отключён. Включите экспериментальную поддержку MASQUE в настройках."
+  },
+  "masqueImportDisabled": {
+    "message": "MASQUE отключён: профили MASQUE пропущены."
   }
 }

@@ -416,7 +416,7 @@ test('MASQUE import and export preserve the Firefox template and reject Chromium
   config.profiles[0].browser.masqueTemplate = '/custom/{target_host}/{target_port}/'
   assert.ok(validate(config), JSON.stringify(validate.errors))
   assert.equal(android(config), false)
-  const imported = M.importProfiles(config, 'firefox')
+  const imported = M.importProfiles(config, 'firefox', true)
   const state = M.mergeImport(M.defaults(), imported)
   assert.equal(state.profiles[0].masqueTemplate, config.profiles[0].browser.masqueTemplate)
   const exported = M.exportConfig(state, true)
@@ -426,6 +426,38 @@ test('MASQUE import and export preserve the Firefox template and reject Chromium
     config.profiles[0].browser.masqueTemplate
   )
   assert.ok(validate(exported), JSON.stringify(validate.errors))
-  assert.deepEqual(M.importProfiles(M.exportConfig(state, false), 'firefox').missingPasswords, [])
+  assert.deepEqual(
+    M.importProfiles(M.exportConfig(state, false), 'firefox', true).missingPasswords,
+    []
+  )
   assert.throws(() => M.importProfiles(config, 'chromium'), /errorMasqueUnsupported/)
+})
+
+test('disabled MASQUE imports skip profiles with a warning, including MASQUE-only files', () => {
+  assert.equal(M.defaults().masqueEnabled, false)
+  for (const data of [
+    'masque://proxy.example:8443',
+    {
+      profiles: [
+        { name: 'Experimental', proxy: { type: 'MASQUE', host: 'proxy.example', port: 443 } }
+      ]
+    }
+  ]) {
+    const result = M.importProfiles(data, 'firefox')
+    assert.equal(result.skippedMasque, true)
+    assert.equal(result.skipped.length, 1)
+    assert.deepEqual(result.profiles, [])
+    const state = M.defaults()
+    assert.deepEqual(M.mergeImport(state, result), state)
+  }
+  const config = structuredClone(portable)
+  config.profiles.push({
+    id: 'masque',
+    name: 'Experimental',
+    proxy: { type: 'MASQUE', host: 'proxy.example', port: 443 }
+  })
+  const result = M.importProfiles(config, 'firefox')
+  assert.equal(result.skippedMasque, true)
+  assert.equal(result.profiles.length, portable.profiles.length)
+  assert.equal(M.importProfiles(config, 'firefox', true).profiles.length, config.profiles.length)
 })

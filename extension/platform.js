@@ -253,6 +253,9 @@
   class FirefoxPlatform extends BrowserPlatform {
     async apply(state) {
       if (this.core.active(state)?.type === 'masque') {
+        if (state.masqueEnabled !== true) {
+          throw new Error('errorMasqueDisabled')
+        }
         const { version } = await this.api.runtime.getBrowserInfo()
         if (Number(version.split('.')[0]) < 146) {
           throw new Error('errorMasqueVersion')

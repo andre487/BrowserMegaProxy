@@ -482,7 +482,9 @@ Regenerate images with `npm run store:assets`.
 
 ### Experimental MASQUE in Firefox
 
-Firefox 146+ can use a MASQUE proxy over HTTP/3 (QUIC). Select MASQUE in the
+Firefox 146+ can use a MASQUE proxy over HTTP/3 (QUIC). Enable experimental
+MASQUE support in General preferences first (disabled by default). Imports skip
+MASQUE profiles with a warning while this setting is off. Select MASQUE in the
 profile editor and enter the proxy host and UDP port. The default path template
 is `/.well-known/masque/udp/{target_host}/{target_port}/`; custom paths must retain
 both placeholders. Username/password authentication is disabled: Firefox supplies the Basic header
@@ -514,7 +516,9 @@ services:
 
 JSON imports/exports preserve `proxy.type: "MASQUE"` and
 `browser.masqueTemplate`. This is currently a browser schema addition, recorded
-in `config-schema/schema-lock.json`; clients must explicitly support it.
+in `config-schema/schema-lock.json` and proposed in
+[MegaProxyConfig PR #2](https://github.com/andre487/MegaProxyConfig/pull/2); clients
+must explicitly support it.
 `masque://proxy.example:8443` imports use the default template.
 
 Run the standalone real Firefox/GOST test without Docker:
@@ -527,10 +531,7 @@ npx playwright test tests/masque.spec.mjs --project=firefox
 
 The test downloads GOST 3.3.0 with a pinned SHA-256 checksum and temporary TLS
 certificates. HTTP/HTTPS CONNECT-TCP and failure without a direct fallback pass.
-The separate CONNECT-UDP test reproduces a **GOST 3.3.0 limitation**: the inner
-HTTP/3 server's QUIC datagram exceeds the outer tunnel's datagram size and GOST
-closes the tunnel with `DATAGRAM frame too large`. Successful HTTP/3 page loading
-through GOST is therefore not confirmed. This test asserts that specific failure;
-it must become a successful-load test when upgrading to a GOST version that fixes
-oversized datagrams. Test-specific certificate exceptions stay in the temporary
-Firefox profile.
+Successful HTTP/3 page loading via CONNECT-UDP through GOST is not confirmed:
+our manual test encountered `DATAGRAM frame too large`. Automated browser tests
+cover working CONNECT-TCP scenarios only. Test-specific certificate exceptions
+stay in the temporary Firefox profile.

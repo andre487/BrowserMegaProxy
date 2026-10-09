@@ -1096,5 +1096,14 @@
   },
   "errorMasqueAuthUnsupported": {
     "message": "Firefox does not send saved MASQUE credentials in CONNECT-UDP requests. Use a proxy without username/password authentication."
+  },
+  "masqueEnabled": {
+    "message": "Enable experimental MASQUE support"
+  },
+  "errorMasqueDisabled": {
+    "message": "MASQUE is disabled. Enable experimental MASQUE support in settings."
+  },
+  "masqueImportDisabled": {
+    "message": "MASQUE is disabled: MASQUE profiles were skipped."
   }
 }

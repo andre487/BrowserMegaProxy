@@ -145,7 +145,7 @@ test('imports server Android and FoxyProxy formats without retaining unsupported
 
 test('MASQUE maps its template to Firefox and rejects Chromium', async () => {
   const p = M.profile({ type: 'MASQUE', host: 'proxy.example', port: 443 }, 'firefox')
-  const current = { profiles: [p], activeId: p.id }
+  const current = { profiles: [p], activeId: p.id, masqueEnabled: true }
   assert.deepEqual(M.proxyInfo('https://target.example/', current), {
     type: 'masque',
     host: p.host,
@@ -158,7 +158,7 @@ test('MASQUE maps its template to Firefox and rejects Chromium', async () => {
   )
   assert.equal(M.needsKnock(p, 'firefox'), false)
   assert.equal(
-    M.importProfiles('masque://proxy.example:8443', 'firefox').profiles[0].type,
+    M.importProfiles('masque://proxy.example:8443', 'firefox', true).profiles[0].type,
     'masque'
   )
   assert.throws(() => M.profile(p, 'chromium'), /errorMasqueUnsupported/)
@@ -175,5 +175,6 @@ test('MASQUE maps its template to Firefox and rejects Chromium', async () => {
   const platform = globalThis.MegaPlatform.create('firefox', {
     runtime: { getBrowserInfo: async () => ({ version: '145.0' }) }
   })
+  await assert.rejects(platform.apply({ ...current, masqueEnabled: false }), /errorMasqueDisabled/)
   await assert.rejects(platform.apply(current), /errorMasqueVersion/)
 })

@@ -211,6 +211,8 @@ function render() {
     $('#language').value = state.language || 'auto'
     $('#theme').value = platform.themePreference(state.theme)
     renderThemeHint()
+    $('#masque-setting').hidden = platform.id !== 'firefox'
+    $('#masque-enabled').checked = state.masqueEnabled === true
     $('#statistics-enabled').checked = state.statisticsEnabled === true
     $('#bypass-local').checked = state.bypassLocalNetworks !== false
   }
@@ -533,6 +535,7 @@ async function reviewImport(data) {
   const preview = await send('previewImport', { data })
   pendingImport = data
   $('#import-warnings').textContent = [
+    preview.skippedMasque ? t('masqueImportDisabled') : '',
     preview.skipped.length ? t('importSkipped', preview.skipped.join(', ')) : '',
     preview.unknownFields ? t('unknownConfigFields') : '',
     preview.unsupportedSplitProxy ? t('splitUnsupportedWarning') : '',
@@ -686,6 +689,11 @@ function syncKnock() {
   const form = $('#profile-form')
   if (platform.id === 'chromium') {
     form.querySelector('option[value=masque]')?.remove()
+  }
+  const masqueOption = form.querySelector('option[value=masque]')
+  if (masqueOption) {
+    masqueOption.disabled = state.masqueEnabled !== true
+    masqueOption.hidden = state.masqueEnabled !== true
   }
   const masque = form.elements.type.value === 'masque'
   $('#masque-template-field').hidden = !masque
@@ -892,6 +900,11 @@ if (isOptions) {
       })
     )
 
+  $('#masque-enabled').onchange = () =>
+    action(async () => {
+      await send('masqueEnabled', { enabled: $('#masque-enabled').checked })
+      syncKnock()
+    })
   $('#sync-enabled').onchange = saveSync
   $('#sync-passwords').onchange = saveSync
   $('#rule-test-form').onsubmit = event => {
