@@ -169,10 +169,17 @@ test('startup and activation knock matrix supplies saved credentials and leaves 
       await h.flush()
       const expected = target === 'chromium' || !credentials.password
       assert.equal(h.tabs.length, expected ? 1 : 0, `${target} startup`)
+      if (expected) {
+        assert.equal(h.tabs[0].active, !credentials.password)
+        h.tabs[0].active = false
+      }
       await h.send({ command: 'activate', id: null })
       const response = await h.send({ command: 'activate', id: 'one' })
       assert.equal(response.ok, true)
       assert.equal(h.tabs.length, expected ? 1 : 0, `${target} activation reuses pending knock`)
+      if (expected) {
+        assert.equal(h.tabs[0].active, !credentials.password)
+      }
       const pendingAuth = new Promise(resolve =>
         h.events.onAuthRequired(
           { isProxy: true, requestId: 'auth', challenger: { host: 'proxy.example', port: 443 } },

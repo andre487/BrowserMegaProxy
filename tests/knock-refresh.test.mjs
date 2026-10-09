@@ -348,7 +348,7 @@ for (const target of ['chromium', 'firefox']) {
     await first.flush()
     await first.send({ command: 'knock' })
     assert.equal(first.created.length, 1)
-    assert.equal(first.created[0].active, false)
+    assert.equal(first.created[0].active, target === 'firefox')
     first.complete(200)
     await first.flush()
     assert.equal(opened.has(99), true)

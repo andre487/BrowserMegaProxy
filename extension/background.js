@@ -106,6 +106,7 @@ async function knock() {
     throw new Error('errorKnockBypass')
   }
 
+  const active = !M.hasCredentials(p)
   const existing = knockTabs.find(tab => tab.profileId === p.id && tab.host === p.knockHost)
   const existingTab = existing && (await api.tabs.get(existing.tabId).catch(() => null))
   const existingURL = existingTab?.pendingUrl || existingTab?.url || ''
@@ -114,6 +115,9 @@ async function knock() {
     (existingURL === 'about:blank' ||
       (/^https?:/.test(existingURL) && M.host(new URL(existingURL).hostname) === p.knockHost))
   ) {
+    if (active) {
+      await api.tabs.update(existingTab.id, { active: true })
+    }
     lastKnockProfile = JSON.stringify(p)
     return { ok: true, message: 'knockOpened' }
   }
@@ -126,7 +130,7 @@ async function knock() {
   // A browser tab allows interactive proxy authentication; extension fetch does not.
   const tab = await api.tabs.create({
     url: 'about:blank',
-    active: false
+    active
   })
   await platform.openedKnock(tab, knockRefresh, storeKnockRefresh)
   knockTabs.push({

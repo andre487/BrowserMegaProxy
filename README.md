@@ -55,7 +55,8 @@ Open Settings from the popup: profiles, import/export, routing, language and app
 are on a separate page. Add a profile with a server address, port, username and password.
 The popup provides quick actions to select and connect a profile, disconnect and knock.
 Disconnect selects System and releases MegaProxy's proxy control. Changes to the active profile apply immediately.
-Knock opens a separate background tab, which closes automatically after a successful load.
+Knock opens a separate tab, active when credentials are missing and otherwise in the background,
+which closes automatically after a successful load.
 Settings → Language offers Auto, Russian and English. Auto is the default:
 `i18n.getUILanguage()` selects Russian for `ru` and its regional variants, and English
 for other browser languages. Manual choices persist and apply immediately,
@@ -239,7 +240,7 @@ list sources belonging to inactive routing modes. Manual list updates remain ava
 | Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
 
 A knock host is optional: its absence does not prevent connecting a profile or show a warning.
-When configured, a normal HTTPS tab opens in the background. Without a saved username
+When configured, a normal HTTPS tab opens, active when credentials are missing and otherwise in the background. Without a saved username
 and password, MegaProxy leaves authentication to the browser's native dialog.
 A repeated 407 challenge after supplying saved credentials opens MegaProxy's authentication window with focus requested,
 including challenges from a background knock tab. On Android, the extension opens
