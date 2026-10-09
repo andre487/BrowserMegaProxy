@@ -1,7 +1,7 @@
 # Releasing MegaProxy
 
 The process follows AndroidMegaProxy: manual version input → release PR →
-required checks → merge → tag → build and GitHub Release → optional Chrome Web Store
+required checks → merge → tag → build and GitHub Release → Chrome Web Store
 submission, all in one workflow run.
 
 ## One-time setup
@@ -138,6 +138,7 @@ Before Opera publication, test the release in the target browser version.
 
 [Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
 The workflow targets this existing item (`kfilelfnldddoncicbampiojjjcpbigo`).
+Chrome Web Store submission runs by default after a successful GitHub release.
 
 After the GitHub Release succeeds, **Submit to Chrome Web Store** downloads its
 exact Chromium ZIP, checks archive integrity and manifest version, authenticates,
@@ -148,8 +149,8 @@ Store descriptions, screenshots, privacy fields and visibility stay managed in t
 Web Store dashboard. Submissions are serialized across release tags.
 
 For a dry run, open **Actions → Release extension artifacts → Run workflow** on
-`main`, enter an existing GitHub release tag and enable **dry_run**. This works
-before `CWS_PUBLISH_ENABLED` is enabled. It downloads the existing Chromium asset,
+`main`, enter an existing GitHub release tag and enable **dry_run**. It downloads
+the existing Chromium asset,
 checks ZIP integrity and manifest version, obtains an access token and calls
 `fetchStatus`. It does not rebuild, edit the GitHub release, upload or submit to
 Google. It checks authentication and read access; only a real submission can

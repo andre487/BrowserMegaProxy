@@ -89,7 +89,7 @@ jobs:
   chrome-web-store:
     name: Submit to Chrome Web Store
     needs: release
-    if: ${{ !cancelled() && (vars.CWS_PUBLISH_ENABLED == 'true' || inputs.dry_run) && (needs.release.result == 'success' || (inputs.dry_run && needs.release.result == 'skipped')) }}
+    if: ${{ !cancelled() && (needs.release.result == 'success' || (inputs.dry_run && needs.release.result == 'skipped')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
