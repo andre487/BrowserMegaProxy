@@ -1063,5 +1063,8 @@
   },
   "close": {
     "message": "Close"
+  },
+  "credentialsRestartChromium": {
+    "message": "The username or password has changed. To make Chrome use the new credentials, quit the browser completely using its Exit menu (on macOS, press ⌘Q), then launch it again. Until restarted, Chrome may use the previous authentication."
   }
 }

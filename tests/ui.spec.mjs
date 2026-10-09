@@ -300,6 +300,22 @@ test('profile lifecycle, import, themes and responsive keyboard-accessible form'
 
   await page.getByRole('button', { name: 'Настройки', exact: true }).click()
   await expect(page).toHaveURL(/options\.html$/)
+  for (const [label, value] of [
+    ['Пароль', 'new-secret'],
+    ['Логин', 'new-user']
+  ]) {
+    await page.getByRole('button', { name: 'Изменить' }).click()
+    await page.getByLabel(label, { exact: true }).fill(value)
+    await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+    if (browserName === 'chromium') {
+      await expect(page.locator('#notice')).toContainText('полностью закройте браузер')
+    } else {
+      await expect(page.locator('#notice')).toBeEmpty()
+    }
+  }
+  await page.getByRole('button', { name: 'Изменить' }).click()
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('#notice')).toBeEmpty()
   await page.getByRole('button', { name: 'Изменить' }).click()
   await page.getByLabel('Хост прокси').fill('https://wrong.example')
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
