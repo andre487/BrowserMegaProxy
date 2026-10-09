@@ -182,9 +182,9 @@ function edit(p = {}) {
 
 async function openSettings(scenario = '') {
   const url = api.runtime.getURL('options.html')
-  const { id: windowId } = await api.windows.getCurrent()
+  const currentWindow = await api.windows?.getCurrent()
   const view = api.extension
-    .getViews({ type: 'tab', windowId })
+    .getViews({ type: 'tab', ...(currentWindow ? { windowId: currentWindow.id } : {}) })
     .find(view => view.location.href.split(/[?#]/)[0] === url)
   if (view) {
     const tab = await (view.browser || view.chrome).tabs.getCurrent()

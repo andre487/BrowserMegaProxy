@@ -2208,45 +2208,53 @@ test('popup import scenario opens the existing URL import dialog', async ({ page
   await expect(page.locator('#config-url')).toBeFocused()
 })
 
-for (const scenario of ['add-profile', 'import-config', 'open-settings']) {
-  test(`popup reuses settings in the current window for ${scenario}`, async ({ page }) => {
-    await page.addInitScript(() => {
-      globalThis.tabCalls = []
-      chrome.extension.getViews = options => {
-        globalThis.tabCalls.push(['views', options])
-        return [
-          {
-            location: { href: new URL('options.html', location.href).href + '#old' },
-            chrome: { tabs: { getCurrent: async () => ({ id: 42 }) } }
-          },
-          { location: { href: new URL('popup.html', location.href).href } }
-        ]
-      }
-      chrome.tabs.update = async (id, options) => {
-        globalThis.tabCalls.push(['update', id, options])
-      }
-      chrome.tabs.create = async options => {
-        globalThis.tabCalls.push(['create', options])
-      }
+for (const mobile of [false, true]) {
+  for (const scenario of ['add-profile', 'import-config', 'open-settings']) {
+    test(`popup reuses settings in the current window for ${scenario}${mobile ? ' without the windows API' : ''}`, async ({
+      page
+    }) => {
+      await page.addInitScript(mobile => {
+        if (mobile) {
+          delete chrome.windows
+          chrome.runtime.getPlatformInfo = async () => ({ os: 'android' })
+        }
+        globalThis.tabCalls = []
+        chrome.extension.getViews = options => {
+          globalThis.tabCalls.push(['views', options])
+          return [
+            {
+              location: { href: new URL('options.html', location.href).href + '#old' },
+              chrome: { tabs: { getCurrent: async () => ({ id: 42 }) } }
+            },
+            { location: { href: new URL('popup.html', location.href).href } }
+          ]
+        }
+        chrome.tabs.update = async (id, options) => {
+          globalThis.tabCalls.push(['update', id, options])
+        }
+        chrome.tabs.create = async options => {
+          globalThis.tabCalls.push(['create', options])
+        }
+      }, mobile)
+      await page.goto('http://127.0.0.1:8765/popup.html')
+      await page.locator(`#${scenario}`).click()
+      await expect
+        .poll(() => page.evaluate(() => globalThis.tabCalls))
+        .toEqual([
+          ['views', { type: 'tab', ...(mobile ? {} : { windowId: 7 }) }],
+          [
+            'update',
+            42,
+            {
+              active: true,
+              ...(scenario === 'open-settings'
+                ? {}
+                : { url: `http://127.0.0.1:8765/options.html#${scenario}` })
+            }
+          ]
+        ])
     })
-    await page.goto('http://127.0.0.1:8765/popup.html')
-    await page.locator(`#${scenario}`).click()
-    await expect
-      .poll(() => page.evaluate(() => globalThis.tabCalls))
-      .toEqual([
-        ['views', { type: 'tab', windowId: 7 }],
-        [
-          'update',
-          42,
-          {
-            active: true,
-            ...(scenario === 'open-settings'
-              ? {}
-              : { url: `http://127.0.0.1:8765/options.html#${scenario}` })
-          }
-        ]
-      ])
-  })
+  }
 }
 
 test('existing settings handles popup scenarios without reloading or losing an open editor', async ({
