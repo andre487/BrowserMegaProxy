@@ -240,7 +240,7 @@
     "message": "Local IP ranges, localhost and local names connect directly. Disable to send them through the proxy."
   },
   "knockDisabledHint": {
-    "message": "Firefox sends saved credentials immediately. Knock is disabled."
+    "message": "Firefox sends saved credentials immediately and does not use the knock host. You can still save it for connections without saved credentials."
   },
   "exportConfig": {
     "message": "Export settings"

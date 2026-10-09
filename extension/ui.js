@@ -683,12 +683,11 @@ function syncKnock() {
   }
 
   const form = $('#profile-form')
-  const disabled = !platform.needsKnock({
+  const needed = platform.needsKnock({
     username: form.elements.username.value,
     password: form.elements.password.value
   })
-  form.elements.knockHost.disabled = disabled
-  $('#knock-hint').textContent = t(disabled ? 'knockDisabledHint' : 'knockHint')
+  $('#knock-hint').textContent = t(needed ? 'knockHint' : 'knockDisabledHint')
 }
 
 function renderStatistics() {

@@ -516,7 +516,7 @@ test('ProxyList and SuperProxy text formats are reviewed before importing', asyn
   await expect(page.locator('.profile')).toContainText('Imported')
 })
 
-test('knock input is disabled only for saved Firefox credentials', async ({
+test('knock host stays editable and is saved with or without Firefox credentials', async ({
   page,
   browserName
 }) => {
@@ -524,12 +524,25 @@ test('knock input is disabled only for saved Firefox credentials', async ({
   await expect(page.getByLabel('Knock host')).toBeEnabled()
   await page.getByLabel('Логин').fill('user')
   await page.getByLabel('Пароль', { exact: true }).fill('secret')
+  await expect(page.getByLabel('Knock host')).toBeEnabled()
+  await page.getByLabel('Knock host').fill('knock.example.com')
   if (browserName === 'firefox') {
-    await expect(page.getByLabel('Knock host')).toBeDisabled()
+    await expect(page.locator('#knock-hint')).toContainText('не использует knock host')
+  }
+  await page.getByLabel('Название', { exact: true }).fill('Test')
+  await page.getByLabel('Хост прокси').fill('proxy.example.com')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await page.getByRole('button', { name: 'Изменить' }).click()
+  await expect(page.getByLabel('Knock host')).toBeEnabled()
+  await expect(page.getByLabel('Knock host')).toHaveValue('knock.example.com')
+  if (browserName === 'firefox') {
     await page.getByLabel('Пароль', { exact: true }).fill('')
     await expect(page.getByLabel('Knock host')).toBeEnabled()
-  } else {
-    await expect(page.getByLabel('Knock host')).toBeEnabled()
+    await expect(page.locator('#knock-hint')).not.toContainText('не использует knock host')
+    await page.getByLabel('Knock host').fill('other-knock.example.com')
+    await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+    await page.getByRole('button', { name: 'Изменить' }).click()
+    await expect(page.getByLabel('Knock host')).toHaveValue('other-knock.example.com')
   }
 })
 
