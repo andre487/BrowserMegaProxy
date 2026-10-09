@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import vm from 'node:vm'
 const core =
+  (await readFile('extension/errors.js', 'utf8')) +
   (await readFile('extension/platform.js', 'utf8')) +
   ';\n' +
   (await readFile('extension/core.js', 'utf8')) +

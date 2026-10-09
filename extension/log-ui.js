@@ -1,4 +1,4 @@
-/* global chrome, MegaDiagnosticLog, MegaI18n, MegaPlatform, MEGA_TARGET */
+/* global MegaErrors, chrome, MegaDiagnosticLog, MegaI18n, MegaPlatform, MEGA_TARGET */
 const api = globalThis.browser || chrome
 const log = new MegaDiagnosticLog()
 const output = document.querySelector('#log-output')
@@ -55,27 +55,25 @@ async function refresh() {
     if (document.activeElement !== limit) {
       limit.value = result.meta.limit / 1024 / 1024
     }
-  } catch {
-    status.textContent = MegaI18n.t('errorLogStorage')
+  } catch (error) {
+    status.textContent = MegaErrors.format(error, 'logRead', MegaI18n.t)
   } finally {
     refreshing = false
   }
 }
 
-async function action(work) {
+async function action(operation, work) {
   try {
     await work()
     await refresh()
   } catch (error) {
-    status.textContent = MegaI18n.t(
-      error.message === 'errorLogLimit' ? error.message : 'errorLogStorage'
-    )
+    status.textContent = MegaErrors.format(error, operation, MegaI18n.t)
   }
 }
 
-limit.onchange = () => action(() => log.configure(Number(limit.value)))
+limit.onchange = () => action('logConfigure', () => log.configure(Number(limit.value)))
 document.querySelector('#log-clear').onclick = () =>
-  action(async () => {
+  action('logClear', async () => {
     await log.configure(Number(limit.value), true)
     follow = true
   })
@@ -84,7 +82,7 @@ document.querySelector('#log-bottom').onclick = () => {
   output.scrollTop = output.scrollHeight
 }
 document.querySelector('#log-export').onclick = () =>
-  action(async () => {
+  action('logExport', async () => {
     const { rows } = await log.read(-1, Infinity)
     const url = URL.createObjectURL(
       new Blob(
@@ -111,7 +109,7 @@ Promise.all([MegaI18n.ready, api.storage.local.get('state')])
     await refresh()
     setInterval(refresh, 1000)
   })
-  .catch(() => {
+  .catch(error => {
     document.body.hidden = false
-    status.textContent = 'Unable to load diagnostic log'
+    status.textContent = MegaErrors.format(error, 'logRead', MegaI18n.t)
   })

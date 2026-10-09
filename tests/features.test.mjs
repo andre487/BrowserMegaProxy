@@ -5,9 +5,14 @@ import vm from 'node:vm'
 
 const source = (
   await Promise.all(
-    ['platform.js', 'core.js', 'subscription-catalog.js', 'subscriptions.js', 'background.js'].map(
-      name => readFile(`extension/${name}`, 'utf8')
-    )
+    [
+      'errors.js',
+      'platform.js',
+      'core.js',
+      'subscription-catalog.js',
+      'subscriptions.js',
+      'background.js'
+    ].map(name => readFile(`extension/${name}`, 'utf8'))
   )
 ).join('\n;\n')
 
@@ -1194,4 +1199,38 @@ test('failed domains extend only manual lists or Firefox tab-site lists without 
       )
     }
   }
+})
+
+test('background errors identify downloads, HTTP status, timeout and read-only operations without secrets', async () => {
+  let failure = new TypeError('Failed to fetch')
+  const h = harness('chromium', {}, async () => {
+    throw failure
+  })
+  const message = { command: 'fetchConfig', url: 'https://config.example/?token=private-token' }
+  let response = await h.send(message)
+  assert.deepEqual(JSON.parse(JSON.stringify(response.errorDetails)), {
+    operation: 'fetchConfig',
+    code: 'errorConfigDownload',
+    reason: 'errorNetwork'
+  })
+  failure = new DOMException('private-secret', 'TimeoutError')
+  response = await h.send(message)
+  assert.equal(response.errorDetails.reason, 'TimeoutError')
+  assert.ok(!JSON.stringify(response.errorDetails).includes('private'))
+  const http = harness('chromium', {}, async () => new Response('', { status: 403 }))
+  response = await http.send(message)
+  assert.equal(response.errorDetails.status, 403)
+  assert.equal(response.errorDetails.reason, 'errorHTTP')
+  const invalid = await h.send({
+    command: 'save',
+    profile: { host: 'proxy.example', port: 443, color: -1 }
+  })
+  assert.equal(invalid.errorDetails.reason, 'errorProfileColor')
+  h.api.tabs.query = async () => {
+    throw new Error('private-secret')
+  }
+  response = await h.send({ command: 'currentSite' })
+  assert.equal(response.ok, false)
+  assert.equal(response.errorDetails.operation, 'currentSite')
+  assert.equal(response.errorDetails.code, 'errorUnexpected')
 })

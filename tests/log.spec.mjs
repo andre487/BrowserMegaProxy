@@ -152,3 +152,32 @@ test('storage failures are visible and logger can recover without interrupting t
   })
   expect(recovered).toContain('background_started')
 })
+
+test('log stores safe error context and exposes specific storage failures', async ({ page }) => {
+  await page.evaluate(async () => {
+    const log = new globalThis.MegaDiagnosticLog()
+    log.write('operation_failed', {
+      operation: 'fetchConfig',
+      code: 'errorConfigDownload',
+      reason: 'TimeoutError',
+      status: 503,
+      resource: 'private-secret',
+      password: 'private-password',
+      url: 'https://private.example/'
+    })
+    await log.flush()
+  })
+  await expect(page.locator('#log-output')).toContainText('"operation":"fetchConfig"')
+  await expect(page.locator('#log-output')).toContainText('"reason":"TimeoutError"')
+  await expect(page.locator('#log-output')).toContainText('"status":503')
+  await expect(page.locator('#log-output')).not.toContainText('private')
+  await page.evaluate(() => {
+    globalThis.MegaDiagnosticLog.prototype.configure = async () => {
+      throw new DOMException('private-password', 'QuotaExceededError')
+    }
+  })
+  await page.locator('#log-clear').click()
+  await expect(page.locator('#log-status')).toContainText('Очистка журнала диагностики:')
+  await expect(page.locator('#log-status')).toContainText('Превышен лимит хранилища браузера')
+  await expect(page.locator('#log-status')).not.toContainText('private')
+})

@@ -437,6 +437,8 @@ footer {
 .popup-content {
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--control-line) var(--bg);
   padding: 3px;
 }
 .popup .connection {
@@ -446,6 +448,17 @@ footer {
 }
 .popup .connection > div {
   min-width: 0;
+}
+.popup #connection.has-profile::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--profile-color);
+  box-shadow: 0 0 0 1px var(--line);
+  vertical-align: middle;
 }
 .popup #endpoint {
   font-size: 12px;
@@ -458,8 +471,7 @@ footer {
   margin: 12px 0 6px;
 }
 .popup #profiles {
-  max-height: 204px;
-  overflow-y: auto;
+  overflow: clip;
   border: 1px solid var(--line);
   border-radius: 8px;
 }

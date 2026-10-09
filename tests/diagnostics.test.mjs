@@ -3,9 +3,14 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import vm from 'node:vm'
 const scripts = await Promise.all(
-  ['platform.js', 'core.js', 'subscription-catalog.js', 'subscriptions.js', 'background.js'].map(
-    file => readFile(`extension/${file}`, 'utf8')
-  )
+  [
+    'errors.js',
+    'platform.js',
+    'core.js',
+    'subscription-catalog.js',
+    'subscriptions.js',
+    'background.js'
+  ].map(file => readFile(`extension/${file}`, 'utf8'))
 )
 
 function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'proxy') {

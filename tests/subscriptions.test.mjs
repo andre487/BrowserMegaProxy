@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import vm from 'node:vm'
 import { gzipSync } from 'node:zlib'
+import '../extension/errors.js'
 import '../extension/platform.js'
 import '../extension/core.js'
 import '../extension/subscription-catalog.js'
@@ -111,9 +112,14 @@ test('oversized lists use the GitHub gzip ranking, official fallback and explici
 })
 
 const scripts = await Promise.all(
-  ['platform.js', 'core.js', 'subscription-catalog.js', 'subscriptions.js', 'background.js'].map(
-    file => readFile(`extension/${file}`, 'utf8')
-  )
+  [
+    'errors.js',
+    'platform.js',
+    'core.js',
+    'subscription-catalog.js',
+    'subscriptions.js',
+    'background.js'
+  ].map(file => readFile(`extension/${file}`, 'utf8'))
 )
 function harness(target, initial, fetcher) {
   const callbacks = {}

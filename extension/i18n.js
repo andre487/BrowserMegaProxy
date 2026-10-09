@@ -1,4 +1,4 @@
-/* global chrome */
+/* global chrome, MegaErrors */
 ;(root => {
   const api = root.browser || chrome
   const catalogs = {}
@@ -13,7 +13,11 @@
   }
 
   function t(key, ...substitutions) {
-    const message = catalogs[language]?.[key]?.message || catalogs.en?.[key]?.message || key
+    const message =
+      catalogs[language]?.[key]?.message ||
+      catalogs.en?.[key]?.message ||
+      api.i18n.getMessage?.(key) ||
+      key
 
     return message.replace(/\$(\d+)/g, (match, index) => substitutions[Number(index) - 1] ?? '')
   }
@@ -34,12 +38,21 @@
 
   const ready = Promise.all(
     ['en', 'ru'].map(async locale => {
-      const response = await fetch(api.runtime.getURL(`_locales/${locale}/messages.json`))
-      if (!response.ok) {
-        throw new Error(`Unable to load locale: ${locale}`)
-      }
+      try {
+        const response = await fetch(api.runtime.getURL(`_locales/${locale}/messages.json`))
+        if (!response.ok) {
+          throw Object.assign(new Error('errorHTTP'), { status: response.status })
+        }
 
-      catalogs[locale] = await response.json()
+        catalogs[locale] = await response.json()
+      } catch (error) {
+        throw MegaErrors.context(
+          Object.assign(new Error('errorLocale', { cause: error }), {
+            resource: `locale_${locale}`
+          }),
+          'locale'
+        )
+      }
     })
   )
 

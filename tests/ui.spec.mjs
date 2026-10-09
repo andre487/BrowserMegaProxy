@@ -382,7 +382,7 @@ test('manual language persists, preserves input and translates errors and dynami
     'Main proxy'
   )
   await page.getByRole('button', { name: 'Save profile' }).click()
-  await expect(page.locator('#notice')).toHaveText('A password requires a username')
+  await expect(page.locator('#notice')).toHaveText('Save profile: A password requires a username')
   await page.getByLabel('Username').fill('user')
   await page.getByRole('button', { name: 'Save profile' }).click()
   await expect(page.locator('#notice')).toContainText('without a scheme or path')
@@ -411,7 +411,9 @@ test('manual language persists, preserves input and translates errors and dynami
     mimeType: 'application/json',
     buffer: Buffer.from('{bad')
   })
-  await expect(page.locator('#notice')).toHaveText('The file is not valid JSON')
+  await expect(page.locator('#notice')).toHaveText(
+    'Read configuration for import: The file is not valid JSON'
+  )
   await page.locator('#import').setInputFiles({
     name: 'mixed.json',
     mimeType: 'application/json',
@@ -884,7 +886,7 @@ test('default statistics refresh preserves unsaved routing fields', async ({ pag
   await expect(page.locator('#routing-list')).toHaveValue('unsaved.example')
 })
 
-test('popup keeps the settings icon visible and gives profiles more space in either theme', async ({
+test('popup has one content scrollbar and keeps settings visible in either theme', async ({
   page
 }) => {
   for (const theme of ['light', 'dark']) {
@@ -923,6 +925,18 @@ test('popup keeps the settings icon visible and gives profiles more space in eit
     await expect(page.locator('#open-settings svg')).toBeVisible()
     expect(await page.locator('#open-settings').innerText()).toBe('')
     expect((await page.locator('#profiles').boundingBox()).height).toBeGreaterThan(156)
+    await expect(page.locator('#profiles')).toHaveCSS('max-height', 'none')
+    await expect(page.locator('#profiles')).toHaveCSS('overflow-y', 'clip')
+    expect(
+      await page
+        .locator('#profiles')
+        .evaluate(element => element.scrollHeight - element.clientHeight)
+    ).toBeLessThanOrEqual(1)
+    expect(
+      await page
+        .locator('.popup-content')
+        .evaluate(element => element.scrollHeight > element.clientHeight)
+    ).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(
       600
     )
@@ -1011,8 +1025,35 @@ test('profile actions menu supports keyboard activation and dismissal', async ({
   await expect(page.getByRole('button', { name: 'Дублировать' })).toBeHidden()
 })
 
-test('toolbar icons have transparent rounded corners at every display scale', async ({ page }) => {
-  for (const size of [16, 24, 32, 48]) {
+test('HTML pages load vector logos and favicons', async ({ page }) => {
+  for (const name of ['popup', 'options', 'log']) {
+    await page.goto(`http://127.0.0.1:8765/${name}.html`)
+    const icon = page.locator('link[rel="icon"]')
+    await expect(icon).toHaveAttribute('href', 'icons/icon.svg')
+    await expect(icon).toHaveAttribute('type', 'image/svg+xml')
+    await expect(icon).toHaveAttribute('sizes', 'any')
+    const response = await page.request.get('http://127.0.0.1:8765/icons/icon.svg')
+    expect(response.ok()).toBe(true)
+    expect(response.headers()['content-type']).toBe('image/svg+xml')
+    expect(await response.text()).not.toContain('<image')
+    const loaded = await page.evaluate(async () => {
+      const icon = new Image()
+      icon.src = document.querySelector('link[rel="icon"]').href
+      await icon.decode()
+      const brand = document.querySelector('.brand')
+      if (brand) {
+        await brand.decode()
+      }
+      return { width: icon.naturalWidth, brand: brand ? brand.getAttribute('src') : null }
+    })
+    expect(loaded).toEqual({ width: 512, brand: name === 'log' ? null : 'icons/icon.svg' })
+  }
+})
+
+test('toolbar icons have crisp white marks and transparent space for the profile dot', async ({
+  page
+}) => {
+  for (const size of [16, 24, 32, 48, 64]) {
     const result = await page.evaluate(async size => {
       const image = new Image()
       image.src = `/icons/toolbar${size}.png`
@@ -1025,10 +1066,60 @@ test('toolbar icons have transparent rounded corners at every display scale', as
         width: image.naturalWidth,
         height: image.naturalHeight,
         cornerAlpha: context.getImageData(0, 0, 1, 1).data[3],
-        centerAlpha: context.getImageData(size / 2, size / 2, 1, 1).data[3]
+        centerAlpha: context.getImageData(size / 2, size / 2, 1, 1).data[3],
+        rightAlpha: context.getImageData(size - 1, size / 2, 1, 1).data[3],
+        bottomAlpha: context.getImageData(size / 2, size - 1, 1, 1).data[3],
+        leg: [
+          ...context.getImageData(Math.floor((size * 3) / 16), Math.floor((size * 11) / 16), 1, 1)
+            .data
+        ]
       }
     }, size)
-    expect(result).toEqual({ width: size, height: size, cornerAlpha: 0, centerAlpha: 255 })
+    expect(result).toMatchObject({
+      width: size,
+      height: size,
+      centerAlpha: 255,
+      rightAlpha: 0,
+      bottomAlpha: 0
+    })
+    expect(result.leg).toEqual([255, 255, 255, 255])
+    expect(result.cornerAlpha).toBeLessThan(255)
+  }
+})
+
+test('manifest icons have matching rounded corners and small icons match toolbar icons', async ({
+  page
+}) => {
+  for (const size of [16, 32, 48, 128]) {
+    const result = await page.evaluate(async size => {
+      const image = new Image()
+      image.src = `/icons/icon${size}.png`
+      await image.decode()
+      const context = document.createElement('canvas').getContext('2d')
+      context.canvas.width = context.canvas.height = size
+      context.drawImage(image, 0, 0)
+      const pixels = context.getImageData(0, 0, size, size).data
+      let matches = true
+      if (size === 16 || size === 32) {
+        const toolbar = new Image()
+        toolbar.src = `/icons/toolbar${size}.png`
+        await toolbar.decode()
+        context.clearRect(0, 0, size, size)
+        context.drawImage(toolbar, 0, 0)
+        matches = context
+          .getImageData(0, 0, size, size)
+          .data.every((value, index) => value === pixels[index])
+      }
+      return {
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        cornerAlpha: pixels[3],
+        centerAlpha: pixels[(Math.floor(size / 2) * size + Math.floor(size / 2)) * 4 + 3],
+        matches
+      }
+    }, size)
+    expect(result).toMatchObject({ width: size, height: size, centerAlpha: 255, matches: true })
+    expect(result.cornerAlpha).toBeLessThan(255)
   }
 })
 
@@ -1116,6 +1207,64 @@ test('current-site block explains unavailable tabs and domain routing without gl
   await expect(page.locator('#site-actions')).toBeHidden()
   await page.locator('#connection-mode').selectOption('direct')
   await expect(page.locator('#site-actions')).toBeHidden()
+})
+
+test('popup scrolls to completed check results once, after the requested check finishes', async ({
+  page
+}) => {
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'testState',
+      JSON.stringify({
+        profiles: Array.from({ length: 30 }, (_, index) => ({
+          id: String(index),
+          name: `Profile ${index}`,
+          type: 'HTTP',
+          host: 'proxy.example',
+          port: 8080,
+          color: index % 12
+        }))
+      })
+    )
+  })
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await expect(page.locator('#check')).toBeEnabled()
+  await page.evaluate(() => {
+    const original = chrome.runtime.sendMessage
+    chrome.runtime.sendMessage = async message => {
+      if (message.command === 'check') {
+        await new Promise(resolve => {
+          globalThis.finishCheck = resolve
+        })
+      }
+      return original(message)
+    }
+  })
+  await page.locator('#check').click()
+  await expect.poll(() => page.evaluate(() => typeof globalThis.finishCheck)).toBe('function')
+  const content = page.locator('.popup-content')
+  await content.evaluate(element => {
+    element.scrollTop = 0
+  })
+  expect(await content.evaluate(element => element.scrollTop)).toBe(0)
+  await page.evaluate(() => globalThis.finishCheck())
+  await expect(page.locator('#check-result')).toContainText('203.0.113.19')
+  await expect
+    .poll(() =>
+      content.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)
+    )
+    .toBeLessThanOrEqual(1)
+  const visible = await page.locator('#check-result').evaluate(element => {
+    const result = element.getBoundingClientRect()
+    const viewport = element.closest('.popup-content').getBoundingClientRect()
+    return result.top >= viewport.top && result.bottom <= viewport.bottom
+  })
+  expect(visible).toBe(true)
+  await content.evaluate(element => {
+    element.scrollTop = 0
+  })
+  await page.evaluate('renderCheck(); renderCheck()')
+  expect(await content.evaluate(element => element.scrollTop)).toBe(0)
 })
 
 test('connection checks are available without profiles in Direct and System modes', async ({
@@ -1612,6 +1761,45 @@ test('profiles can be selected in options and popup and the selected button foll
   await expect(first.getByRole('button', { name: 'Selected', exact: true })).toBeDisabled()
 })
 
+test('popup shows the active profile color only in proxy mode', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem(
+      'testState',
+      JSON.stringify({
+        language: 'en',
+        connectionMode: 'proxy',
+        activeId: 'a',
+        profiles: [
+          { id: 'a', name: 'Red', type: 'HTTP', host: 'a.example', port: 8080, color: 0 },
+          { id: 'b', name: 'Blue', type: 'HTTP', host: 'b.example', port: 8080, color: 5 }
+        ]
+      })
+    )
+  })
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  const heading = page.locator('#connection')
+  const marker = () =>
+    heading.evaluate(element => {
+      const style = getComputedStyle(element, '::before')
+      return { color: style.backgroundColor, display: style.display }
+    })
+  await expect(heading).toHaveText('Profile: Red')
+  expect(await marker()).toEqual({ color: 'rgb(244, 67, 54)', display: 'inline-block' })
+  await page
+    .locator('[data-profile-id="b"]')
+    .getByRole('button', { name: 'Select', exact: true })
+    .click()
+  await expect(heading).toHaveText('Profile: Blue')
+  expect(await marker()).toEqual({ color: 'rgb(33, 150, 243)', display: 'inline-block' })
+  for (const mode of ['direct', 'system']) {
+    await page.locator('#connection-mode').selectOption(mode)
+    await expect(heading).not.toHaveClass(/has-profile/)
+  }
+  await page.locator('#connection-mode').selectOption('proxy')
+  await expect(heading).toHaveClass(/has-profile/)
+  expect(await marker()).toEqual({ color: 'rgb(33, 150, 243)', display: 'inline-block' })
+})
+
 test('connection mode stays synchronized between popup and multiple settings pages', async ({
   page,
   context
@@ -1684,4 +1872,34 @@ test('routing sections have one title and network actions follow the selected mo
       await expect(page.locator('#network-add')).toBeHidden()
     }
   }
+})
+
+test('UI explains transport failures and transferred background errors with their operation', async ({
+  page
+}) => {
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await expect(page.locator('body')).toBeVisible()
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage = async () => {
+      throw new TypeError('Failed to fetch')
+    }
+  })
+  await page.locator('#check').click()
+  await expect(page.locator('#notice')).toContainText('Проверка подключения:')
+  await expect(page.locator('#notice')).toContainText('Браузер не смог выполнить сетевой запрос')
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage = async () => ({
+      ok: false,
+      error: 'errorIcon',
+      errorDetails: {
+        operation: 'toolbarIcon',
+        code: 'errorIcon',
+        reason: 'errorNetwork',
+        resource: 'toolbar32.png'
+      }
+    })
+  })
+  await page.locator('#check').click()
+  await expect(page.locator('#notice')).toContainText('Загрузка иконки тулбара (toolbar32.png):')
+  await expect(page.locator('#notice')).not.toContainText('Failed to fetch')
 })

@@ -70,6 +70,7 @@ test('background serializes writes, checks sender, rolls back failed apply and p
     URL,
     structuredClone
   })
+  vm.runInContext(await readFile('extension/errors.js', 'utf8'), context)
   vm.runInContext(await readFile('extension/platform.js', 'utf8'), context)
   vm.runInContext(core, context)
   vm.runInContext(await readFile('extension/subscription-catalog.js', 'utf8'), context)

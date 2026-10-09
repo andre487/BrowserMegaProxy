@@ -1,4 +1,4 @@
-/* global chrome, profileIcon: writable, profileIcons, updateBadge, state: writable */
+/* global chrome, toolbarIcon: writable, toolbarIcons, updateBadge, state: writable */
 import { mkdtemp, rm } from 'node:fs/promises'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
@@ -220,7 +220,13 @@ test('native routing follows the selected profile, monitors failures, badges tab
         async () =>
           (await command({ command: 'testTabState' })).tabs.find(item => item.id === tab.id).badge
       )
-      .toBe('SYS')
+      .toBe('')
+    await expect
+      .poll(
+        async () =>
+          (await command({ command: 'testTabState' })).tabs.find(item => item.id === tab.id).title
+      )
+      .toContain('SYSTEM')
     await command({ command: 'statistics', enabled: false })
     await page.reload()
     expect((await command({ command: 'network', tabId: tab.id })).entries).toEqual([])
@@ -362,108 +368,123 @@ test('installed Chrome popup sizes correctly and profile dragging saves through 
 })
 
 // eslint-disable-next-line no-empty-pattern
-test('profile icons use their color, fade long names on the right and bound cached images', async ({}, testInfo) => {
+test('profile icons preserve the logo, show a colored dot and keep full names in tooltips', async ({}, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium', 'Pixel inspection uses the Chromium worker')
   const dir = await mkdtemp(path.join(tmpdir(), 'mega-icon-'))
   let browser
   try {
     browser = await launchExtension('chromium', dir)
     const result = await browser.context.serviceWorkers()[0].evaluate(async () => {
-      const images = await profileIcon({ name: 'WWWWWWWWWWWW', host: 'proxy.example', color: 0 })
-      const image = images[48]
-      const reference = new OffscreenCanvas(48, 48)
-      const ctx = reference.getContext('2d')
-      const sample = (46 * 48 + 24) * 4
-      const color = [...image.data.slice(sample, sample + 4)]
-      ctx.fillStyle = `rgb(${color.slice(0, 3).join(',')})`
-      ctx.fillRect(0, 0, 48, 48)
-      ctx.scale(3, 3)
-      ctx.font = 'bold 7.5px Arial, Helvetica, sans-serif'
-      ctx.fillStyle = '#ffffff'
-      ctx.fillText('WWWWWWWWWWWW', 1, 14.5)
-      const plain = ctx.getImageData(0, 0, 48, 48)
-      const ink = data => {
-        let total = 0
-        for (let y = 28; y < 44; y++) {
-          for (let x = 34; x < 46; x++) {
-            const index = (y * 48 + x) * 4
-            total +=
-              Math.abs(data[index] - color[0]) +
-              Math.abs(data[index + 1] - color[1]) +
-              Math.abs(data[index + 2] - color[2])
-          }
-        }
-        return total
+      const images = await toolbarIcon('#f44336')
+      const reused = await toolbarIcon('#f44336')
+      const other = await toolbarIcon('#e91e63')
+      const direct = await toolbarIcon('#bdbdbd')
+      const system = await toolbarIcon('#616161')
+      const checks = []
+      for (const [sizeText, image] of Object.entries(images)) {
+        const size = Number(sizeText)
+        const original = await createImageBitmap(
+          await (await fetch(chrome.runtime.getURL(`icons/toolbar${size}.png`))).blob()
+        )
+        const ctx = new OffscreenCanvas(size, size).getContext('2d')
+        ctx.drawImage(original, 0, 0)
+        const base = ctx.getImageData(0, 0, size, size).data
+        const center = Math.floor((13 * size) / 16)
+        const index = (center * size + center) * 4
+        checks.push({
+          size,
+          logoMatches: base.every((value, index) => {
+            const pixel = Math.floor(index / 4)
+            return (
+              (pixel % size >= Math.floor((8 * size) / 16) &&
+                Math.floor(pixel / size) >= Math.floor((8 * size) / 16)) ||
+              value === image.data[index]
+            )
+          }),
+          color: [...image.data.slice(index, index + 4)],
+          otherColor: [...other[size].data.slice(index, index + 4)],
+          rightBaseAlpha: base[(center * size + size - 1) * 4 + 3],
+          rightDotAlpha: image.data[(center * size + size - 1) * 4 + 3],
+          bottomBaseAlpha: base[((size - 1) * size + center) * 4 + 3],
+          bottomDotAlpha: image.data[((size - 1) * size + center) * 4 + 3]
+        })
       }
-      for (let index = 0; index < 35; index++) {
-        await profileIcon({ name: `Profile ${index}`, host: 'proxy.example', color: 0 })
-      }
-      const prototype = Object.getPrototypeOf(new OffscreenCanvas(1, 1).getContext('2d'))
-      const gradient = prototype.createLinearGradient
-      const fillText = prototype.fillText
-      let shortFades = 0
-      const shortWidths = []
-      prototype.createLinearGradient = function (...args) {
-        shortFades++
-        return gradient.apply(this, args)
-      }
-      prototype.fillText = function (...args) {
-        shortWidths.push(this.measureText(args[0]).width)
-        return fillText.apply(this, args)
-      }
-      let shortImages
-      try {
-        for (const name of ['AM', 'WW', 'ЖЯ']) {
-          shortImages = await profileIcon({ name, host: 'proxy.example', color: 0 })
-        }
-      } finally {
-        prototype.createLinearGradient = gradient
-        prototype.fillText = fillText
-      }
-      const original = await createImageBitmap(
-        await (await fetch(chrome.runtime.getURL('icons/toolbar48.png'))).blob()
-      )
-      ctx.resetTransform()
-      ctx.clearRect(0, 0, 48, 48)
-      ctx.drawImage(original, 0, 0)
-      const top = ctx.getImageData(0, 0, 48, 24).data
-      const topMatches = top.every((value, index) => value === shortImages[48].data[index])
+      const pixel = (x, y) => [...images[48].data.slice((y * 48 + x) * 4, (y * 48 + x) * 4 + 4)]
       return {
-        shortFades,
-        shortWidths,
-        topMatches,
-        sizes: Object.keys(images).map(Number),
-        color,
-        faded: ink(image.data),
-        plain: ink(plain.data),
-        cached: profileIcons.size
+        checks,
+        reused: images === reused,
+        cached: toolbarIcons.size,
+        direct: [...direct[64].data.slice((50 * 64 + 50) * 4, (50 * 64 + 50) * 4 + 4)],
+        system: [...system[64].data.slice((50 * 64 + 50) * 4, (50 * 64 + 50) * 4 + 4)],
+        separator: pixel(33, 26),
+        whiteOutline: pixel(46, 37)
       }
     })
-    expect(result.sizes).toEqual([16, 24, 32, 48])
-    expect(result.shortFades).toBe(0)
-    expect(result.shortWidths).toHaveLength(12)
-    expect(Math.max(...result.shortWidths)).toBeLessThanOrEqual(14.01)
-    expect(result.topMatches).toBe(true)
-    expect(result.color[0]).toBeGreaterThan(result.color[1] * 2)
-    expect(result.color[3]).toBe(255)
-    const luminance = result.color
-      .slice(0, 3)
-      .map(value => {
-        const component = value / 255
-        return component <= 0.04045 ? component / 12.92 : ((component + 0.055) / 1.055) ** 2.4
-      })
-      .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
-    expect(1.05 / (luminance + 0.05)).toBeGreaterThanOrEqual(7)
-    expect(result.plain).toBeGreaterThan(0)
-    expect(result.faded).toBeLessThan(result.plain * 0.7)
-    expect(result.cached).toBeLessThanOrEqual(32)
+    expect(result.checks.map(check => check.size)).toEqual([16, 24, 32, 48, 64])
+    for (const check of result.checks) {
+      expect(check.logoMatches).toBe(true)
+      expect(check.color).toEqual([244, 67, 54, 255])
+      expect(check.otherColor).toEqual([233, 30, 99, 255])
+      expect(check.rightBaseAlpha).toBe(0)
+      expect(check.bottomBaseAlpha).toBe(0)
+      expect(check.rightDotAlpha).toBeGreaterThan(0)
+      expect(check.bottomDotAlpha).toBeGreaterThan(0)
+    }
+    expect(result.reused).toBe(true)
+    expect(result.separator).toEqual([0, 0, 0, 0])
+    expect(result.whiteOutline).toEqual([255, 255, 255, 255])
+    expect(result.cached).toBeLessThanOrEqual(14)
+    expect(result.direct).toEqual([189, 189, 189, 255])
+    expect(result.system).toEqual([97, 97, 97, 255])
+    const name = 'Рабочая прокси Германия — полное длинное название подключения'
     const saved = await browser.command({
       command: 'save',
-      profile: { name: 'Race', type: 'HTTP', host: 'proxy.example', port: 8080 }
+      profile: { name, type: 'HTTP', host: 'proxy.example', port: 8080 }
     })
     await browser.command({ command: 'activate', id: saved.state.profiles[0].id })
+    const active = await browser.context.serviceWorkers()[0].evaluate(async () => {
+      const tabId = (await chrome.tabs.query({}))[0].id
+      await updateBadge(tabId, 'about:blank')
+      return {
+        badge: await chrome.action.getBadgeText({ tabId }),
+        title: await chrome.action.getTitle({ tabId })
+      }
+    })
+    expect(active).toEqual({ badge: '', title: `MegaProxy · ${name}\nHTTP · proxy.example:8080` })
+    const modes = await browser.context.serviceWorkers()[0].evaluate(async () => {
+      const originalState = state
+      const originalIcon = toolbarIcon
+      const colors = []
+      const modes = []
+      toolbarIcon = color => {
+        colors.push(color)
+        return originalIcon(color)
+      }
+      try {
+        const tabId = (await chrome.tabs.query({}))[0].id
+        for (const connectionMode of ['direct', 'system']) {
+          state = { ...state, connectionMode }
+          await updateBadge(tabId, 'about:blank')
+          modes.push({
+            badge: await chrome.action.getBadgeText({ tabId }),
+            title: await chrome.action.getTitle({ tabId })
+          })
+        }
+        return { colors, modes }
+      } finally {
+        state = originalState
+        toolbarIcon = originalIcon
+      }
+    })
+    expect(modes).toEqual({
+      colors: ['#bdbdbd', '#616161'],
+      modes: [
+        { badge: '', title: 'MegaProxy · DIRECT' },
+        { badge: '', title: 'MegaProxy · SYSTEM' }
+      ]
+    })
     const final = await browser.context.serviceWorkers()[0].evaluate(async () => {
-      const originalIcon = profileIcon
+      const originalIcon = toolbarIcon
       const originalState = state
       let release, entered
       const blocked = new Promise(resolve => {
@@ -473,10 +494,14 @@ test('profile icons use their color, fade long names on the right and bound cach
         entered = resolve
       })
       const tabId = (await chrome.tabs.query({}))[0].id
-      profileIcon = async profile => {
-        entered()
-        await blocked
-        return originalIcon(profile)
+      let first = true
+      toolbarIcon = async color => {
+        if (first) {
+          first = false
+          entered()
+          await blocked
+        }
+        return originalIcon(color)
       }
       try {
         const pending = updateBadge(tabId, 'about:blank')
@@ -491,11 +516,11 @@ test('profile icons use their color, fade long names on the right and bound cach
         }
       } finally {
         release()
-        profileIcon = originalIcon
+        toolbarIcon = originalIcon
         state = originalState
       }
     })
-    expect(final).toEqual({ badge: 'DIR', title: 'MegaProxy · DIRECT' })
+    expect(final).toEqual({ badge: '', title: 'MegaProxy · DIRECT' })
   } finally {
     await browser?.close()
     await rm(dir, { recursive: true, force: true })
