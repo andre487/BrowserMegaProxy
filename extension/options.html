@@ -69,6 +69,7 @@
               ><select name="type">
                 <option value="https">HTTPS · TLS</option>
                 <option value="http">HTTP</option>
+                <option value="socks5">SOCKS5</option>
               </select></label
             >
             <label
@@ -96,6 +97,7 @@
             /></label>
           </div>
           <input name="authMode" type="hidden" value="auto" />
+          <p class="hint" id="socks-auth-hint" hidden data-i18n="errorSocksAuthUnsupported"></p>
           <label
             ><span data-i18n="knockHost">Knock host</span
             ><input

@@ -2,7 +2,7 @@
 
 ## Single purpose
 
-Manage the browser’s connection through a user-provided HTTP/HTTPS proxy, including authentication, routing rules and diagnostics for that connection. MegaProxy does not sell or supply proxy servers.
+Manage the browser’s connection through a user-provided HTTP/HTTPS or SOCKS5 proxy, including authentication, routing rules and diagnostics for that connection. MegaProxy does not sell or supply proxy servers.
 
 ## Permissions justification
 

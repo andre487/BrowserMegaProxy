@@ -53,6 +53,37 @@ test('vendored schemas match recorded checksums and identify their upstream revi
   }
 })
 
+test('SOCKS5 imports and exports preserve the protocol and report unsupported authentication', () => {
+  const config = structuredClone(portable)
+  config.profiles[0].proxy.type = 'SOCKS5'
+  config.profiles[0].proxy.port = 1080
+  assert.ok(validate(config), JSON.stringify(validate.errors))
+  assert.equal(android(config), false)
+  const result = M.importProfiles(config, 'firefox')
+  const state = M.mergeImport(M.defaults(), result)
+  assert.equal(state.profiles[0].type, 'socks5')
+  const exported = M.exportConfig(state, true)
+  assert.ok(validate(exported), JSON.stringify(validate.errors))
+  assert.equal(exported.profiles[0].proxy.type, 'SOCKS5')
+  assert.equal(exported.profiles[0].proxy.password, 'secret')
+  assert.equal(M.exportConfig(state).profiles[0].proxy.password, undefined)
+  assert.throws(() => M.importProfiles(config, 'chromium'), /errorSocksAuthUnsupported/)
+  delete config.profiles[0].proxy.username
+  delete config.profiles[0].proxy.password
+  assert.equal(M.importProfiles(config, 'chromium').profiles[0].type, 'socks5')
+  assert.equal(M.importProfiles('socks5://proxy.example', 'chromium').profiles[0].port, 1080)
+  assert.equal(M.importProfiles('socks5://u:p@proxy.example', 'firefox').profiles[0].password, 'p')
+  assert.equal(
+    M.importProfiles({ data: [{ type: 'socks', host: 'proxy.example' }] }, 'firefox').profiles[0]
+      .type,
+    'socks5'
+  )
+  assert.throws(
+    () => M.importProfiles('socks5://u:p@proxy.example', 'chromium'),
+    /errorSocksAuthUnsupported/
+  )
+})
+
 test('stable-ID merges retain order and omitted secrets, clear explicit secrets and remove only selected absent profiles', () => {
   const first = M.importProfiles(portable)
   let state = M.mergeImport(M.defaults(), first)
@@ -106,7 +137,7 @@ test('importing a profile without a username clears an omitted local password', 
   delete config.profiles[0].proxy.password
   const merged = M.mergeImport(state, M.importProfiles(config))
   assert.equal(merged.profiles[0].password, '')
-  assert.doesNotThrow(() => merged.profiles.map(M.profile))
+  assert.doesNotThrow(() => merged.profiles.map(p => M.profile(p)))
 })
 
 test('import rejects knock conflicts introduced by preserving omitted local bypass rules', () => {

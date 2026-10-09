@@ -46,7 +46,7 @@ const ready = Promise.all([
       theme: platform.themePreference(data.state?.theme),
       ...(data.state?.connectionMode === 'failover' ? { connectionMode: 'proxy' } : {}),
       browserRouting: M.routing(data.state?.browserRouting),
-      profiles: (data.state?.profiles || []).map(M.profile)
+      profiles: (data.state?.profiles || []).map(p => M.profile(p))
     }
     delete state.failoverMode
     delete state.failoverProfileIds

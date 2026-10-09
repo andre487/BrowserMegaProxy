@@ -1,5 +1,21 @@
 /* Browser-specific policy and native APIs. The API is injected; no browser globals inside adapters. */
 ;(root => {
+  function firefoxProxyInfo(profile) {
+    return {
+      type: profile.type === 'socks5' ? 'socks' : profile.type,
+      host: profile.host,
+      port: profile.port,
+      ...(profile.type === 'socks5'
+        ? {
+            proxyDNS: true,
+            ...(profile.username ? { username: profile.username, password: profile.password } : {})
+          }
+        : root.MegaProxy.hasCredentials(profile)
+          ? { proxyAuthorizationHeader: root.MegaProxy.basic(profile) }
+          : {})
+    }
+  }
+
   class BrowserPlatform {
     constructor(api, core) {
       this.api = api
@@ -19,7 +35,7 @@
     }
 
     needsKnock(profile) {
-      return Boolean(profile && !this.core.hasCredentials(profile))
+      return Boolean(profile && profile.type !== 'socks5' && !this.core.hasCredentials(profile))
     }
 
     supportsWebRTC() {
@@ -50,6 +66,8 @@
 
     validateKnock() {}
 
+    validateProfile() {}
+
     async checkPrivateAccess() {}
 
     async apply(state) {
@@ -65,6 +83,7 @@
       }
 
       const profile = this.core.active(state)
+      this.validateProfile(profile)
       this.validateKnock(profile, state)
       await this.applySettings(profile, state)
     }
@@ -106,7 +125,13 @@
     }
 
     needsKnock(profile) {
-      return Boolean(profile)
+      return Boolean(profile && profile.type !== 'socks5')
+    }
+
+    validateProfile(profile) {
+      if (profile?.type === 'socks5' && (profile.username || profile.password)) {
+        throw new Error('errorSocksAuthUnsupported')
+      }
     }
 
     supportsWebRTC(value) {
@@ -310,16 +335,7 @@
             return undefined
           }
 
-          const info = profile
-            ? {
-                type: profile.type,
-                host: profile.host,
-                port: profile.port,
-                ...(this.core.hasCredentials(profile)
-                  ? { proxyAuthorizationHeader: this.core.basic(profile) }
-                  : {})
-              }
-            : { type: 'direct' }
+          const info = profile ? firefoxProxyInfo(profile) : { type: 'direct' }
           return info.type === 'direct' ? info : [info, null]
         },
         { urls: ['<all_urls>'] }
@@ -329,6 +345,7 @@
 
   const platforms = { chromium: ChromiumPlatform, firefox: FirefoxPlatform }
   root.MegaPlatform = {
+    firefoxProxyInfo,
     create(target = 'firefox', api, core = root.MegaProxy) {
       const Platform = platforms[target]
       if (!Platform) {

@@ -3,7 +3,7 @@
     "message": "MegaProxy"
   },
   "extensionDescription": {
-    "message": "Профили HTTP/HTTPS-прокси с авторизацией и knock host."
+    "message": "Профили HTTP/HTTPS- и SOCKS5-прокси с авторизацией и knock host."
   },
   "tagline": {
     "message": "Ваш маршрут в интернет"
@@ -150,7 +150,7 @@
     "message": "Порт задаётся отдельно"
   },
   "errorProtocol": {
-    "message": "Поддерживаются только HTTP и HTTPS CONNECT"
+    "message": "Поддерживаются HTTP, HTTPS CONNECT и SOCKS5"
   },
   "errorPort": {
     "message": "Порт должен быть от 1 до 65535"
@@ -174,7 +174,7 @@
     "message": "PAC/include/exclude FoxyProxy нужно перенести вручную; импорт отменён"
   },
   "errorImportCompatible": {
-    "message": "Нет совместимых HTTP/HTTPS профилей"
+    "message": "Нет совместимых HTTP/HTTPS/SOCKS5-профилей"
   },
   "errorPrivateBrowsing": {
     "message": "Firefox: разрешите расширению работу в приватных окнах в about:addons — это необходимо для proxy.settings"
@@ -288,10 +288,10 @@
     "message": "Неподдерживаемая версия конфига MegaProxy"
   },
   "errorExportProtocol": {
-    "message": "Текущий Android поддерживает переносимые HTTPS-профили с DNS/IPv4-хостами. HTTP или IPv6-хосты прокси нельзя экспортировать совместимо."
+    "message": "HTTP-профили и HTTPS-профили с IPv6-хостами нельзя экспортировать совместимо. Для SOCKS5 нужен клиент с поддержкой SOCKS5."
   },
   "errorKnockDisabled": {
-    "message": "Knock отключён в Firefox с сохранёнными реквизитами"
+    "message": "Knock не нужен для SOCKS5 и профилей Firefox с сохранёнными данными авторизации."
   },
   "errorCheckInactive": {
     "message": "Подключите профиль перед проверкой"
@@ -1066,5 +1066,14 @@
   },
   "credentialsRestartChromium": {
     "message": "Логин или пароль изменены. Чтобы Chrome начал использовать новые данные, полностью закройте браузер через меню «Выход» (на macOS — ⌘Q) и запустите его снова. До перезапуска Chrome может использовать прежнюю авторизацию."
+  },
+  "errorSocksAuthUnsupported": {
+    "message": "Chromium не поддерживает SOCKS5 с логином и паролем. Используйте SOCKS5 без авторизации или Firefox."
+  },
+  "errorSocksCredentials": {
+    "message": "Логин и пароль SOCKS5 должны занимать не более 255 байт UTF-8 каждый."
+  },
+  "knockSocksHint": {
+    "message": "SOCKS5 не использует HTTP-авторизацию; knock не нужен."
   }
 }

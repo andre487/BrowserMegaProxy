@@ -684,11 +684,22 @@ function syncKnock() {
   }
 
   const form = $('#profile-form')
+  const socksWithoutAuth = platform.id === 'chromium' && form.elements.type.value === 'socks5'
+  form.elements.username.disabled = socksWithoutAuth
+  form.elements.password.disabled = socksWithoutAuth
+  $('#socks-auth-hint').hidden = !socksWithoutAuth
   const needed = platform.needsKnock({
+    type: form.elements.type.value,
     username: form.elements.username.value,
     password: form.elements.password.value
   })
-  $('#knock-hint').textContent = t(needed ? 'knockHint' : 'knockDisabledHint')
+  $('#knock-hint').textContent = t(
+    form.elements.type.value === 'socks5'
+      ? 'knockSocksHint'
+      : needed
+        ? 'knockHint'
+        : 'knockDisabledHint'
+  )
 }
 
 function renderStatistics() {
@@ -913,6 +924,10 @@ if (isOptions) {
     event.preventDefault()
     action(async () => {
       const profile = Object.fromEntries(new FormData(event.target))
+      if (platform.id === 'chromium' && profile.type === 'socks5') {
+        profile.username = ''
+        profile.password = ''
+      }
       const previous = state.profiles.find(p => p.id === profile.id)
       const result = await send('save', { profile })
       const saved = result.state.profiles.find(p => p.id === profile.id)
