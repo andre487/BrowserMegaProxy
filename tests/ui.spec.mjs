@@ -1,4 +1,4 @@
-/* global chrome */
+/* global chrome, state, render */
 import { expect, test } from '@playwright/test'
 import { gzipSync } from 'node:zlib'
 
@@ -1889,6 +1889,37 @@ test('connection mode stays synchronized between popup and multiple settings pag
   await expect(second.locator('#connection-mode')).toHaveValue('proxy')
 })
 
+test('country flags use the bundled font in profiles and connection results', async ({ page }) => {
+  await page.evaluate(() => {
+    state.profiles = [
+      {
+        id: 'flag-test',
+        name: 'Country test',
+        countryCode: 'AM',
+        host: 'proxy.example',
+        type: 'http',
+        port: 80,
+        color: 0
+      }
+    ]
+    render()
+  })
+  await expect(page.locator('.profile strong .country-flag')).toHaveText('🇦🇲')
+  await page.locator('#check').click()
+  const flag = page.locator('#check-result .country-flag')
+  await expect(flag).toHaveText('🇩🇪')
+  await expect(flag).toHaveCSS(
+    'font-family',
+    '"Twemoji Mozilla", "Twemoji Country Flags", sans-serif'
+  )
+  expect(
+    await page.evaluate(async () => {
+      const fonts = await document.fonts.load('16px "Twemoji Country Flags"', '🇦🇲🇩🇪')
+      return fonts.map(font => font.status)
+    })
+  ).toEqual(['loaded'])
+})
+
 test('connection results localize country names and preserve missing-country output', async ({
   page
 }) => {
@@ -1900,6 +1931,7 @@ test('connection results localize country names and preserve missing-country out
   await page.evaluate('connectionCheck.countryCode = ""; renderCheck()')
   await expect(page.locator('#check-result')).toContainText('Country: —')
   await expect(page.locator('#check-result')).not.toContainText('undefined')
+  await expect(page.locator('#check-result .country-flag')).toHaveCount(0)
 })
 
 test('routing catalog refresh is requested on expansion rather than opening the settings page', async ({
