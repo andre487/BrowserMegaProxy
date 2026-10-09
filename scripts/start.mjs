@@ -23,22 +23,25 @@ export function selectBrowser(args = process.argv.slice(2), env = process.env) {
   return firefox ? 'firefox' : 'chrome'
 }
 
-async function firefoxExecutable() {
-  if (process.platform === 'linux') {
+async function browserExecutable(browser) {
+  if (process.platform === 'linux' && browser === 'firefox') {
     return 'firefox'
   }
 
+  const app = browser === 'chrome' ? 'Google Chrome' : 'Firefox'
+  const binary = browser === 'chrome' ? 'Google Chrome' : 'firefox'
+  const windowsPath =
+    browser === 'chrome'
+      ? ['Google', 'Chrome', 'Application', 'chrome.exe']
+      : ['Mozilla Firefox', 'firefox.exe']
   const candidates =
-    process.platform === 'darwin'
-      ? ['/Applications/Firefox.app/Contents/MacOS/firefox']
-      : [
-          process.env.ProgramFiles &&
-            path.join(process.env.ProgramFiles, 'Mozilla Firefox', 'firefox.exe'),
-          process.env['ProgramFiles(x86)'] &&
-            path.join(process.env['ProgramFiles(x86)'], 'Mozilla Firefox', 'firefox.exe'),
-          process.env.LOCALAPPDATA &&
-            path.join(process.env.LOCALAPPDATA, 'Mozilla Firefox', 'firefox.exe')
-        ].filter(Boolean)
+    process.platform === 'linux'
+      ? ['/opt/google/chrome/chrome', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable']
+      : process.platform === 'darwin'
+        ? [`/Applications/${app}.app/Contents/MacOS/${binary}`]
+        : [process.env.ProgramFiles, process.env['ProgramFiles(x86)'], process.env.LOCALAPPDATA]
+            .filter(Boolean)
+            .map(base => path.join(base, ...windowsPath))
 
   for (const executable of candidates) {
     try {
@@ -48,9 +51,73 @@ async function firefoxExecutable() {
     } catch {}
   }
 
-  throw new Error(
-    'Install Firefox in its standard location (or make firefox available on PATH on Linux)'
+  throw new Error(`Install ${app} in its standard location (or provide executablePath)`)
+}
+
+async function launchChrome(profileDir, headless, executablePath) {
+  const child = spawn(
+    executablePath || (await browserExecutable('chrome')),
+    [
+      `--user-data-dir=${profileDir}`,
+      '--remote-debugging-port=0',
+      '--remote-debugging-address=127.0.0.1',
+      '--enable-unsafe-extension-debugging',
+      '--no-first-run',
+      '--no-default-browser-check',
+      ...(headless ? ['--headless'] : [])
+    ],
+    { stdio: ['ignore', 'ignore', 'pipe'], detached: process.platform !== 'win32' }
   )
+  const closed = new Promise((resolve, reject) => {
+    child.once('error', reject)
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  })
+  let timer
+  let browser
+  try {
+    const endpoint = await Promise.race([
+      new Promise((resolve, reject) => {
+        let stderr = ''
+        child.stderr.on('data', data => {
+          stderr = (stderr + data.toString()).slice(-65536)
+          const match = stderr.match(/DevTools listening on (ws:\/\/[^\r\n]+)[\r\n]/)
+          if (match) {
+            resolve(match[1])
+          }
+        })
+        timer = setTimeout(() => reject(new Error('Chrome debugging endpoint timed out')), 30000)
+      }),
+      closed.then(({ code, signal }) => {
+        throw new Error(`Chrome exited before connecting (${signal || code})`)
+      })
+    ])
+    clearTimeout(timer)
+    // Leave native downloads alone: overriding them crashes Chrome with retained download history (crbug.com/556160935).
+    browser = await chromium.connectOverCDP(endpoint, { noDefaults: true })
+    let closing
+    const close = () =>
+      (closing ||= (async () => {
+        if (browser.isConnected()) {
+          await browser
+            .newBrowserCDPSession()
+            .then(cdp => cdp.send('Browser.close'))
+            .catch(error => {
+              if (browser.isConnected()) {
+                throw error
+              }
+            })
+        }
+        await closed
+        await browser.close()
+      })())
+    return { context: browser.contexts()[0], close, closed }
+  } catch (error) {
+    clearTimeout(timer)
+    child.kill()
+    await closed.catch(() => {})
+    await browser?.close()
+    throw error
+  }
 }
 
 export async function launchBrowser(
@@ -73,16 +140,8 @@ export async function launchBrowser(
   await mkdir(profileDir, { recursive: true })
 
   if (browser === 'chrome') {
-    const context = await chromium.launchPersistentContext(profileDir, {
-      channel: 'chrome',
-      headless,
-      handleSIGINT: false,
-      handleSIGTERM: false,
-      handleSIGHUP: false,
-      viewport: null,
-      ignoreDefaultArgs: ['--disable-extensions'],
-      args: ['--enable-unsafe-extension-debugging']
-    })
+    const session = await launchChrome(profileDir, headless, executablePath)
+    const { context } = session
 
     try {
       const cdp = await context.browser().newBrowserCDPSession()
@@ -121,16 +180,16 @@ export async function launchBrowser(
             await page.goto(url)
           }
         },
-        close: () => context.close(),
-        closed: new Promise(resolve => context.once('close', resolve))
+        close: session.close,
+        closed: session.closed
       }
     } catch (error) {
-      await context.close()
+      await session.close()
       throw error
     }
   }
 
-  const executable = executablePath || (await firefoxExecutable())
+  const executable = executablePath || (await browserExecutable('firefox'))
   const server = net.createServer()
   await new Promise((resolve, reject) => {
     server.once('error', reject)
