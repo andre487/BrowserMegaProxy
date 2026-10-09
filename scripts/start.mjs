@@ -84,8 +84,15 @@ export async function launchBrowser(
     try {
       const cdp = await context.browser().newBrowserCDPSession()
       const { id } = await cdp.send('Extensions.loadUnpacked', { path: extension })
+      let page = context.pages()[0] || (await context.newPage())
+      await page.goto(`chrome-extension://${id}/popup.html`)
+      await page.locator('body').waitFor({ state: 'visible' })
+      // A persistent profile can start the previous cached service worker before loadUnpacked.
+      const freshPage = await context.newPage()
+      await page.close()
+      await cdp.send('Extensions.loadUnpacked', { path: extension })
       await cdp.detach()
-      const page = context.pages()[0] || (await context.newPage())
+      page = freshPage
       await page.goto(`chrome-extension://${id}/popup.html`)
 
       return {

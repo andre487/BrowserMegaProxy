@@ -56,10 +56,21 @@ test('development launcher reloads current code and retains the dedicated Chrome
   const profileDir = await mkdtemp(path.join(tmpdir(), 'mega-launcher-'))
   const file = 'dist/chromium/popup.html'
   const original = await readFile(file, 'utf8')
+  const backgroundFile = 'dist/chromium/background.js'
+  const backgroundOriginal = await readFile(backgroundFile, 'utf8')
+  const backgroundVersion = async () => {
+    const worker =
+      session.context.serviceWorkers()[0] || (await session.context.waitForEvent('serviceworker'))
+    return worker.evaluate(() => globalThis.testLaunchVersion)
+  }
   let session
 
   try {
     await writeFile(file, original.replace('<body hidden', '<body hidden data-launch="initial"'))
+    await writeFile(
+      backgroundFile,
+      'globalThis.testLaunchVersion = "initial";\n' + backgroundOriginal
+    )
     try {
       session = await launchBrowser('chrome', { headless: true, profileDir })
     } catch (error) {
@@ -73,6 +84,7 @@ test('development launcher reloads current code and retains the dedicated Chrome
     let page = session.context.pages()[0]
     await expect(page.locator('body')).toBeVisible()
     await expect(page.locator('body')).toHaveAttribute('data-launch', 'initial')
+    expect(await backgroundVersion()).toBe('initial')
     expect(page.viewportSize()).toBeNull()
     const popupURL = page.url()
     await page.goto(popupURL.replace('popup.html', 'options.html'))
@@ -111,21 +123,32 @@ test('development launcher reloads current code and retains the dedicated Chrome
       globalThis.chrome.runtime.sendMessage({ command: 'language', language: 'en' })
     )
     await writeFile(file, original.replace('<body hidden', '<body hidden data-launch="reloaded"'))
+    await writeFile(
+      backgroundFile,
+      'globalThis.testLaunchVersion = "reloaded";\n' + backgroundOriginal
+    )
     await session.reload()
     page = session.context.pages().find(page => page.url().startsWith('chrome-extension://'))
     await expect(page.locator('body')).toHaveAttribute('data-launch', 'reloaded')
+    expect(await backgroundVersion()).toBe('reloaded')
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
     await session.close()
 
     await writeFile(file, original.replace('<body hidden', '<body hidden data-launch="fresh"'))
+    await writeFile(
+      backgroundFile,
+      'globalThis.testLaunchVersion = "fresh";\n' + backgroundOriginal
+    )
     session = await launchBrowser('chrome', { headless: true, profileDir })
     page = session.context.pages()[0]
     await expect(page.locator('body')).toBeVisible()
     await expect(page.locator('body')).toHaveAttribute('data-launch', 'fresh')
+    expect(await backgroundVersion()).toBe('fresh')
     await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   } finally {
     await session?.close()
     await writeFile(file, original)
+    await writeFile(backgroundFile, backgroundOriginal)
     await rm(profileDir, { recursive: true, force: true })
   }
 })
