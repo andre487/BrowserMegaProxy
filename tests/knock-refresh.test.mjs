@@ -185,7 +185,8 @@ test('Chromium retries a knock interrupted by proxy settings once, then closes o
     if (repeatedFailure) {
       h.events.onErrorOccurred(error)
       await h.flush()
-      assert.equal(h.session.knockTabs.length, 0)
+      assert.equal(h.session.knockTabs.length, 1)
+      assert.equal(h.session.knockTabs[0].received, false)
       assert.equal(h.opened.has(99), true)
     } else {
       h.opened.get(99).url = error.url
@@ -319,6 +320,31 @@ test('IPv6 knock success is recognized without marking its own host for refresh'
 })
 
 for (const target of ['chromium', 'firefox']) {
+  test(`${target} keeps failed knock tabs tracked and closes them after a successful retry`, async () => {
+    for (const failure of ['http', 'network']) {
+      const h = harness(target, {}, tabs(), false)
+      await h.send({ command: 'knock' })
+      if (failure === 'http') {
+        h.complete(407)
+      } else {
+        h.events.onErrorOccurred({ tabId: 99, type: 'main_frame', url: 'https://knock.example/' })
+      }
+      h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+      await h.flush()
+      assert.equal(h.opened.has(99), true)
+      assert.equal(h.session.knockTabs.length, 1)
+      h.events.updated(99, { status: 'loading' }, { url: 'https://knock.example/' })
+      h.complete(200)
+      await h.flush()
+      assert.equal(h.opened.has(99), true, 'the retry must finish loading before closing')
+      h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+      await h.flush()
+      assert.equal(h.opened.has(99), false)
+      assert.equal(h.session.knockTabs.length, 0)
+      assert.equal(h.opened.has(1), true)
+    }
+  })
+
   test(`${target} closes an active native-auth knock tab only after a successful response and full load`, async () => {
     for (const loadFirst of [false, true]) {
       const h = harness(target, {}, tabs(), false)

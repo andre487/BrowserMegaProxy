@@ -154,20 +154,31 @@ async function knock() {
   return { ok: true, message: 'knockOpened' }
 }
 
-async function updateKnockTab(tabId, { failed = false, statusCode, url, loaded = false } = {}) {
+async function updateKnockTab(
+  tabId,
+  { failed = false, closed = false, statusCode, url, loaded = false, loading = false } = {}
+) {
   await ready
   const pending = knockTabs.find(tab => tab.tabId === tabId)
   if (!pending) {
     return
   }
-  if (
-    failed ||
-    (statusCode !== undefined &&
-      (statusCode < 200 || statusCode >= 400 || M.host(new URL(url).hostname) !== pending.host))
-  ) {
+  if (failed) {
+    const tab = await api.tabs.get(tabId).catch(() => null)
+    closed = !tab
+    url = tab?.pendingUrl || tab?.url || url
+  }
+  if (closed || (url && /^https?:/.test(url) && M.host(new URL(url).hostname) !== pending.host)) {
     knockTabs = knockTabs.filter(tab => tab !== pending)
     await api.storage.session?.set({ knockTabs })
-    return // Leave failed knock tabs open for inspection or another authentication attempt.
+    return
+  }
+  if (loading || failed || (statusCode !== undefined && (statusCode < 200 || statusCode >= 400))) {
+    // Keep failed knock tabs tracked so a successful retry can still close them.
+    pending.received = false
+    pending.loaded = false
+    await api.storage.session?.set({ knockTabs })
+    return
   }
   if (statusCode !== undefined) {
     pending.received = true
@@ -1161,7 +1172,7 @@ platform.registerRouting({
 })
 
 api.tabs.onRemoved?.addListener(tabId => {
-  queue = queue.then(() => updateKnockTab(tabId, { failed: true })).catch(() => {})
+  queue = queue.then(() => updateKnockTab(tabId, { closed: true })).catch(() => {})
   for (const dialog of authDialogs.values()) {
     if (dialog.dialogTabId === tabId) {
       cancelAuth(dialog)
@@ -1181,6 +1192,11 @@ api.tabs.onRemoved?.addListener(tabId => {
   forcedTabs.delete(tabId)
 })
 api.tabs.onUpdated?.addListener((tabId, change, tab) => {
+  if (change.status === 'loading') {
+    queue = queue
+      .then(() => updateKnockTab(tabId, { loading: true, url: change.url || tab?.url }))
+      .catch(() => {})
+  }
   if (change.status === 'complete') {
     queue = queue.then(() => updateKnockTab(tabId, { loaded: true, url: tab?.url })).catch(() => {})
     updateBadge(tabId).catch(() => {})
@@ -2085,7 +2101,7 @@ queue = queue
     for (const pending of [...knockTabs]) {
       const tab = await api.tabs.get(pending.tabId).catch(() => null)
       if (!tab) {
-        await updateKnockTab(pending.tabId, { failed: true })
+        await updateKnockTab(pending.tabId, { closed: true })
       } else if (tab.status === 'complete') {
         await updateKnockTab(tab.id, { loaded: true, url: tab.url })
       }

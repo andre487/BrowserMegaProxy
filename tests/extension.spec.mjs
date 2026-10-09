@@ -433,160 +433,200 @@ for (const scenario of ['auto', 'challenge']) {
   })
 }
 
-// eslint-disable-next-line no-empty-pattern
-test('rejected proxy credentials open a focused dialog and save only after a successful retry, including knock', async ({}, testInfo) => {
-  const dir = await mkdtemp(path.join(tmpdir(), 'mega-auth-dialog-'))
-  const sockets = new Set()
-  let browser, origin, proxy
-  try {
-    execFileSync(
-      'openssl',
-      [
-        'req',
-        '-x509',
-        '-newkey',
-        'rsa:2048',
-        '-nodes',
-        '-keyout',
-        `${dir}/key.pem`,
-        '-out',
-        `${dir}/cert.pem`,
-        '-subj',
-        '/CN=knock.invalid',
-        '-days',
-        '1'
-      ],
-      { stdio: 'ignore' }
+for (const authentication of ['saved', 'native']) {
+  // eslint-disable-next-line no-empty-pattern
+  test(`proxy authentication (${authentication}) verifies credentials and closes successful knock tabs`, async ({}, testInfo) => {
+    test.skip(
+      authentication === 'native' && testInfo.project.name === 'firefox',
+      'Native HTTP credentials are supplied through Chromium automation'
     )
-    origin = https.createServer(
-      { key: await readFile(`${dir}/key.pem`), cert: await readFile(`${dir}/cert.pem`) },
-      (req, res) => res.end('Authenticated')
-    )
-    const originPort = await listen(origin)
-    const credential = `Basic ${Buffer.from('new-user:new-secret').toString('base64')}`
-    proxy = http.createServer((req, res) =>
-      res.writeHead(407, { 'Proxy-Authenticate': 'Basic realm="MegaProxy"' }).end()
-    )
-    proxy.on('connect', (req, client, head) => {
-      sockets.add(client)
-      client.on('error', () => {})
-      if (req.headers['proxy-authorization'] !== credential) {
-        client.end(
-          'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="MegaProxy"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n'
-        )
+    const dir = await mkdtemp(path.join(tmpdir(), 'mega-auth-dialog-'))
+    const sockets = new Set()
+    const proxyAttempts = []
+    let browser, origin, proxy
+    try {
+      execFileSync(
+        'openssl',
+        [
+          'req',
+          '-x509',
+          '-newkey',
+          'rsa:2048',
+          '-nodes',
+          '-keyout',
+          `${dir}/key.pem`,
+          '-out',
+          `${dir}/cert.pem`,
+          '-subj',
+          '/CN=knock.invalid',
+          '-days',
+          '1'
+        ],
+        { stdio: 'ignore' }
+      )
+      origin = https.createServer(
+        { key: await readFile(`${dir}/key.pem`), cert: await readFile(`${dir}/cert.pem`) },
+        (req, res) => res.end('Authenticated')
+      )
+      const originPort = await listen(origin)
+      const credential = `Basic ${Buffer.from('new-user:new-secret').toString('base64')}`
+      proxy = http.createServer((req, res) =>
+        res.writeHead(407, { 'Proxy-Authenticate': 'Basic realm="MegaProxy"' }).end()
+      )
+      proxy.on('connect', (req, client, head) => {
+        sockets.add(client)
+        client.on('error', () => {})
+        proxyAttempts.push(req.headers['proxy-authorization'] === credential)
+        if (req.headers['proxy-authorization'] !== credential) {
+          client.end(
+            'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="MegaProxy"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n'
+          )
+          return
+        }
+        const upstream = net.connect(originPort, '127.0.0.1', () => {
+          client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+          if (head.length) {
+            upstream.write(head)
+          }
+          client.pipe(upstream).pipe(client)
+        })
+        sockets.add(upstream)
+        upstream.on('error', () => client.destroy())
+        client.on('close', () => upstream.destroy())
+      })
+      const proxyPort = await listen(proxy)
+      browser = await launchExtension(testInfo.project.name, dir)
+      await browser.command({ command: 'sync', enabled: false, includePasswords: false })
+      await browser.command({
+        command: 'save',
+        profile: {
+          id: 'p',
+          name: 'Auth test',
+          type: 'http',
+          host: '127.0.0.1',
+          port: proxyPort,
+          username: authentication === 'native' ? '' : 'old-user',
+          password: authentication === 'native' ? '' : 'old-secret',
+          knockHost: 'knock.invalid'
+        }
+      })
+      let knockPagePromise
+      if (authentication === 'native') {
+        await browser.context.setHTTPCredentials({ username: 'new-user', password: 'wrong' })
+        knockPagePromise = browser.context.waitForEvent('page')
+      }
+      await browser.command({ command: 'activate', id: 'p' })
+      if (authentication === 'native') {
+        const knockPage = await knockPagePromise
+        await expect
+          .poll(async () =>
+            (await browser.networkErrors()).some(event => event.url?.includes('knock.invalid'))
+          )
+          .toBe(true)
+        expect(knockPage.isClosed()).toBe(false)
+        await browser.command({ command: 'get' })
+        await browser.context.setHTTPCredentials({ username: 'new-user', password: 'new-secret' })
+        await knockPage.reload().catch(error => {
+          if (!knockPage.isClosed()) {
+            throw error
+          }
+        })
+        await expect.poll(() => knockPage.isClosed()).toBe(true)
+        expect(proxyAttempts).toContain(false)
+        expect(proxyAttempts).toContain(true)
+        expect(browser.context.pages().some(page => page.url().includes('/auth.html'))).toBe(false)
+        expect((await browser.command({ command: 'get' })).state.profiles[0].password).toBe('')
         return
       }
-      const upstream = net.connect(originPort, '127.0.0.1', () => {
-        client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
-        if (head.length) {
-          upstream.write(head)
-        }
-        client.pipe(upstream).pipe(client)
-      })
-      sockets.add(upstream)
-      upstream.on('error', () => client.destroy())
-      client.on('close', () => upstream.destroy())
-    })
-    const proxyPort = await listen(proxy)
-    browser = await launchExtension(testInfo.project.name, dir)
-    await browser.command({ command: 'sync', enabled: false, includePasswords: false })
-    await browser.command({
-      command: 'save',
-      profile: {
-        id: 'p',
-        name: 'Auth test',
-        type: 'http',
-        host: '127.0.0.1',
-        port: proxyPort,
-        username: 'old-user',
-        password: 'old-secret',
-        knockHost: 'knock.invalid'
+      let navigation
+      if (testInfo.project.name === 'firefox') {
+        const page = await browser.context.newPage()
+        navigation = page.goto('https://knock.invalid/').then(
+          () => true,
+          () => false
+        )
       }
-    })
-    await browser.command({ command: 'activate', id: 'p' })
-    let navigation
-    if (testInfo.project.name === 'firefox') {
-      const page = await browser.context.newPage()
-      navigation = page.goto('https://knock.invalid/').then(
-        () => true,
-        () => false
-      )
-    }
-    let authTab
-    await expect
-      .poll(async () => {
-        if (testInfo.project.name === 'chromium') {
-          const page = browser.context.pages().find(page => page.url().includes('/auth.html?id='))
-          if (page) {
-            authTab = { ...(await page.evaluate(() => chrome.tabs.getCurrent())), url: page.url() }
+      let authTab
+      await expect
+        .poll(async () => {
+          if (testInfo.project.name === 'chromium') {
+            const page = browser.context.pages().find(page => page.url().includes('/auth.html?id='))
+            if (page) {
+              authTab = {
+                ...(await page.evaluate(() => chrome.tabs.getCurrent())),
+                url: page.url()
+              }
+            }
+          } else {
+            const { tabs } = await browser.command({ command: 'testTabState' })
+            authTab = tabs.find(tab => tab.url?.includes('/auth.html?id='))
           }
-        } else {
+          return Boolean(authTab)
+        })
+        .toBe(true)
+      const token = new URL(authTab.url).searchParams.get('id')
+      const { windows } = await browser.command({ command: 'testWindows' })
+      expect(windows.find(window => window.tabs.some(tab => tab.id === authTab.id)).focused).toBe(
+        true
+      )
+      const dialog =
+        testInfo.project.name === 'chromium'
+          ? browser.context.pages().find(page => page.url() === authTab.url)
+          : undefined
+      const authCommand = message =>
+        dialog
+          ? dialog.evaluate(message => chrome.runtime.sendMessage(message), { token, ...message })
+          : browser.command({ token, ...message })
+      expect(JSON.stringify(await authCommand({ command: 'authGet' }))).not.toContain('old-secret')
+      if (dialog) {
+        await expect(dialog.locator('#auth-username')).toHaveValue('old-user')
+        await dialog.locator('#auth-username').fill('new-user')
+        await dialog.locator('#auth-password').fill('wrong')
+        await dialog.locator('#auth-submit').click()
+      } else {
+        await authCommand({ command: 'authSubmit', username: 'new-user', password: 'wrong' })
+      }
+      await expect
+        .poll(async () => (await authCommand({ command: 'authGet' })).auth.phase)
+        .toBe('rejected')
+      expect((await browser.command({ command: 'get' })).state.profiles[0].password).toBe(
+        'old-secret'
+      )
+      if (dialog) {
+        await dialog.locator('#auth-password').fill('new-secret')
+        const closed = dialog.waitForEvent('close')
+        await dialog.locator('#auth-submit').click()
+        await closed
+      } else {
+        await authCommand({ command: 'authSubmit', username: 'new-user', password: 'new-secret' })
+      }
+      await expect
+        .poll(async () => (await browser.command({ command: 'get' })).state.profiles[0].password)
+        .toBe('new-secret')
+      expect((await browser.command({ command: 'get' })).state.profiles[0].username).toBe(
+        'new-user'
+      )
+      await expect
+        .poll(async () => {
           const { tabs } = await browser.command({ command: 'testTabState' })
-          authTab = tabs.find(tab => tab.url?.includes('/auth.html?id='))
-        }
-        return Boolean(authTab)
-      })
-      .toBe(true)
-    const token = new URL(authTab.url).searchParams.get('id')
-    const { windows } = await browser.command({ command: 'testWindows' })
-    expect(windows.find(window => window.tabs.some(tab => tab.id === authTab.id)).focused).toBe(
-      true
-    )
-    const dialog =
-      testInfo.project.name === 'chromium'
-        ? browser.context.pages().find(page => page.url() === authTab.url)
-        : undefined
-    const authCommand = message =>
-      dialog
-        ? dialog.evaluate(message => chrome.runtime.sendMessage(message), { token, ...message })
-        : browser.command({ token, ...message })
-    expect(JSON.stringify(await authCommand({ command: 'authGet' }))).not.toContain('old-secret')
-    if (dialog) {
-      await expect(dialog.locator('#auth-username')).toHaveValue('old-user')
-      await dialog.locator('#auth-username').fill('new-user')
-      await dialog.locator('#auth-password').fill('wrong')
-      await dialog.locator('#auth-submit').click()
-    } else {
-      await authCommand({ command: 'authSubmit', username: 'new-user', password: 'wrong' })
+          return tabs.some(tab => tab.id === authTab.id)
+        })
+        .toBe(false)
+      if (navigation) {
+        expect(await navigation).toBe(true)
+      }
+    } finally {
+      await browser?.close()
+      for (const socket of sockets) {
+        socket.destroy()
+      }
+      if (proxy) {
+        await stop(proxy)
+      }
+      if (origin) {
+        await stop(origin)
+      }
+      await rm(dir, { recursive: true, force: true })
     }
-    await expect
-      .poll(async () => (await authCommand({ command: 'authGet' })).auth.phase)
-      .toBe('rejected')
-    expect((await browser.command({ command: 'get' })).state.profiles[0].password).toBe(
-      'old-secret'
-    )
-    if (dialog) {
-      await dialog.locator('#auth-password').fill('new-secret')
-      const closed = dialog.waitForEvent('close')
-      await dialog.locator('#auth-submit').click()
-      await closed
-    } else {
-      await authCommand({ command: 'authSubmit', username: 'new-user', password: 'new-secret' })
-    }
-    await expect
-      .poll(async () => (await browser.command({ command: 'get' })).state.profiles[0].password)
-      .toBe('new-secret')
-    expect((await browser.command({ command: 'get' })).state.profiles[0].username).toBe('new-user')
-    await expect
-      .poll(async () => {
-        const { tabs } = await browser.command({ command: 'testTabState' })
-        return tabs.some(tab => tab.id === authTab.id)
-      })
-      .toBe(false)
-    if (navigation) {
-      expect(await navigation).toBe(true)
-    }
-  } finally {
-    await browser?.close()
-    for (const socket of sockets) {
-      socket.destroy()
-    }
-    if (proxy) {
-      await stop(proxy)
-    }
-    if (origin) {
-      await stop(origin)
-    }
-    await rm(dir, { recursive: true, force: true })
-  }
-})
+  })
+}

@@ -254,7 +254,8 @@ If a request expires while the dialog is open, reload its original page to retry
 Firefox disables the knock field and button when both username and password are saved,
 without deleting the saved knock host.
 After a successful HTTP response and completed load, the knock tab closes automatically.
-Load errors, cancellation or unsuccessful authentication leave it open. Chromium
+Load errors, cancellation or unsuccessful authentication leave it open; a successful
+retry still closes it after the page finishes loading. Chromium
 retries a knock load once after `ERR_NETWORK_CHANGED`; subsequent errors leave
 the tab open. Each new knock URL gets a random `r` query parameter to avoid
 reusing a cached page; browser proxy-authentication caches still apply.
