@@ -1908,7 +1908,10 @@ test('country flags use the bundled font in profiles and connection results', as
   await page.locator('#check').click()
   const flag = page.locator('#check-result .country-flag')
   await expect(flag).toHaveText('🇩🇪')
-  await expect(flag).toHaveCSS('font-family', '"Twemoji Country Flags", sans-serif')
+  await expect(flag).toHaveCSS(
+    'font-family',
+    '"Twemoji Mozilla", "Twemoji Country Flags", sans-serif'
+  )
   expect(
     await page.evaluate(async () => {
       const fonts = await document.fonts.load('16px "Twemoji Country Flags"', '🇦🇲🇩🇪')
