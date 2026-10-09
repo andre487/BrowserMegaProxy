@@ -1328,7 +1328,12 @@ test('proxy auth dialog focuses once, retries rejected credentials, and saves on
 test('cancelling or failing proxy verification never persists candidate credentials or origin credentials', async () => {
   for (const scenario of ['cancel', 'cancelAfterSubmit', 'network', 'profileChanged', 'storage']) {
     const h = harness('chromium', {}, undefined, {
-      state: { profiles: [{ id: 'p', host: 'proxy.example', port: 443 }], activeId: 'p' }
+      state: {
+        profiles: [
+          { id: 'p', host: 'proxy.example', port: 443, username: 'old', password: 'old-secret' }
+        ],
+        activeId: 'p'
+      }
     })
     await h.flush()
     const details = {
@@ -1338,6 +1343,8 @@ test('cancelling or failing proxy verification never persists candidate credenti
       isProxy: true,
       challenger: { host: 'proxy.example', port: 443 }
     }
+    const supplied = await new Promise(resolve => h.events.onAuthRequired(details, resolve))
+    assert.equal(supplied.authCredentials.password, 'old-secret')
     const response = new Promise(resolve => h.events.onAuthRequired(details, resolve))
     await new Promise(setImmediate)
     const url = h.calls.find(([event]) => event === 'authWindow')[1].url
@@ -1374,7 +1381,7 @@ test('cancelling or failing proxy verification never persists candidate credenti
     if (scenario === 'network') {
       assert.equal((await send({ command: 'authGet' })).auth.phase, 'failed')
     }
-    assert.equal((await h.send({ command: 'get' })).state.profiles[0].password, '')
+    assert.equal((await h.send({ command: 'get' })).state.profiles[0].password, 'old-secret')
     assert.ok(!JSON.stringify(await send({ command: 'authGet' })).includes('private-secret'))
     const origin = await new Promise(resolve =>
       h.events.onAuthRequired({ ...details, isProxy: false }, resolve)

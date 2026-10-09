@@ -156,7 +156,7 @@ test('proxy authentication without knock follows the challenger even when curren
   assert.equal(h.tabs[0].active, true)
 })
 
-test('startup and activation knock matrix uses saved credentials and opens an active authentication tab when needed', async () => {
+test('startup and activation knock matrix supplies saved credentials and leaves empty credentials to the browser', async () => {
   for (const target of ['chromium', 'firefox']) {
     for (const credentials of [
       {},
@@ -180,10 +180,19 @@ test('startup and activation knock matrix uses saved credentials and opens an ac
         )
       )
       if (!credentials.password) {
-        await new Promise(setImmediate)
-        const tab = h.tabs.find(tab => tab.url.includes('auth.html'))
-        assert.equal(tab.active, true)
-        await h.send({ command: 'authCancel', token: new URL(tab.url).searchParams.get('id') })
+        assert.deepEqual(JSON.parse(JSON.stringify(await pendingAuth)), {})
+        const repeated = await new Promise(resolve =>
+          h.events.onAuthRequired(
+            { isProxy: true, requestId: 'auth', challenger: { host: 'proxy.example', port: 443 } },
+            resolve
+          )
+        )
+        assert.deepEqual(JSON.parse(JSON.stringify(repeated)), {})
+        assert.equal(
+          h.tabs.some(tab => tab.url.includes('auth.html')),
+          false
+        )
+        assert.ok(h.diagnostics.includes('proxy_auth_skipped'))
       }
       const auth = await pendingAuth
       assert.equal(Boolean(auth.authCredentials), Boolean(credentials.password))

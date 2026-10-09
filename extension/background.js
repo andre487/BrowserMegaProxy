@@ -1422,9 +1422,8 @@ api.webRequest.onAuthRequired.addListener(
         const dialog = profile && authDialogs.get(profile.id)
         if (
           profile &&
-          (response.cancel ||
-            !M.hasCredentials(profile) ||
-            (dialog && dialog.phase !== 'cancelled' && dialog.phase !== 'saved'))
+          M.hasCredentials(profile) &&
+          (response.cancel || (dialog && dialog.phase !== 'cancelled' && dialog.phase !== 'saved'))
         ) {
           await showAuth(details, respond, profile)
           return

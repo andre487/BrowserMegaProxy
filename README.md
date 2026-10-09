@@ -239,13 +239,14 @@ list sources belonging to inactive routing modes. Manual list updates remain ava
 | Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
 
 A knock host is optional: its absence does not prevent connecting a profile or show a warning.
-When configured, a normal HTTPS tab opens in the background. Missing credentials or
-a repeated 407 challenge open MegaProxy's authentication window with focus requested,
+When configured, a normal HTTPS tab opens in the background. Without a saved username
+and password, MegaProxy leaves authentication to the browser's native dialog.
+A repeated 407 challenge after supplying saved credentials opens MegaProxy's authentication window with focus requested,
 including challenges from a background knock tab. On Android, the extension opens
 an active authentication tab instead. Only one active dialog is opened per profile.
 The dialog retains edits after a rejected attempt and allows cancellation. New
 credentials stay in memory until the challenged request completes with an HTTP
-response other than 407; then they are saved to that profile and synchronized
+response other than 407; then they are saved to that profile, the dialog closes automatically, and they are synchronized
 according to the existing sync preferences. Network failures, cancellation, profile
 changes, and failed local storage writes do not replace the saved credentials.
 If a request expires while the dialog is open, reload its original page to retry.

@@ -258,7 +258,7 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
       expect((await server.requests()).length).toBe(requestsBeforeBad)
       expect((await browser.command({ command: 'get' })).state.activeId).toBe(entry.id)
 
-      // Without saved credentials both browsers open a knock tab and our authentication dialog.
+      // Without saved credentials both browsers open a knock tab for native authentication.
       await browser.close()
       browser = undefined
       browser = await launchExtension(target, `${server.dir}/unsaved`)
