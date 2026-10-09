@@ -2,7 +2,7 @@ import net from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 
 // Firefox's temporary-addon API, shared by the development launcher and browser tests.
-export async function installFirefoxAddon(port, addonPath, { wake = false } = {}) {
+async function withFirefoxDebugger(port, action) {
   let socket
   for (let attempt = 0; attempt < 50; attempt++) {
     try {
@@ -41,10 +41,12 @@ export async function installFirefoxAddon(port, addonPath, { wake = false } = {}
     }
   })
 
-  async function receive(actor) {
+  async function receive(actor, type) {
     const deadline = Date.now() + 30000
     while (Date.now() < deadline) {
-      const index = packets.findIndex(packet => packet.from === actor && !packet.type)
+      const index = packets.findIndex(
+        packet => packet.from === actor && (type ? packet.type === type : !packet.type)
+      )
       if (index >= 0) {
         const [packet] = packets.splice(index, 1)
         if (packet.error) {
@@ -54,6 +56,9 @@ export async function installFirefoxAddon(port, addonPath, { wake = false } = {}
         return packet
       }
 
+      if (socket.destroyed) {
+        throw new Error('Firefox debugger connection closed')
+      }
       await delay(100)
     }
 
@@ -71,6 +76,14 @@ export async function installFirefoxAddon(port, addonPath, { wake = false } = {}
 
   try {
     await receive('root') // Initial greeting.
+    return await action(request, receive)
+  } finally {
+    socket.destroy()
+  }
+}
+
+export async function installFirefoxAddon(port, addonPath, { wake = false } = {}) {
+  return withFirefoxDebugger(port, async request => {
     const root = await request('root', 'getRoot')
     const installed = await request(root.addonsActor, 'installTemporaryAddon', { addonPath })
     if (wake) {
@@ -82,7 +95,20 @@ export async function installFirefoxAddon(port, addonPath, { wake = false } = {}
       await request(addon.actor, 'reload')
     }
     return installed
-  } finally {
-    socket.destroy()
-  }
+  })
+}
+
+export async function quitFirefox(port) {
+  return withFirefoxDebugger(port, async (request, receive) => {
+    const { processDescriptor } = await request('root', 'getProcess', { id: 0 })
+    const { process } = await request(processDescriptor.actor, 'getTarget')
+    // Let the evaluation result reach the client before quitting closes the debugger connection.
+    await request(process.consoleActor, 'evaluateJSAsync', {
+      text: 'setTimeout(() => Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit), 100)'
+    })
+    const result = await receive(process.consoleActor, 'evaluationResult')
+    if (result.exception) {
+      throw new Error(`Firefox quit failed: ${result.exceptionMessage}`)
+    }
+  })
 }

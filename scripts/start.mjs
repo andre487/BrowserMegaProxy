@@ -5,7 +5,7 @@ import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from '@playwright/test'
-import { installFirefoxAddon } from './firefox-addon.mjs'
+import { installFirefoxAddon, quitFirefox } from './firefox-addon.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 
@@ -76,6 +76,9 @@ export async function launchBrowser(
     const context = await chromium.launchPersistentContext(profileDir, {
       channel: 'chrome',
       headless,
+      handleSIGINT: false,
+      handleSIGTERM: false,
+      handleSIGHUP: false,
       viewport: null,
       ignoreDefaultArgs: ['--disable-extensions'],
       args: ['--enable-unsafe-extension-debugging']
@@ -176,7 +179,7 @@ export async function launchBrowser(
       String(port),
       'about:addons'
     ],
-    { stdio: 'inherit' }
+    { stdio: 'inherit', detached: process.platform !== 'win32' }
   )
   const closed = new Promise((resolve, reject) => {
     child.once('error', reject)
@@ -193,7 +196,19 @@ export async function launchBrowser(
       })
     ])
 
-    return { reload: () => installFirefoxAddon(port, extension), close: () => child.kill(), closed }
+    let closing
+    return {
+      reload: () => installFirefoxAddon(port, extension),
+      close: () =>
+        (closing ||= (async () => {
+          if (child.exitCode !== null || child.signalCode !== null) {
+            return
+          }
+          await quitFirefox(port)
+          await closed
+        })()),
+      closed
+    }
   } catch (error) {
     child.kill()
     throw error
@@ -275,42 +290,79 @@ export async function build() {
   })
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+export async function start({ browser = selectBrowser(), ...launchOptions } = {}) {
   let session
   let stopWatching
+  let stopping = false
+  let signalStop
+  const interrupted = new Promise(resolve => {
+    signalStop = resolve
+  })
+  const stop = () => {
+    stopping = true
+    stopWatching?.()
+    signalStop()
+  }
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(signal, stop)
+  }
   try {
-    const browser = selectBrowser()
     process.chdir(root)
     await build()
-    console.log(`Starting ${browser}; profile: ${path.join(root, '.browser-profiles', browser)}`)
-    session = await launchBrowser(browser)
+    if (stopping) {
+      return
+    }
+    console.log(
+      `Starting ${browser}; profile: ${launchOptions.profileDir || path.join(root, '.browser-profiles', browser)}`
+    )
+    session = await launchBrowser(browser, launchOptions)
+    if (stopping) {
+      return
+    }
     if (process.argv.includes('--watch') || process.env.npm_config_watch === 'true') {
-      stopWatching = watchSources(async () => {
-        await build()
-        await session.reload()
-        console.log('Rebuilt and reloaded extension.')
-      })
+      stopWatching = watchSources(
+        async () => {
+          await build()
+          if (stopping) {
+            return
+          }
+          await session.reload()
+          console.log('Rebuilt and reloaded extension.')
+        },
+        {
+          onError: error => {
+            if (!stopping) {
+              console.error(`Rebuild failed: ${error.message}`)
+            }
+          }
+        }
+      )
       console.log('Watching extension/ and scripts/build.mjs for changes.')
     }
 
     console.log('Extension loaded. Close the browser or press Ctrl+C to stop.')
-    process.once('SIGINT', () => {
-      stopWatching?.()
-      session.close()
-    })
-    process.once('SIGTERM', () => {
-      stopWatching?.()
-      session.close()
-    })
-    await session.closed
+    await Promise.race([session.closed, interrupted])
   } catch (error) {
-    await session?.close()
-    console.error(`Unable to start: ${error.message}`)
-    console.error(
-      'Install/update the selected browser and close any previous development session using this profile.'
-    )
-    process.exitCode = 1
+    if (!stopping) {
+      console.error(`Unable to start: ${error.message}`)
+      console.error(
+        'Install/update the selected browser and close any previous development session using this profile.'
+      )
+      process.exitCode = 1
+    }
   } finally {
     stopWatching?.()
+    try {
+      await session?.close()
+      await session?.closed
+    } finally {
+      for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+        process.off(signal, stop)
+      }
+    }
   }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await start()
 }

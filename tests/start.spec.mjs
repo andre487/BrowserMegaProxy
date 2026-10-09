@@ -1,6 +1,7 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { spawn } from 'node:child_process'
 import { expect, firefox, test } from '@playwright/test'
 import { build, launchBrowser, selectBrowser } from '../scripts/start.mjs'
 
@@ -28,7 +29,7 @@ test('development launcher installs and reloads the Firefox extension on a persi
 
     await session.reload()
     await session.close()
-    await session.closed
+    expect(await session.closed).toEqual({ code: 0, signal: null })
     session = await launchBrowser('firefox', {
       headless: true,
       profileDir,
@@ -38,6 +39,58 @@ test('development launcher installs and reloads the Firefox extension on a persi
   } finally {
     await session?.close()
     await session?.closed
+    await rm(profileDir, { recursive: true, force: true })
+  }
+})
+
+test('Ctrl+C exits the development launcher and browser cleanly', async ({ browserName }) => {
+  test.skip(process.platform === 'win32', 'Terminal process-group signals are tested on Unix')
+  const profileDir = await mkdtemp(path.join(tmpdir(), 'mega-launcher-interrupt-'))
+  const options = {
+    browser: browserName === 'chromium' ? 'chrome' : 'firefox',
+    headless: true,
+    profileDir,
+    ...(browserName === 'firefox' ? { executablePath: firefox.executablePath() } : {})
+  }
+  const child = spawn(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { start } from './scripts/start.mjs'; await start(${JSON.stringify(options)})`
+    ],
+    { detached: true, stdio: ['ignore', 'pipe', 'pipe'] }
+  )
+  let output = ''
+  child.stdout.on('data', chunk => {
+    output += chunk
+  })
+  child.stderr.on('data', chunk => {
+    output += chunk
+  })
+  const exited = new Promise(resolve =>
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  )
+  try {
+    await expect.poll(() => output, { timeout: 20000 }).toContain('Extension loaded.')
+    process.kill(-child.pid, 'SIGINT')
+    expect(await exited).toEqual({ code: 0, signal: null })
+    expect(output).not.toContain('Unable to start:')
+    expect(output).not.toContain('UnhandledPromiseRejection')
+    if (browserName === 'chromium') {
+      const preferences = JSON.parse(await readFile(`${profileDir}/Default/Preferences`, 'utf8'))
+      expect(preferences.profile.exit_type).toBe('Normal')
+    } else {
+      const checkpoints = JSON.parse(
+        await readFile(`${profileDir}/sessionCheckpoints.json`, 'utf8')
+      )
+      expect(checkpoints['profile-before-change']).toBe(true)
+    }
+  } finally {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGTERM')
+      await exited
+    }
     await rm(profileDir, { recursive: true, force: true })
   }
 })
