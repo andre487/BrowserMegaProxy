@@ -319,6 +319,38 @@ test('IPv6 knock success is recognized without marking its own host for refresh'
 })
 
 for (const target of ['chromium', 'firefox']) {
+  test(`${target} closes an active native-auth knock tab only after a successful response and full load`, async () => {
+    for (const loadFirst of [false, true]) {
+      const h = harness(target, {}, tabs(), false)
+      await h.send({ command: 'knock' })
+      assert.equal(h.created[0].active, true)
+      const auth = await new Promise(resolve =>
+        h.events.onAuthRequired(
+          { isProxy: true, requestId: 'native', challenger: { host: 'proxy.example', port: 443 } },
+          resolve
+        )
+      )
+      assert.deepEqual(JSON.parse(JSON.stringify(auth)), {})
+      const loaded = () =>
+        h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+      if (loadFirst) {
+        loaded()
+      } else {
+        h.complete(200)
+      }
+      await h.flush()
+      assert.equal(h.opened.has(99), true, 'both a successful response and full load are required')
+      if (loadFirst) {
+        h.complete(200)
+      } else {
+        loaded()
+      }
+      await h.flush()
+      assert.equal(h.opened.has(99), false)
+      assert.equal(h.opened.has(1), true)
+    }
+  })
+
   test(`${target} closes only successful fully loaded knock tabs and leaves failures open`, async () => {
     for (const outcome of ['success', 'http', 'network']) {
       const h = harness(target, {}, tabs(), target !== 'firefox')
