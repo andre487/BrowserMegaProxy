@@ -1192,11 +1192,6 @@ api.tabs.onRemoved?.addListener(tabId => {
   forcedTabs.delete(tabId)
 })
 api.tabs.onUpdated?.addListener((tabId, change, tab) => {
-  if (change.status === 'loading') {
-    queue = queue
-      .then(() => updateKnockTab(tabId, { loading: true, url: change.url || tab?.url }))
-      .catch(() => {})
-  }
   if (change.status === 'complete') {
     queue = queue.then(() => updateKnockTab(tabId, { loaded: true, url: tab?.url })).catch(() => {})
     updateBadge(tabId).catch(() => {})
@@ -1545,6 +1540,15 @@ function configureStatistics() {
 
 ready.then(configureStatistics)
 
+// tabs.onUpdated can report "loading" after a fast response has already completed.
+api.webRequest.onBeforeRequest?.addListener(
+  details => {
+    queue = queue
+      .then(() => updateKnockTab(details.tabId, { loading: true, url: details.url }))
+      .catch(() => {})
+  },
+  { urls: ['<all_urls>'], types: ['main_frame'] }
+)
 api.webRequest.onCompleted.addListener(
   details => {
     finishAuth(details)

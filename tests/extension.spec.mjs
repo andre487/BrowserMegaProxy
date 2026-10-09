@@ -56,6 +56,8 @@ for (const scenario of ['auto', 'challenge']) {
       )
       const requests = []
       const originHeaders = []
+      const resourceRoutes = new Map()
+      let splitLoad = 0
       const tlsOptions = {
         key: await readFile(`${dir}/key.pem`),
         cert: await readFile(`${dir}/cert.pem`)
@@ -71,10 +73,13 @@ for (const scenario of ['auto', 'challenge']) {
         }
         if (req.url === '/split') {
           res.setHeader('Content-Type', 'text/html')
-          res.end(`<p>Split routing page</p><img src="https://[::1]:${originPort}/resource">`)
+          res.end(
+            `<p>Split routing page</p><img src="https://[::1]:${originPort}/resource?load=${++splitLoad}">`
+          )
           return
         }
-        if (req.url === '/resource') {
+        if (req.url.startsWith('/resource?')) {
+          resourceRoutes.set(req.url, req.socket.remoteAddress)
           res.setHeader('Content-Type', 'image/svg+xml')
           res.end('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>')
           return
@@ -286,26 +291,28 @@ for (const scenario of ['auto', 'challenge']) {
         })
         await page.goto('https://target.invalid/split')
         await expect(page.locator('img')).toHaveJSProperty('naturalWidth', 1)
-        const proxiedResources = requests.filter(r => r.target === `[::1]:${originPort}`).length
-        expect(proxiedResources).toBeGreaterThan(0)
+        const resourceRoute = async tab => {
+          const url = new URL(await tab.locator('img').getAttribute('src'))
+          return resourceRoutes.get(url.pathname + url.search)
+        }
+        expect(await resourceRoute(page)).toBe('::ffff:127.0.0.1')
         await direct.reload()
         await expect(direct.locator('img')).toHaveJSProperty('naturalWidth', 1)
-        expect(requests.filter(r => r.target === `[::1]:${originPort}`).length).toBe(
-          proxiedResources
-        )
+        expect(await resourceRoute(direct)).toBe('::1')
         await direct.bringToFront()
         expect((await command({ command: 'currentSite' })).currentSite.hostname).toBe('::1')
+        const proxiedLoad = direct.waitForEvent('load')
         const proxied = await command({ command: 'toggleTab' })
         expect(proxied.currentSite.proxied).toBe(true)
-        await expect
-          .poll(() => requests.filter(r => r.target === `[::1]:${originPort}`).length)
-          .toBeGreaterThan(proxiedResources)
-        await direct.waitForLoadState('load')
-        const afterToggle = requests.filter(r => r.target === `[::1]:${originPort}`).length
+        await proxiedLoad
+        await expect(direct.locator('img')).toHaveJSProperty('naturalWidth', 1)
+        expect(await resourceRoute(direct)).toBe('::ffff:127.0.0.1')
+        const unproxiedLoad = direct.waitForEvent('load')
         const unproxied = await command({ command: 'toggleTab' })
         expect(unproxied.currentSite.proxied).toBe(false)
-        await direct.waitForLoadState('load')
-        expect(requests.filter(r => r.target === `[::1]:${originPort}`).length).toBe(afterToggle)
+        await unproxiedLoad
+        await expect(direct.locator('img')).toHaveJSProperty('naturalWidth', 1)
+        expect(await resourceRoute(direct)).toBe('::1')
       }
       if (target === 'firefox') {
         const secondaryRequests = []
@@ -526,10 +533,13 @@ for (const authentication of ['saved', 'native']) {
         expect(knockPage.isClosed()).toBe(false)
         await browser.command({ command: 'get' })
         await browser.context.setHTTPCredentials({ username: 'new-user', password: 'new-secret' })
-        await knockPage.reload().catch(error => {
-          if (!knockPage.isClosed()) {
-            throw error
-          }
+        // Reload through the extension API: Playwright may try to return a navigation
+        // Response after the extension has already closed this short-lived page.
+        await browser.context.serviceWorkers()[0].evaluate(async () => {
+          const tab = (await chrome.tabs.query({})).find(tab =>
+            tab.url?.startsWith('https://knock.invalid/')
+          )
+          await chrome.tabs.reload(tab.id)
         })
         await expect.poll(() => knockPage.isClosed()).toBe(true)
         expect(proxyAttempts).toContain(false)
