@@ -622,6 +622,13 @@ function FindProxyForURL(url, host) {
     return { config: project(input, ''), unknownFields }
   }
 
+  function randomImportColor(profiles) {
+    const used = new Set(profiles.map(p => p.color % colors.length))
+    const available = colors.map((_, index) => index).filter(index => !used.has(index))
+    const palette = available.length ? available : colors.map((_, index) => index)
+    return palette[Math.floor(Math.random() * palette.length)]
+  }
+
   function importProfiles(input, target = root.MEGA_TARGET) {
     const client = root.MegaPlatform.create(target)
     let data = input
@@ -683,7 +690,7 @@ function FindProxyForURL(url, host) {
               port: url.port || (url.protocol === 'https:' ? 443 : 80),
               username,
               password,
-              color: profiles.length
+              color: randomImportColor(profiles)
             })
           )
         }
@@ -871,7 +878,7 @@ function FindProxyForURL(url, host) {
         ? paletteIndex >= 0
           ? paletteIndex
           : profiles.length
-        : (entry.color ?? profiles.length)
+        : (entry.color ?? (portable ? profiles.length : randomImportColor(profiles)))
       const result = profile({
         ...p,
         id: portable ? entry.id || `import-${profiles.length}` : undefined,

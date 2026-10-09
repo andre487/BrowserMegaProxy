@@ -154,6 +154,38 @@ test('all Android input formats preserve encoded credentials, metadata and rejec
   assert.throws(() => M.importProfiles(chain), /errorImportCompatible/)
 })
 
+test('imports without colors choose random distinct palette colors and preserve supplied colors', t => {
+  const random = t.mock.method(Math, 'random', () => 0.999)
+  const urls = Array.from(
+    { length: M.colors.length + 1 },
+    (_, index) => `https://user:secret@proxy${index}.example:443`
+  ).join('\n')
+  const imported = M.importProfiles(urls).profiles
+  assert.equal(imported[0].color, M.colors.length - 1)
+  assert.equal(new Set(imported.slice(0, M.colors.length).map(p => p.color)).size, M.colors.length)
+  assert.ok(
+    imported.every(p => Number.isInteger(p.color) && p.color >= 0 && p.color < M.colors.length)
+  )
+  random.mock.mockImplementation(() => 0)
+  assert.equal(M.importProfiles(urls).profiles[0].color, 0)
+
+  const entries = [
+    { host: 'one.example', type: 'https', color: 0 },
+    { host: 'two.example', type: 'https' },
+    { host: 'three.example', type: 'https', color: M.colors[5] }
+  ]
+  for (const input of [entries, { profiles: entries }, { data: entries }]) {
+    assert.deepEqual(
+      M.importProfiles(input).profiles.map(p => p.color),
+      [0, 1, 5]
+    )
+  }
+  assert.equal(M.importProfiles(portable).profiles[0].color, 5)
+  const withoutColor = structuredClone(portable)
+  delete withoutColor.profiles[0].color
+  assert.equal(M.importProfiles(withoutColor).profiles[0].color, 0)
+})
+
 test('local networks bypass by default and disabling it routes literals through the proxy', () => {
   const p = M.profile({ host: 'proxy.example', port: 443 })
   for (const host of [
