@@ -18,6 +18,7 @@ const M = MegaProxy
 const diagnosticLog = typeof indexedDB === 'undefined' ? null : new MegaDiagnosticLog()
 let state = { ...M.defaults(), theme: platform.defaultTheme }
 const attempts = new Set()
+const authDialogs = new Map()
 const tabUrls = new Map()
 const tabOverrides = new Map()
 const forcedTabs = new Set()
@@ -122,7 +123,7 @@ async function knock() {
 
   await platform.prepareKnock(p, knockRefresh, refreshEligible, storeKnockRefresh)
   // Completion events are queued behind this operation, so the tab ID is stored before success is handled.
-  // A browser tab allows the native proxy credential prompt; extension fetch does not.
+  // A browser tab allows interactive proxy authentication; extension fetch does not.
   const tab = await api.tabs.create({
     url: 'about:blank',
     active: false
@@ -690,6 +691,9 @@ async function refreshSubscriptions(force = false, panel = false) {
 
 async function handle(message) {
   await ready
+  if (['authGet', 'authSubmit', 'authCancel'].includes(message.command)) {
+    return authCommand(message)
+  }
   if (message.command === 'telemetry') {
     return { ok: true, ...(state.statisticsEnabled ? { statistics: { ...statistics } } : {}) }
   }
@@ -1024,6 +1028,15 @@ async function handle(message) {
 
     await api.storage.local.set({ state: next })
     startupError = undefined
+    if (['save', 'activate', 'delete', 'import', 'connectionMode'].includes(message.command)) {
+      for (const [id, dialog] of authDialogs) {
+        const profile = state.profiles.find(profile => profile.id === id)
+        if (dialog.phase === 'cancelled' || !sameAuthProfile(profile, dialog.profile)) {
+          cancelAuth(dialog)
+          authDialogs.delete(id)
+        }
+      }
+    }
   } catch (error) {
     state = old
     diagnosticLog?.write('settings_failed', MegaErrors.details(error, message.command))
@@ -1110,7 +1123,17 @@ api.runtime.onMessage.addListener((message, sender, respond) => {
     return false
   }
 
-  if (['get', 'currentSite', 'network', 'telemetry'].includes(message.command)) {
+  if (
+    ['authGet', 'authSubmit', 'authCancel'].includes(message.command) &&
+    sender.url !== api.runtime.getURL('auth.html') + '?id=' + message.token
+  ) {
+    return false
+  }
+  if (
+    ['get', 'currentSite', 'network', 'telemetry', 'authGet', 'authSubmit', 'authCancel'].includes(
+      message.command
+    )
+  ) {
     handle(message)
       .then(respond)
       .catch(error => respond(operationFailure(error, message.command)))
@@ -1135,6 +1158,18 @@ platform.registerRouting({
 
 api.tabs.onRemoved?.addListener(tabId => {
   queue = queue.then(() => updateKnockTab(tabId, { failed: true })).catch(() => {})
+  for (const dialog of authDialogs.values()) {
+    if (dialog.dialogTabId === tabId) {
+      cancelAuth(dialog)
+      dialog.windowId = undefined
+      dialog.dialogTabId = undefined
+    } else if (
+      dialog.tabId === tabId &&
+      ['waiting', 'rejected', 'checking'].includes(dialog.phase)
+    ) {
+      cancelAuth(dialog)
+    }
+  }
   badgeVersions.delete(tabId)
   networkLog.delete(tabId)
   tabUrls.delete(tabId)
@@ -1167,29 +1202,250 @@ platform.registerKnockRefresh({
   finish: finishKnockRefresh
 })
 
+function sameAuthProfile(profile, original) {
+  return (
+    profile &&
+    ['host', 'port', 'type', 'username', 'password'].every(key => profile[key] === original[key])
+  )
+}
+
+function authView(dialog) {
+  return {
+    ok: true,
+    auth: {
+      phase: dialog.phase,
+      name: dialog.profile.name || dialog.profile.host,
+      host: dialog.profile.host,
+      port: dialog.profile.port,
+      username: dialog.profile.username,
+      errorDetails: dialog.errorDetails,
+      theme: state.theme,
+      language: state.language
+    }
+  }
+}
+
+function cancelAuth(dialog) {
+  const pending = !['saved', 'cancelled'].includes(dialog.phase)
+  dialog.phase = 'cancelled'
+  dialog.credentials = undefined
+  const respond = dialog.respond
+  dialog.respond = undefined
+  respond?.({ cancel: true })
+  if (pending) {
+    diagnosticLog?.write('proxy_auth_cancelled', { operation: 'authentication' })
+  }
+}
+
+async function showAuth(details, respond, profile) {
+  let dialog = authDialogs.get(profile.id)
+  if (dialog?.phase === 'cancelled') {
+    if (details.type !== 'main_frame') {
+      respond({ cancel: true })
+      return
+    }
+    authDialogs.delete(profile.id)
+    dialog = undefined
+  }
+  if (
+    dialog?.respond ||
+    (dialog?.phase === 'checking' && dialog.requestId !== details.requestId) ||
+    dialog?.phase === 'saving'
+  ) {
+    respond({ cancel: true })
+    return
+  }
+  if (!dialog) {
+    dialog = { token: crypto.randomUUID(), profile: { ...profile } }
+    authDialogs.set(profile.id, dialog)
+  }
+  dialog.phase = dialog.phase === 'checking' ? 'rejected' : 'waiting'
+  dialog.errorDetails =
+    dialog.phase === 'rejected'
+      ? MegaErrors.details(new Error('errorAuthRejected'), 'authentication')
+      : undefined
+  dialog.credentials = undefined
+  dialog.requestId = details.requestId
+  dialog.tabId = details.tabId
+  dialog.respond = respond
+  if (dialog.windowId !== undefined || dialog.dialogTabId !== undefined) {
+    await api.tabs.update(dialog.dialogTabId, { active: true })
+    if (dialog.windowId !== undefined) {
+      await api.windows.update(dialog.windowId, { focused: true })
+    }
+    return
+  }
+  const url = api.runtime.getURL('auth.html') + '?id=' + dialog.token
+  const mobile = (await api.runtime.getPlatformInfo?.())?.os === 'android'
+  if (!mobile && api.windows?.create) {
+    const window = await api.windows.create({
+      url,
+      type: 'popup',
+      focused: true,
+      width: 440,
+      height: 460
+    })
+    dialog.windowId = window.id
+    dialog.dialogTabId = window.tabs?.[0]?.id
+  } else {
+    const tab = await api.tabs.create({ url, active: true })
+    dialog.dialogTabId = tab.id
+  }
+  diagnosticLog?.write('proxy_auth_dialog_opened', { operation: 'authentication' })
+}
+
+async function authCommand(message) {
+  const dialog = [...authDialogs.values()].find(dialog => dialog.token === message.token)
+  if (!dialog) {
+    throw new Error('errorAuthExpired')
+  }
+  if (message.command === 'authGet') {
+    return authView(dialog)
+  }
+  if (message.command === 'authCancel') {
+    cancelAuth(dialog)
+    return { ok: true }
+  }
+  if (!dialog.respond || !['waiting', 'rejected'].includes(dialog.phase)) {
+    throw new Error('errorAuthExpired')
+  }
+  if (
+    !sameAuthProfile(
+      state.profiles.find(profile => profile.id === dialog.profile.id),
+      dialog.profile
+    )
+  ) {
+    throw new Error('errorAuthProfileChanged')
+  }
+  if (typeof message.username !== 'string' || typeof message.password !== 'string') {
+    throw new Error('errorAuthCredentials')
+  }
+  const profile = M.profile({
+    ...dialog.profile,
+    username: message.username,
+    password: message.password
+  })
+  if (!M.hasCredentials(profile)) {
+    throw new Error('errorAuthCredentials')
+  }
+  dialog.credentials = { username: profile.username, password: profile.password }
+  dialog.phase = 'checking'
+  dialog.errorDetails = undefined
+  const respond = dialog.respond
+  dialog.respond = undefined
+  respond({ authCredentials: dialog.credentials })
+  diagnosticLog?.write('proxy_auth_submitted', { operation: 'authentication' })
+  return authView(dialog)
+}
+
+function finishAuth(details, failed = false) {
+  const dialog = [...authDialogs.values()].find(dialog => dialog.requestId === details.requestId)
+  if (!dialog || !['checking', 'waiting', 'rejected'].includes(dialog.phase)) {
+    return
+  }
+  if (
+    failed ||
+    !Number.isInteger(details.statusCode) ||
+    details.statusCode < 200 ||
+    details.statusCode > 599 ||
+    details.statusCode === 407 ||
+    !dialog.credentials
+  ) {
+    dialog.respond = undefined
+    dialog.credentials = undefined
+    dialog.phase = 'failed'
+    dialog.errorDetails = MegaErrors.details(
+      new Error('errorAuthUnconfirmed', {
+        cause: details.error
+          ? new Error(details.error)
+          : details.statusCode === 407
+            ? new Error('errorAuthRejected')
+            : undefined
+      }),
+      'authentication'
+    )
+    diagnosticLog?.write('proxy_auth_unconfirmed', dialog.errorDetails)
+    return
+  }
+  dialog.phase = 'saving'
+  const credentials = dialog.credentials
+  queue = queue
+    .then(async () => {
+      if (dialog.phase !== 'saving') {
+        return
+      }
+      // Save only after the challenged request reaches an HTTP response; no speculative credential writes.
+      const current = state.profiles.find(profile => profile.id === dialog.profile.id)
+      if (!sameAuthProfile(current, dialog.profile)) {
+        throw new Error('errorAuthProfileChanged')
+      }
+      const profile = M.profile({ ...current, ...credentials })
+      const next = {
+        ...state,
+        profiles: state.profiles.map(p => (p.id === profile.id ? profile : p))
+      }
+      await api.storage.local.set({ state: next })
+      state = next
+      dialog.profile = { ...profile }
+      dialog.credentials = undefined
+      dialog.phase = 'saved'
+      await publishSync()
+      diagnosticLog?.write('proxy_auth_saved', { operation: 'authentication' })
+    })
+    .catch(error => {
+      dialog.credentials = undefined
+      dialog.phase = 'failed'
+      dialog.errorDetails = MegaErrors.details(error, 'save')
+      diagnosticLog?.write('proxy_auth_save_failed', dialog.errorDetails)
+    })
+}
+
+api.windows?.onRemoved?.addListener(windowId => {
+  for (const dialog of authDialogs.values()) {
+    if (dialog.windowId === windowId) {
+      cancelAuth(dialog)
+      dialog.windowId = undefined
+      dialog.dialogTabId = undefined
+    }
+  }
+})
+
 api.webRequest.onAuthRequired.addListener(
   (details, respond) => {
     if (details.isProxy) {
       diagnosticLog?.write('proxy_auth_required', { type: details.type })
     }
     ready
-      .then(() => {
-        // Authenticate the actual proxy challenger; routing may have changed since the request began.
+      .then(async () => {
+        const profile = M.authProfile(details, state)
         const response = M.auth(details, state, attempts)
+        const dialog = profile && authDialogs.get(profile.id)
+        if (
+          profile &&
+          (response.cancel ||
+            !M.hasCredentials(profile) ||
+            (dialog && dialog.phase !== 'cancelled' && dialog.phase !== 'saved'))
+        ) {
+          await showAuth(details, respond, profile)
+          return
+        }
         if (details.isProxy) {
           diagnosticLog?.write(
-            response.authCredentials
-              ? 'proxy_auth_supplied'
-              : response.cancel
-                ? 'proxy_auth_cancelled'
-                : 'proxy_auth_skipped'
+            response.authCredentials ? 'proxy_auth_supplied' : 'proxy_auth_skipped'
           )
         }
         respond(response)
       })
       .catch(error => {
+        const dialog = [...authDialogs.values()].find(
+          dialog => dialog.requestId === details.requestId
+        )
+        if (dialog) {
+          cancelAuth(dialog)
+        } else {
+          respond({ cancel: true })
+        }
         diagnosticLog?.write('proxy_auth_failed', MegaErrors.details(error, 'authentication'))
-        respond({ cancel: true })
       })
   },
   { urls: ['<all_urls>'] },
@@ -1272,6 +1528,7 @@ ready.then(configureStatistics)
 
 api.webRequest.onCompleted.addListener(
   details => {
+    finishAuth(details)
     attempts.delete(details.requestId)
     if (details.type === 'main_frame') {
       queue = queue.then(() => updateKnockTab(details.tabId, details)).catch(() => {})
@@ -1281,6 +1538,7 @@ api.webRequest.onCompleted.addListener(
 )
 api.webRequest.onErrorOccurred.addListener(
   details => {
+    finishAuth(details, true)
     attempts.delete(details.requestId)
     if (details.tabId >= 0 && ['main_frame', 'xmlhttprequest'].includes(details.type)) {
       diagnosticLog?.write('request_failed', {

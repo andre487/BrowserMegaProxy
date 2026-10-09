@@ -891,3 +891,8 @@ dialog h2 {
 :root[data-surface='popup'] .popup {
   max-width: none;
 }
+
+.auth-page #auth-profile,
+.auth-page #auth-endpoint {
+  overflow-wrap: anywhere;
+}

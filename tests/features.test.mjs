@@ -62,7 +62,16 @@ function harness(target = 'firefox', shared = {}, fetch = globalThis.fetch, init
       create: item => menus.set(item.id, item),
       onClicked: listener('menu')
     },
+    windows: {
+      create: async options => {
+        calls.push(['authWindow', options])
+        return { id: 8, tabs: [{ id: 9 }] }
+      },
+      update: async (id, options) => calls.push(['focusWindow', id, options]),
+      onRemoved: listener('windowRemoved')
+    },
     tabs: {
+      update: async (id, options) => calls.push(['updateTab', id, options]),
       query: async () => [{ id: 1, url: 'https://sub.example.com/' }],
       get: async () => ({ url: 'https://sub.example.com/' }),
       reload: async () => {},
@@ -1233,4 +1242,143 @@ test('background errors identify downloads, HTTP status, timeout and read-only o
   assert.equal(response.ok, false)
   assert.equal(response.errorDetails.operation, 'currentSite')
   assert.equal(response.errorDetails.code, 'errorUnexpected')
+})
+
+test('proxy auth dialog focuses once, retries rejected credentials, and saves only confirmed credentials', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    const h = harness(target, {}, undefined, {
+      state: {
+        profiles: [
+          {
+            id: 'p',
+            name: 'Proxy',
+            host: 'proxy.example',
+            port: 443,
+            username: 'old',
+            password: 'old-secret'
+          }
+        ],
+        activeId: 'p'
+      }
+    })
+    await h.flush()
+    const details = {
+      requestId: 'r',
+      tabId: 4,
+      type: 'main_frame',
+      url: 'https://knock.example/',
+      isProxy: true,
+      challenger: { host: 'proxy.example', port: 443 }
+    }
+    const challenge = extra =>
+      new Promise(resolve => h.events.onAuthRequired({ ...details, ...extra }, resolve))
+    assert.equal((await challenge()).authCredentials.password, 'old-secret')
+    const waiting = challenge()
+    await new Promise(setImmediate)
+    const opened = h.calls.find(([event]) => event === 'authWindow')[1]
+    assert.equal(opened.focused, true)
+    assert.equal(opened.type, 'popup')
+    const token = new URL(opened.url).searchParams.get('id')
+    const send = command =>
+      new Promise(resolve =>
+        h.events.message({ token, ...command }, { id: 'test', url: opened.url }, resolve)
+      )
+    assert.equal(
+      h.events.message(
+        { command: 'authGet', token },
+        { id: 'test', url: 'https://evil.example/' },
+        () => assert.fail()
+      ),
+      false
+    )
+    assert.equal(
+      h.events.message(
+        { command: 'authSubmit', token },
+        { id: 'test', url: h.api.runtime.getURL('options.html') },
+        () => assert.fail()
+      ),
+      false
+    )
+    assert.ok(!JSON.stringify(await send({ command: 'authGet' })).includes('old-secret'))
+    const sibling = await challenge({ requestId: 'sibling', type: 'image' })
+    assert.equal(sibling.cancel, true)
+    assert.equal(h.calls.filter(([event]) => event === 'authWindow').length, 1)
+    assert.equal(
+      (await send({ command: 'authSubmit', username: 'new', password: 'wrong' })).ok,
+      true
+    )
+    assert.equal((await waiting).authCredentials.password, 'wrong')
+    assert.equal((await h.send({ command: 'get' })).state.profiles[0].password, 'old-secret')
+    const retry = challenge()
+    await new Promise(setImmediate)
+    assert.equal((await send({ command: 'authGet' })).auth.phase, 'rejected')
+    assert.ok(h.calls.some(([event, , options]) => event === 'focusWindow' && options.focused))
+    await send({ command: 'authSubmit', username: 'new', password: 'correct' })
+    assert.equal((await retry).authCredentials.password, 'correct')
+    assert.equal((await h.send({ command: 'get' })).state.profiles[0].password, 'old-secret')
+    h.events.onCompleted({ ...details, statusCode: 200 })
+    await h.flush()
+    assert.equal((await send({ command: 'authGet' })).auth.phase, 'saved')
+    assert.equal(h.stored().state.profiles[0].username, 'new')
+    assert.equal(h.stored().state.profiles[0].password, 'correct')
+    assert.ok(!JSON.stringify(await send({ command: 'authGet' })).includes('correct'))
+  }
+})
+
+test('cancelling or failing proxy verification never persists candidate credentials or origin credentials', async () => {
+  for (const scenario of ['cancel', 'cancelAfterSubmit', 'network', 'profileChanged', 'storage']) {
+    const h = harness('chromium', {}, undefined, {
+      state: { profiles: [{ id: 'p', host: 'proxy.example', port: 443 }], activeId: 'p' }
+    })
+    await h.flush()
+    const details = {
+      requestId: 'r',
+      type: 'main_frame',
+      tabId: 4,
+      isProxy: true,
+      challenger: { host: 'proxy.example', port: 443 }
+    }
+    const response = new Promise(resolve => h.events.onAuthRequired(details, resolve))
+    await new Promise(setImmediate)
+    const url = h.calls.find(([event]) => event === 'authWindow')[1].url
+    const token = new URL(url).searchParams.get('id')
+    const send = message =>
+      new Promise(resolve => h.events.message({ token, ...message }, { id: 'test', url }, resolve))
+    if (scenario === 'cancel') {
+      h.events.windowRemoved(8)
+      assert.equal((await response).cancel, true)
+    } else {
+      await send({ command: 'authSubmit', username: 'new', password: 'private-secret' })
+      assert.equal((await response).authCredentials.password, 'private-secret')
+      if (scenario === 'cancelAfterSubmit') {
+        h.events.windowRemoved(8)
+      }
+      if (scenario === 'profileChanged') {
+        await h.send({
+          command: 'save',
+          profile: { id: 'p', host: 'different.example', port: 443 }
+        })
+      }
+      if (scenario === 'storage') {
+        h.api.storage.local.set = async () => {
+          throw new DOMException('private-secret', 'QuotaExceededError')
+        }
+      }
+      if (scenario === 'network') {
+        h.events.onErrorOccurred({ ...details, error: 'net::ERR_CONNECTION_RESET' })
+      } else {
+        h.events.onCompleted({ ...details, statusCode: 200 })
+      }
+    }
+    await h.flush()
+    if (scenario === 'network') {
+      assert.equal((await send({ command: 'authGet' })).auth.phase, 'failed')
+    }
+    assert.equal((await h.send({ command: 'get' })).state.profiles[0].password, '')
+    assert.ok(!JSON.stringify(await send({ command: 'authGet' })).includes('private-secret'))
+    const origin = await new Promise(resolve =>
+      h.events.onAuthRequired({ ...details, isProxy: false }, resolve)
+    )
+    assert.deepEqual(JSON.parse(JSON.stringify(origin)), {})
+  }
 })

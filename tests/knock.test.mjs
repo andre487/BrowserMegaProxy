@@ -34,7 +34,7 @@ function harness(target, credentials) {
   const api = {
     runtime: {
       id: 'test',
-      getURL: () => 'chrome-extension://test/',
+      getURL: (path = '') => `chrome-extension://test/${path}`,
       onMessage: listener('message'),
       onStartup: listener('startup'),
       onInstalled: listener('installed')
@@ -93,7 +93,19 @@ function harness(target, credentials) {
   })
   vm.runInContext(core, context)
   vm.runInContext(background, context)
-  const send = message => new Promise(resolve => events.message(message, { id: 'test' }, resolve))
+  const send = message =>
+    new Promise(resolve =>
+      events.message(
+        message,
+        {
+          id: 'test',
+          url: message.command.startsWith('auth')
+            ? api.runtime.getURL('auth.html') + '?id=' + message.token
+            : undefined
+        },
+        resolve
+      )
+    )
   const flush = () => vm.runInContext('queue', context)
 
   return { events, tabs, proxy, diagnostics, send, flush }
@@ -118,7 +130,13 @@ test('proxy authentication without knock follows the challenger even when curren
   assert.deepEqual(JSON.parse(JSON.stringify(await auth())), {
     authCredentials: { username: 'user', password: 'secret' }
   })
-  assert.equal((await auth()).cancel, true)
+  const rejected = auth()
+  await new Promise(setImmediate)
+  const token = new URL(h.tabs.find(tab => tab.url.includes('auth.html')).url).searchParams.get(
+    'id'
+  )
+  await h.send({ command: 'authCancel', token })
+  assert.equal((await rejected).cancel, true)
   h.events.onCompleted({ ...details, type: 'image' })
   assert.ok((await auth()).authCredentials)
   assert.equal(Object.keys(await auth({ isProxy: false })).length, 0)
@@ -134,10 +152,11 @@ test('proxy authentication without knock follows the challenger even when curren
   assert.ok(h.diagnostics.includes('proxy_auth_supplied'))
   assert.ok(h.diagnostics.includes('proxy_auth_cancelled'))
   assert.ok(h.diagnostics.includes('proxy_auth_skipped'))
-  assert.equal(h.tabs.length, 0)
+  assert.equal(h.tabs.length, 1)
+  assert.equal(h.tabs[0].active, true)
 })
 
-test('startup and activation knock matrix uses saved credentials and browser; native prompt is left to the browser', async () => {
+test('startup and activation knock matrix uses saved credentials and opens an active authentication tab when needed', async () => {
   for (const target of ['chromium', 'firefox']) {
     for (const credentials of [
       {},
@@ -154,12 +173,19 @@ test('startup and activation knock matrix uses saved credentials and browser; na
       const response = await h.send({ command: 'activate', id: 'one' })
       assert.equal(response.ok, true)
       assert.equal(h.tabs.length, expected ? 1 : 0, `${target} activation reuses pending knock`)
-      const auth = await new Promise(resolve =>
+      const pendingAuth = new Promise(resolve =>
         h.events.onAuthRequired(
           { isProxy: true, requestId: 'auth', challenger: { host: 'proxy.example', port: 443 } },
           resolve
         )
       )
+      if (!credentials.password) {
+        await new Promise(setImmediate)
+        const tab = h.tabs.find(tab => tab.url.includes('auth.html'))
+        assert.equal(tab.active, true)
+        await h.send({ command: 'authCancel', token: new URL(tab.url).searchParams.get('id') })
+      }
+      const auth = await pendingAuth
       assert.equal(Boolean(auth.authCredentials), Boolean(credentials.password))
       if (!expected) {
         assert.equal((await h.send({ command: 'knock' })).error, 'errorKnockDisabled')

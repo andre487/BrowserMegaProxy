@@ -470,14 +470,19 @@
     }
   }
 
-  function auth(details, state, attempts) {
+  function authProfile(details, state) {
     const p = state.profiles.find(p => p.id === details.profileId) || active(state)
-    if (
-      !hasCredentials(p) ||
-      !details.isProxy ||
-      details.challenger?.host.toLowerCase().replace(/^\[|\]$/g, '') !== p.host ||
-      Number(details.challenger.port) !== p.port
-    ) {
+    return p &&
+      details.isProxy &&
+      details.challenger?.host?.toLowerCase().replace(/^\[|\]$/g, '') === p.host &&
+      Number(details.challenger.port) === p.port
+      ? p
+      : undefined
+  }
+
+  function auth(details, state, attempts) {
+    const p = authProfile(details, state)
+    if (!hasCredentials(p)) {
       return {}
     }
 
@@ -1316,6 +1321,7 @@ function FindProxyForURL(url, host) {
     needsKnock,
     proxyInfo,
     auth,
+    authProfile,
     chromiumConfig,
     importProfiles,
     mergeImport,

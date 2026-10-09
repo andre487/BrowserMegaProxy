@@ -1018,5 +1018,50 @@
   },
   "errorBooleanSetting": {
     "message": "This setting must be true or false"
+  },
+  "authTitle": {
+    "message": "Proxy authentication"
+  },
+  "authHint": {
+    "message": "Enter new credentials. MegaProxy will save them only after the proxy accepts them."
+  },
+  "authSubmit": {
+    "message": "Verify and save"
+  },
+  "authChecking": {
+    "message": "Waiting for the proxy to confirm authentication…"
+  },
+  "authSaved": {
+    "message": "Credentials accepted and saved."
+  },
+  "authRequestFailed": {
+    "message": "The request ended before authentication could be confirmed. Reload the original page to try again."
+  },
+  "errorAuthRejected": {
+    "message": "The proxy rejected these credentials. Enter a different username or password."
+  },
+  "errorAuthCredentials": {
+    "message": "Enter both a username and a password"
+  },
+  "errorAuthExpired": {
+    "message": "This authentication request is no longer available. Reload the original page."
+  },
+  "errorAuthUnconfirmed": {
+    "message": "Could not confirm authentication; credentials were not saved"
+  },
+  "errorAuthProfileChanged": {
+    "message": "The profile was changed or deleted during authentication; credentials were not saved"
+  },
+  "operationAuthGet": {
+    "message": "Read proxy authentication state"
+  },
+  "operationAuthSubmit": {
+    "message": "Verify proxy credentials"
+  },
+  "operationAuthCancel": {
+    "message": "Cancel proxy authentication"
+  },
+  "close": {
+    "message": "Close"
   }
 }
