@@ -499,6 +499,20 @@ test('profile colors, cloning, order, local bypass and portable export/import re
   await expect(page.locator('.profile').first()).toContainText('Updated')
 })
 
+test('language changes translate routing hints while preserving unsaved rules', async ({
+  page
+}) => {
+  await page.locator('#routing-settings > summary').click()
+  await page.locator('#routing-mode').selectOption('manual')
+  await page.evaluate('routingSaves')
+  await page.locator('#routing-list').fill('unsaved.example')
+  await page.evaluate(() => globalThis.send('language', { language: 'en' }))
+  for (const id of ['routing-hint', 'routing-patterns-hint']) {
+    await expect(page.locator(`#${id}`)).not.toContainText(/[А-Яа-яЁё]/)
+  }
+  await expect(page.locator('#routing-list')).toHaveValue('unsaved.example')
+})
+
 test('ProxyList and SuperProxy text formats are reviewed before importing', async ({ page }) => {
   const selection = page.waitForEvent('filechooser')
   await page.getByRole('button', { name: 'Импорт настроек' }).click()

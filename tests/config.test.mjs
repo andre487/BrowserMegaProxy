@@ -99,6 +99,25 @@ test('export validates against both schemas and discards unsupported fields with
   assert.throws(() => M.exportConfig(state), /errorExportProtocol/)
 })
 
+test('importing a profile without a username clears an omitted local password', () => {
+  const state = M.mergeImport(M.defaults(), M.importProfiles(portable))
+  const config = structuredClone(portable)
+  config.profiles[0].proxy.username = ''
+  delete config.profiles[0].proxy.password
+  const merged = M.mergeImport(state, M.importProfiles(config))
+  assert.equal(merged.profiles[0].password, '')
+  assert.doesNotThrow(() => merged.profiles.map(M.profile))
+})
+
+test('import rejects knock conflicts introduced by preserving omitted local bypass rules', () => {
+  const state = M.mergeImport(M.defaults(), M.importProfiles(portable))
+  state.profiles[0].bypass = ['internal.example']
+  const config = structuredClone(portable)
+  config.profiles[0].browser = { knockHost: 'internal.example' }
+  assert.throws(() => M.mergeImport(state, M.importProfiles(config)), /errorKnockBypass/)
+  assert.equal(state.profiles[0].knockHost, 'knock.example')
+})
+
 test('all Android input formats preserve encoded credentials, metadata and reject unsupported transports', () => {
   for (const prefix of ['', '# superproxy:proxylist:v1\n']) {
     const result = M.importProfiles(

@@ -32,6 +32,7 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
   const urls = []
   const removed = []
   const native = []
+  const session = {}
   let url
   const api = {
     runtime: { onMessage: event('message'), id: 'test', getURL: () => 'moz-extension://test/' },
@@ -41,6 +42,10 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
       settings: { get: async () => ({}), set: async config => native.push(structuredClone(config)) }
     },
     storage: {
+      session: {
+        get: async () => structuredClone(session),
+        set: async data => Object.assign(session, structuredClone(data))
+      },
       local: {
         get: async () => ({
           state: {
@@ -128,7 +133,7 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
   // runtime listeners have three arguments, unlike network event callbacks.
   const command = message =>
     new Promise(resolve => [...listeners.get('message')][0](message, { id: 'test' }, resolve))
-  return { command, urls, removed, native }
+  return { command, urls, removed, native, api, session }
 }
 
 test('connection check falls back on transport and invalid IP responses, treats country as optional and closes its tab', async () => {
@@ -148,6 +153,26 @@ test('failed HTTPS check closes its tab, and bypassed diagnostic hosts cannot re
   const bypassed = harness(['example.com'])
   assert.equal((await bypassed.command({ command: 'check' })).error, 'errorCheckBypass')
   assert.equal(bypassed.urls.length, 0)
+  const status = (await bypassed.command({ command: 'get' })).connectionCheck
+  assert.equal(status.stage, 'failed')
+  assert.equal(status.error, 'errorCheckBypass')
+  assert.equal(bypassed.session.connectionCheck.stage, 'failed')
+})
+
+test('temporary proxy setup and restoration failures replace a previous successful check', async () => {
+  for (const failureAt of [1, 2]) {
+    const h = harness([], false, 'chromium')
+    assert.equal((await h.command({ command: 'check' })).ok, true)
+    let calls = 0
+    h.api.proxy.settings.set = async () => {
+      if (++calls === failureAt) {
+        throw new Error('net::ERR_FAILED')
+      }
+    }
+    assert.equal((await h.command({ command: 'check' })).ok, false)
+    assert.equal((await h.command({ command: 'get' })).connectionCheck.stage, 'failed')
+    assert.equal(h.session.connectionCheck.stage, 'failed')
+  }
 })
 
 test('diagnostic temporary PAC includes only check hosts and restores routing on success and failure', async () => {

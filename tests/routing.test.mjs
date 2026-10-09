@@ -185,6 +185,22 @@ test('routing round-trips and Chromium explicitly downgrades unsupported Firefox
   )
 })
 
+test('diagnostic and knock inclusion never overrides local or explicit bypass in Chromium PAC', () => {
+  const profile = M.profile({ ...p, knockHost: '10.1.2.3' })
+  const config = {
+    ...state,
+    profiles: [profile],
+    routingExtraDomains: ['internal.example', '192.168.1.1']
+  }
+  const pac = vm.createContext({})
+  vm.runInContext(M.chromiumConfig(profile, config).pacScript.data, pac)
+  for (const hostname of ['internal.example', '192.168.1.1', '10.1.2.3']) {
+    const url = `https://${hostname}/`
+    assert.equal(M.routed(url, config), false)
+    assert.equal(pac.FindProxyForURL(url, hostname), 'DIRECT', hostname)
+  }
+})
+
 const scripts = await Promise.all(
   [
     'errors.js',

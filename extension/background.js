@@ -420,6 +420,24 @@ function testPage(tabId, url, signal) {
 }
 
 async function checkConnection() {
+  try {
+    const result = await runConnectionCheck()
+    await storeConnectionCheck()
+    return result
+  } catch (error) {
+    connectionCheck = {
+      stage: 'failed',
+      mode: connectionCheck.mode,
+      profileId: connectionCheck.profileId,
+      error: MegaErrors.details(error, 'check').code,
+      errorDetails: MegaErrors.details(error, 'check')
+    }
+    await storeConnectionCheck()
+    throw error
+  }
+}
+
+async function runConnectionCheck() {
   const p = M.active(state)
   const mode = p ? 'proxy' : state.connectionMode === 'direct' ? 'direct' : 'system'
 
@@ -432,21 +450,23 @@ async function checkConnection() {
     'https://ipapi.co/country_code/',
     'https://api.country.is/'
   ]
-  if (p && urls.some(url => M.bypassed(new URL(url).hostname, p, state))) {
-    throw new Error('errorCheckBypass')
-  }
-
-  const started = Date.now()
-  const deadline = AbortSignal.timeout(45000)
-  if (p) {
-    await platform.applyTransient({
-      ...state,
-      routingExtraDomains: urls.map(url => new URL(url).hostname)
-    })
-  }
   let tab
+  let transient = false
   connectionCheck = { stage: 'https', mode, profileId: p?.id || null }
   try {
+    if (p && urls.some(url => M.bypassed(new URL(url).hostname, p, state))) {
+      throw new Error('errorCheckBypass')
+    }
+
+    const started = Date.now()
+    const deadline = AbortSignal.timeout(45000)
+    if (p) {
+      transient = true
+      await platform.applyTransient({
+        ...state,
+        routingExtraDomains: urls.map(url => new URL(url).hostname)
+      })
+    }
     await storeConnectionCheck()
     tab = await api.tabs.create({ url: 'about:blank', active: false })
     if (p) {
@@ -509,26 +529,14 @@ async function checkConnection() {
       latencyMs,
       checkedAt: Date.now()
     }
-    await storeConnectionCheck()
-
     return { ok: true, connectionCheck }
-  } catch (error) {
-    connectionCheck = {
-      stage: 'failed',
-      mode,
-      profileId: p?.id || null,
-      error: MegaErrors.details(error, 'check').code,
-      errorDetails: MegaErrors.details(error, 'check')
-    }
-    await storeConnectionCheck()
-    throw error
   } finally {
     if (tab) {
       forcedTabs.delete(tab.id)
       await api.tabs.remove(tab.id).catch(() => {})
     }
 
-    if (p) {
+    if (transient) {
       await platform.applyTransient(state)
     }
   }
