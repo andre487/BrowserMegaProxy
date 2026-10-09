@@ -30,15 +30,20 @@
           />
         </label>
         <label>
-          <span data-i18n="password">Password</span>
-          <input
-            id="auth-password"
-            name="password"
-            type="password"
-            autocomplete="current-password"
-            maxlength="16384"
-            required
-          />
+          <span id="auth-password-label" data-i18n="password">Password</span>
+          <span class="password-field"
+            ><input
+              id="auth-password"
+              aria-labelledby="auth-password-label"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              maxlength="16384"
+              required
+            /><button type="button" class="secondary password-toggle" data-i18n="showPassword">
+              Show
+            </button></span
+          >
         </label>
         <p id="notice" role="status" aria-live="polite"></p>
         <p id="auth-retry-hint" class="hint" data-i18n="authRequestFailed" hidden></p>
@@ -54,6 +59,7 @@
     <script src="errors.js"></script>
     <script src="platform.js"></script>
     <script src="i18n.js"></script>
+    <script src="password-ui.js"></script>
     <script src="auth-ui.js"></script>
   </body>
 </html>

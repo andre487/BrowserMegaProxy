@@ -183,6 +183,7 @@ for (const scenario of ['auto', 'challenge']) {
         await options.getByLabel('Port', { exact: true }).fill(String(proxyPort))
         await options.getByLabel('Username').fill('user')
         await options.getByLabel('Password', { exact: true }).fill('secret')
+        await options.locator('.profile-advanced > summary').click()
         await options.getByLabel('Knock host').fill('knock.invalid')
         await options.getByRole('button', { name: 'Save profile' }).click()
         await expect(options.locator('.profile')).toHaveCount(1)

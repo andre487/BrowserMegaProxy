@@ -1111,5 +1111,29 @@
   },
   "importFile": {
     "message": "Choose file"
+  },
+  "advancedSettings": {
+    "message": "Advanced settings"
+  },
+  "showPassword": {
+    "message": "Show"
+  },
+  "hidePassword": {
+    "message": "Hide"
+  },
+  "saving": {
+    "message": "Saving…"
+  },
+  "loading": {
+    "message": "Loading…"
+  },
+  "saved": {
+    "message": "Saved"
+  },
+  "deleteProfileConfirm": {
+    "message": "Delete profile “$1”? This cannot be undone."
+  },
+  "working": {
+    "message": "Working…"
   }
 }

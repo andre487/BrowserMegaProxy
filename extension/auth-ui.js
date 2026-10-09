@@ -42,6 +42,7 @@ function render(auth) {
   }
   const editable = ['waiting', 'rejected'].includes(auth.phase)
   username.disabled = password.disabled = submit.disabled = !editable || submitting
+  document.querySelector('.password-toggle').disabled = password.disabled
   const error = submissionError || auth.errorDetails
   notice.className = error ? 'error' : ''
   notice.textContent = error
@@ -99,7 +100,9 @@ form.onsubmit = async event => {
   const credentials = { username: username.value, password: password.value }
   submissionError = undefined
   submitting = true
-  submit.disabled = true
+  username.disabled = password.disabled = submit.disabled = true
+  document.querySelector('.password-toggle').disabled = true
+  submit.textContent = t('authChecking')
   try {
     await send('authSubmit', credentials)
   } catch (error) {

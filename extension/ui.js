@@ -105,30 +105,112 @@ async function send(command, extra = {}) {
   return result
 }
 
-async function action(fn, operation = 'interface') {
+function captureProfileFocus(element) {
+  const card = element?.closest('.profile')
+  return card
+    ? {
+        id: card.dataset.profileId,
+        index: [...$('#profiles').children].indexOf(card),
+        control: [...card.querySelectorAll('button, summary')].indexOf(element)
+      }
+    : null
+}
+
+function restoreProfileFocus(focus) {
+  if (!focus || document.querySelector('dialog[open]')) {
+    return
+  }
+  const card =
+    $(`[data-profile-id="${CSS.escape(focus.id)}"]`) ||
+    $('#profiles').children[Math.min(focus.index, state.profiles.length - 1)]
+  const item = card?.querySelectorAll('button, summary')[focus.control]
+  const control = item?.closest('.profile-menu')?.querySelector('summary') || item
+  if (control && !control.disabled) {
+    control.focus()
+  } else if (card) {
+    const info = card.querySelector('.profile-info')
+    info.tabIndex = -1
+    info.focus()
+  } else {
+    $('#new, #add-profile')?.focus()
+  }
+}
+
+function placeNotice(source) {
+  const dialogNotice = source?.closest('dialog')?.querySelector('.dialog-error')
+  if (dialogNotice) {
+    return dialogNotice
+  }
+  const scope = source?.closest('details:not(.profile-menu), section, footer')
+  if (scope) {
+    scope.append($('#notice'))
+  } else if (source?.id === 'connection-mode') {
+    source.closest('label').after($('#notice'))
+  }
+  return $('#notice')
+}
+
+async function action(fn, operation = 'interface', source = document.activeElement) {
   if (busy) {
     return
   }
 
   busy = true
+  const notice = placeNotice(source)
+  const focusedProfile = captureProfileFocus(source)
+  const trigger = source?.closest('button')
+  const wasDisabled = trigger?.disabled
+  const nodes = trigger ? [...trigger.childNodes] : []
+  const working = ['downloadConfig', 'updateLists'].includes(trigger?.dataset.i18n)
+    ? 'loading'
+    : source?.closest('#profile-form, #settings')
+      ? 'saving'
+      : 'working'
+  if (trigger) {
+    trigger.disabled = true
+    if (!['check', 'disconnect'].includes(trigger.id)) {
+      trigger.textContent = t(working)
+    }
+  }
+  source?.setAttribute('aria-busy', 'true')
   for (const notice of document.querySelectorAll('.dialog-error')) {
     notice.textContent = ''
   }
   $('#notice').textContent = ''
   $('#notice').className = ''
+  notice.classList.remove('error')
+  const showProgress = isOptions && source?.closest('form') && source.id !== 'check'
+  if (showProgress) {
+    notice.textContent = t(working)
+  }
 
   try {
     await fn()
-  } catch (error) {
-    $('#notice').textContent = MegaErrors.format(error, operation, t)
-    $('#notice').className = 'error'
-    const dialogNotice = document.querySelector('dialog[open] .dialog-error')
-    if (dialogNotice) {
-      dialogNotice.textContent = MegaErrors.format(error, operation, t)
+    if (showProgress && notice.textContent === t(working)) {
+      notice.textContent = ''
     }
+    if (isOptions && source?.closest('#settings') && !notice.textContent) {
+      notice.textContent = t('saved')
+    }
+  } catch (error) {
+    notice.textContent = MegaErrors.format(error, operation, t)
+    notice.classList.add('error')
   } finally {
     busy = false
+    source?.removeAttribute('aria-busy')
+    if (trigger?.isConnected) {
+      trigger.disabled = wasDisabled
+      if (trigger.textContent === t(working)) {
+        trigger.replaceChildren(...nodes)
+      }
+      if (trigger.id === 'disconnect') {
+        trigger.disabled = !MegaProxy.active(state)
+      }
+    }
     renderCheck()
+    if (source && !source.isConnected) {
+      restoreProfileFocus(focusedProfile)
+    }
     document.body.hidden = false
   }
 }
@@ -137,7 +219,7 @@ function button(label, fn, className = 'secondary') {
   const element = document.createElement('button')
   element.textContent = label
   element.className = className
-  element.onclick = () => action(fn)
+  element.onclick = () => action(fn, 'interface', element)
 
   return element
 }
@@ -175,6 +257,12 @@ function edit(p = {}) {
     }
   }
 
+  form.elements.password.type = 'password'
+  const toggle = form.querySelector('.password-toggle')
+  toggle.dataset.i18n = 'showPassword'
+  toggle.textContent = t('showPassword')
+  toggle.setAttribute('aria-pressed', 'false')
+  $('.profile-advanced').open = false
   $('#editor').showModal()
   syncKnock()
   form.elements.name.focus()
@@ -268,6 +356,7 @@ function render() {
     $('#disconnect').disabled = !active
   }
 
+  const focusedProfile = captureProfileFocus(document.activeElement)
   $('#profiles').replaceChildren()
   $('#empty').hidden = !!state.profiles.length
 
@@ -309,7 +398,15 @@ function render() {
         button(t('clone'), () =>
           send('clone', { id: p.id, name: t('copyName', p.name || p.host) })
         ),
-        button(t('delete'), () => send('delete', { id: p.id }), 'danger')
+        button(
+          t('delete'),
+          () => {
+            if (window.confirm(t('deleteProfileConfirm', p.name || p.host))) {
+              return send('delete', { id: p.id })
+            }
+          },
+          'danger'
+        )
       )
       menu.append(summary, items)
       actions.append(editButton, select, menu)
@@ -331,6 +428,8 @@ function render() {
     card.append(info, actions)
     $('#profiles').append(card)
   }
+
+  restoreProfileFocus(focusedProfile)
 
   if (isOptions) {
     syncKnock()
@@ -497,6 +596,9 @@ function renderRoutingMode() {
 }
 
 function saveRouting() {
+  const notice = placeNotice($('#routing-form'))
+  notice.textContent = t('saving')
+  notice.classList.remove('error')
   const strategy = $('#routing-mode').value
   const mode = strategy === 'tabs' ? 'tabs' : 'domains'
   routingDrafts[routingDraftMode] = $('#routing-list').value
@@ -524,11 +626,11 @@ function saveRouting() {
     try {
       await send('routing', message)
       renderedRoutingConfig = routingSignature(state.browserRouting || MegaProxy.routing())
-      $('#notice').textContent = ''
-      $('#notice').className = ''
+      notice.textContent = t('saved')
+      notice.className = ''
     } catch (error) {
-      $('#notice').textContent = MegaErrors.format(error, 'interface', t)
-      $('#notice').className = 'error'
+      notice.textContent = MegaErrors.format(error, 'interface', t)
+      notice.className = 'error'
     } finally {
       routingSaving = false
     }
@@ -537,11 +639,18 @@ function saveRouting() {
 }
 
 function savePreference(command, message) {
+  const notice = placeNotice($('#connection-mode'))
+  notice.textContent = t('saving')
+  notice.classList.remove('error')
   routingSaves = routingSaves
-    .then(() => send(command, message))
+    .then(async () => {
+      await send(command, message)
+      notice.textContent = t('saved')
+      notice.className = ''
+    })
     .catch(error => {
-      $('#notice').textContent = MegaErrors.format(error, 'interface', t)
-      $('#notice').className = 'error'
+      notice.textContent = MegaErrors.format(error, 'interface', t)
+      notice.className = 'error'
     })
   return routingSaves
 }
@@ -720,6 +829,7 @@ function syncKnock() {
   }
 
   const form = $('#profile-form')
+  $('#color-preview').style.backgroundColor = MegaProxy.colors[Number(form.elements.color.value)]
   if (platform.id === 'chromium') {
     form.querySelector('option[value=masque]')?.remove()
   }
@@ -736,6 +846,7 @@ function syncKnock() {
   const socksWithoutAuth = platform.id === 'chromium' && form.elements.type.value === 'socks5'
   form.elements.username.disabled = socksWithoutAuth || masque
   form.elements.password.disabled = socksWithoutAuth || masque
+  form.querySelector('.password-toggle').disabled = form.elements.password.disabled
   $('#socks-auth-hint').hidden = !socksWithoutAuth
   const needed = platform.needsKnock({
     type: form.elements.type.value,
@@ -867,6 +978,11 @@ if (isOptions) {
     matchMedia(`(prefers-color-scheme: ${scheme})`).addEventListener('change', renderThemeHint)
   }
   $('#cancel-profile').onclick = () => $('#editor').close()
+  $('#editor').addEventListener('close', () => {
+    const id = $('#profile-form').elements.id.value
+    const trigger = id ? $(`[data-profile-id="${CSS.escape(id)}"] .actions button`) : $('#new')
+    trigger?.focus()
+  })
   $('#open-url-import').onclick = () => $('#url-import').showModal()
   $('#cancel-url-import').onclick = () => $('#url-import').close()
   $('#build-version').textContent = globalThis.MegaBuild
@@ -876,7 +992,11 @@ if (isOptions) {
   $('#routing-settings').addEventListener('toggle', () => {
     if ($('#routing-settings').open) {
       send('routingOpened').catch(error => {
-        $('#notice').textContent = MegaErrors.format(error, 'routingOpened', t)
+        placeNotice($('#routing-settings')).textContent = MegaErrors.format(
+          error,
+          'routingOpened',
+          t
+        )
         $('#notice').className = 'error'
       })
     }
@@ -997,6 +1117,7 @@ if (isOptions) {
       const previous = state.profiles.find(p => p.id === profile.id)
       const result = await send('save', { profile })
       const saved = result.state.profiles.find(p => p.id === profile.id)
+      $('#profile-form').elements.id.value = saved?.id || ''
       $('#editor').close()
       if (
         platform.id === 'chromium' &&
@@ -1004,12 +1125,12 @@ if (isOptions) {
         saved &&
         (previous.username !== saved.username || previous.password !== saved.password)
       ) {
-        $('#notice').textContent = t('credentialsRestartChromium')
+        placeNotice($('#profiles')).textContent = t('credentialsRestartChromium')
       }
     })
   }
 
-  $('#open-import').onclick = () => $('#import').click()
+  $('#open-import').onclick = () => $('#import-start').showModal()
   $('#import-file').onclick = () => {
     $('#import-start').close()
     $('#import').click()
@@ -1020,20 +1141,24 @@ if (isOptions) {
   }
   $('#cancel-import-start').onclick = () => $('#import-start').close()
   $('#import').onchange = () =>
-    action(async () => {
-      const file = $('#import').files[0]
-      if (!file) {
-        return
-      }
+    action(
+      async () => {
+        const file = $('#import').files[0]
+        if (!file) {
+          return
+        }
 
-      if (file.size > 1024 * 1024) {
-        throw new Error('errorFileSize')
-      }
+        if (file.size > 1024 * 1024) {
+          throw new Error('errorFileSize')
+        }
 
-      const data = await file.text()
-      await reviewImport(data)
-      $('#import').value = ''
-    }, 'previewImport')
+        const data = await file.text()
+        await reviewImport(data)
+        $('#import').value = ''
+      },
+      'previewImport',
+      $('#import')
+    )
   $('#apply-import').onclick = () =>
     action(async () => {
       const removeIds = [...$('#import-absent').querySelectorAll('input:checked')].map(
@@ -1054,7 +1179,7 @@ if (isOptions) {
       }
 
       const result = await send('import', { data: pendingImport, removeIds })
-      $('#notice').textContent = result.unsupportedSplitProxy
+      placeNotice($('#open-import')).textContent = result.unsupportedSplitProxy
         ? t('splitUnsupportedWarning')
         : result.skipped?.length
           ? t('importSkipped', result.skipped.join(', '))

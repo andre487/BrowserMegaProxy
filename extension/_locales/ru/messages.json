@@ -1111,5 +1111,29 @@
   },
   "importFile": {
     "message": "Выбрать файл"
+  },
+  "advancedSettings": {
+    "message": "Дополнительные параметры"
+  },
+  "showPassword": {
+    "message": "Показать"
+  },
+  "hidePassword": {
+    "message": "Скрыть"
+  },
+  "saving": {
+    "message": "Сохранение…"
+  },
+  "loading": {
+    "message": "Загрузка…"
+  },
+  "saved": {
+    "message": "Сохранено"
+  },
+  "deleteProfileConfirm": {
+    "message": "Удалить профиль «$1»? Это действие нельзя отменить."
+  },
+  "working": {
+    "message": "Выполнение…"
   }
 }

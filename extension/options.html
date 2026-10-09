@@ -51,7 +51,9 @@
           <div class="row">
             <label
               ><span data-i18n="color">Color</span
-              ><select name="color" id="profile-color"></select
+              ><span class="color-picker"
+                ><span id="color-preview" aria-hidden="true"></span
+                ><select name="color" id="profile-color"></select></span
             ></label>
             <label
               ><span data-i18n="countryCode">Country code</span
@@ -93,9 +95,18 @@
               ><input name="username" autocomplete="off" autocapitalize="none"
             /></label>
             <label
-              ><span data-i18n="password">Password</span
-              ><input name="password" type="password" autocomplete="off"
-            /></label>
+              ><span id="profile-password-label" data-i18n="password">Password</span
+              ><span class="password-field"
+                ><input
+                  name="password"
+                  aria-labelledby="profile-password-label"
+                  type="password"
+                  autocomplete="off"
+                /><button type="button" class="secondary password-toggle" data-i18n="showPassword">
+                  Show
+                </button></span
+              ></label
+            >
           </div>
           <label id="masque-template-field" hidden
             ><span data-i18n="masqueTemplate">MASQUE path template</span
@@ -109,25 +120,28 @@
           <p class="hint" id="masque-hint" hidden data-i18n="masqueHint"></p>
           <input name="authMode" type="hidden" value="auto" />
           <p class="hint" id="socks-auth-hint" hidden data-i18n="errorSocksAuthUnsupported"></p>
-          <label
-            ><span data-i18n="knockHost">Knock host</span
-            ><input
-              name="knockHost"
-              placeholder="knock.example.com"
-              autocapitalize="none"
-              spellcheck="false"
-          /></label>
-          <p class="hint" id="knock-hint" data-i18n="knockHint"></p>
-          <label
-            ><span data-i18n="bypass">Connect directly for domains</span
-            ><textarea
-              name="bypass"
-              rows="2"
-              placeholder="localhost, intranet.example.com"
-            ></textarea>
-          </label>
-          <p class="hint" data-i18n="bypassHint"></p>
-          <div class="actions">
+          <details class="profile-advanced">
+            <summary data-i18n="advancedSettings">Advanced settings</summary>
+            <label
+              ><span data-i18n="knockHost">Knock host</span
+              ><input
+                name="knockHost"
+                placeholder="knock.example.com"
+                autocapitalize="none"
+                spellcheck="false"
+            /></label>
+            <p class="hint" id="knock-hint" data-i18n="knockHint"></p>
+            <label
+              ><span data-i18n="bypass">Connect directly for domains</span
+              ><textarea
+                name="bypass"
+                rows="2"
+                placeholder="localhost, intranet.example.com"
+              ></textarea>
+            </label>
+            <p class="hint" data-i18n="bypassHint"></p>
+          </details>
+          <div class="actions editor-actions">
             <button id="cancel-profile" type="button" class="secondary" data-i18n="cancel">
               Cancel</button
             ><button type="submit" data-i18n="saveProfile">Save profile</button>
@@ -385,6 +399,7 @@
     <script src="errors.js"></script>
     <script src="platform.js"></script>
     <script src="i18n.js"></script>
+    <script src="password-ui.js"></script>
     <script src="config-validator.js"></script>
     <script src="core.js"></script>
     <script src="subscription-catalog.js"></script>
