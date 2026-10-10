@@ -103,9 +103,14 @@
     return safe.length > 4096 ? safe.slice(0, 4084) + ' [truncated]' : safe
   }
 
-  async function httpError(response, message = 'errorHTTP', secrets = []) {
+  async function httpError(
+    response,
+    message = 'errorHTTP',
+    secrets = [],
+    { includeResponseBody = false } = {}
+  ) {
     const error = Object.assign(new Error(message), { status: response.status })
-    if (response.status < 500 || response.status > 599) {
+    if (!includeResponseBody && (response.status < 500 || response.status > 599)) {
       return error
     }
     let reader

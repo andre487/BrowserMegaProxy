@@ -1,5 +1,5 @@
 import { requestWithRetry } from './http-request.mjs'
-import { readStoreFile, reportStoreDashboard } from './store-materials.mjs'
+import { readStoreFile, reportStoreAction, reportStoreDashboard } from './store-materials.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -30,7 +30,10 @@ export async function submitOperaAddon(
   const packageId = env.OPERA_PACKAGE_ID
   const csrf = randomBytes(16).toString('hex')
   // ponytail: undocumented dashboard API; update endpoints if Opera changes the cabinet.
-  const api = async (endpoint, { method = 'GET', body, raw = false, signal } = {}) => {
+  const api = async (
+    endpoint,
+    { method = 'GET', body, raw = false, signal, maxAttempts = 6 } = {}
+  ) => {
     const response = await requestWithRetry(
       (url, options) => {
         signal?.throwIfAborted()
@@ -58,7 +61,7 @@ export async function submitOperaAddon(
       {
         secrets: [env.OPERA_SESSION_ID, csrf],
         wait: retryWait || (ms => setTimeout(ms, undefined, { signal })),
-        maxAttempts: 6,
+        maxAttempts,
         initialDelay: 10000
       }
     )
@@ -66,7 +69,8 @@ export async function submitOperaAddon(
       throw await globalThis.MegaErrors.httpError(
         response,
         `Opera ${method} ${endpoint} failed: HTTP ${response.status}`,
-        [env.OPERA_SESSION_ID, csrf]
+        [env.OPERA_SESSION_ID, csrf],
+        { includeResponseBody: true }
       )
     }
     if (raw) {
@@ -137,7 +141,7 @@ export async function submitOperaAddon(
   let materialSignal
   const attemptMaterial = async (name, action) => {
     try {
-      materialSignal = AbortSignal.timeout(60000)
+      materialSignal = AbortSignal.timeout(3600000)
       return await action()
     } catch (error) {
       const message = globalThis.MegaErrors.responseText(`Opera ${name}: ${error.message}`, [
@@ -145,17 +149,11 @@ export async function submitOperaAddon(
         csrf
       ])
       warnings.push(message)
-      if (env.GITHUB_STEP_SUMMARY) {
-        try {
-          await appendFile(env.GITHUB_STEP_SUMMARY, `- Warning: ${message}\n`)
-        } catch (summaryError) {
-          warn(
-            `Opera warning summary could not be written: ${summaryError.code || 'Unknown error'}`
-          )
-        }
-      }
-      warn(
-        `::warning title=Opera materials::${message.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`
+      await reportStoreAction(
+        'Opera materials',
+        `https://addons.opera.com/developer/package/${packageId}/`,
+        `${message}. Verify and, if necessary, update this material manually.`,
+        { env, warn }
       )
       return false
     }
@@ -218,21 +216,53 @@ export async function submitOperaAddon(
         'dev_promotional_image'
       )
     )
-    const current = await attemptMaterial('read screenshots', () => materialApi(versionPath))
-    let allUploaded = true
-    for (let index = 1; index <= 3; index++) {
-      const uploaded = await attemptMaterial(`screenshot ${index}`, async () => {
-        await image(`store/assets/opera/en/0${index}.png`, versionPath, 'screenshots')
-        return true
-      })
-      allUploaded &&= uploaded === true
+    const maxScreenshots = 3
+    const readScreenshots = async () => {
+      const { screenshots } = await materialApi(versionPath)
+      assert.ok(
+        screenshots && typeof screenshots === 'object',
+        'Opera screenshot list is unavailable'
+      )
+      const images = Object.values(screenshots)
+      assert.ok(
+        images.every(image => Number.isInteger(image?.id)),
+        'Invalid Opera screenshot IDs'
+      )
+      return images
     }
-    if (allUploaded && current) {
-      for (const screenshot of current.screenshots || []) {
-        await attemptMaterial(`replace screenshot ${screenshot.id}`, () =>
+    const current = await attemptMaterial('read screenshots', readScreenshots)
+    if (current) {
+      for (const screenshot of current.slice(maxScreenshots)) {
+        await attemptMaterial(`remove excess screenshot ${screenshot.id}`, () =>
           patch({ screenshots: { image_id: screenshot.id } })
         )
       }
+    }
+    for (let index = 1; index <= maxScreenshots; index++) {
+      await attemptMaterial(`screenshot ${index}`, async () => {
+        const file = `store/assets/opera/en/0${index}.png`
+        const id = await upload(await readMaterial(file), path.basename(file), materialApi)
+        const screenshots = await readScreenshots()
+        assert.ok(
+          screenshots.length <= maxScreenshots,
+          'Opera still has excess screenshots; skipping attachment'
+        )
+        if (screenshots.length === maxScreenshots) {
+          const previous = screenshots.find(
+            image => current && current.some(old => old.id === image.id)
+          )
+          assert.ok(previous, 'Opera screenshot slots are full; skipping attachment')
+          await patch({ screenshots: { image_id: previous.id } })
+          const remaining = await readScreenshots()
+          assert.ok(remaining.length < maxScreenshots, 'Opera screenshot removal was not confirmed')
+        }
+        // A failed attachment may already have succeeded; retrying 5xx could add duplicates.
+        await materialApi(versionPath, {
+          method: 'PATCH',
+          body: { screenshots: { file_id: id } },
+          maxAttempts: 1
+        })
+      })
     }
   }
   const submitted = await api(`${versionPath}submit_for_moderation/`, { method: 'POST' })

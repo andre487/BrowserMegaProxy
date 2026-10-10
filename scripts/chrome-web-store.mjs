@@ -1,5 +1,5 @@
 import { requestWithRetry } from './http-request.mjs'
-import { reportStoreDashboard } from './store-materials.mjs'
+import { reportStoreAction, reportStoreDashboard } from './store-materials.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { appendFile, readFile } from 'node:fs/promises'
@@ -7,6 +7,8 @@ import path from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { validateVersion } from './release.mjs'
+
+const dashboard = 'https://chrome.google.com/webstore/devconsole'
 
 export async function publishChromeWebStore(
   tag,
@@ -33,11 +35,21 @@ export async function publishChromeWebStore(
       { secrets, wait: retryWait }
     )
     if (!response.ok) {
-      throw await globalThis.MegaErrors.httpError(
+      const error = await globalThis.MegaErrors.httpError(
         response,
         `Chrome Web Store ${options.method || 'GET'} ${url} failed: HTTP ${response.status}`,
-        secrets
+        secrets,
+        { includeResponseBody: true }
       )
+      if (error.responseBody?.includes('INVALID_ITEM_METADATA')) {
+        await reportStoreAction(
+          'Chrome Web Store',
+          dashboard,
+          'Open the extension, resolve the publication errors listed in the dashboard, save changes, then rerun publication.',
+          { env }
+        )
+      }
+      throw error
     }
     return response.json()
   }
@@ -93,7 +105,7 @@ export async function publishChromeWebStore(
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const tag = process.argv[2]
   assert.match(tag || '', /^v\d+\.\d+\.\d+$/)
-  await reportStoreDashboard('Chrome Web Store', 'https://chrome.google.com/webstore/devconsole')
+  await reportStoreDashboard('Chrome Web Store', dashboard)
   const file = `dist/release/MegaProxy-chromium-${tag}.zip`
   execFileSync('unzip', ['-t', file], { stdio: 'pipe' })
   const manifest = JSON.parse(

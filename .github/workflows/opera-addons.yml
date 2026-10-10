@@ -27,7 +27,7 @@ jobs:
   opera:
     name: Check or submit Opera Add-on
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
     continue-on-error: ${{ !inputs.dry_run }}
     steps:
       - uses: actions/checkout@v6
@@ -67,13 +67,13 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
           OPERA_PACKAGE_ID: ${{ vars.OPERA_PACKAGE_ID }}
         run: |
-          echo '::warning title=Opera Add-ons submission failed::Submit the Chromium ZIP manually at https://addons.opera.com/developer/. Renew the sessionid cookie from that site and replace GitHub secret OPERA_SESSION_ID. See the job summary for links and steps.'
+          echo '::warning title=Opera Add-ons submission failed::Submit the Chromium ZIP manually at https://addons.opera.com/developer/. Review the errors shown above and complete submission in the developer dashboard. See the job summary for links and steps.'
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
           ### Opera submission needs attention
 
           1. Download \`MegaProxy-chromium-$RELEASE_TAG.zip\` from [GitHub Release](https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG).
           2. Sign in to [Opera Developer Dashboard](https://addons.opera.com/developer/), open your existing extension → Versions, upload the ZIP, check the metadata and submit for moderation.
-          3. To renew credentials, while signed in to the dashboard open browser DevTools → Application → Cookies → https://addons.opera.com. Copy the value of \`sessionid\` and replace [Actions secret](https://github.com/$GITHUB_REPOSITORY/settings/secrets/actions) \`OPERA_SESSION_ID\`. Keep the cookie value private.
+          3. For authentication errors (HTTP 401/403), renew credentials: while signed in to the dashboard open browser DevTools → Application → Cookies → https://addons.opera.com. Copy the value of \`sessionid\` and replace [Actions secret](https://github.com/$GITHUB_REPOSITORY/settings/secrets/actions) \`OPERA_SESSION_ID\`. Keep the cookie value private.
           4. Check [Actions variable](https://github.com/$GITHUB_REPOSITORY/settings/variables/actions) \`OPERA_PACKAGE_ID\`: it is the numeric ID in the dashboard URL \`/developer/package/ID/\` (configured: \`$OPERA_PACKAGE_ID\`).
           5. Run **Opera Add-ons** with this tag and **dry_run** enabled before retrying submission. Leave **dry_run** disabled only when ready to submit.
 

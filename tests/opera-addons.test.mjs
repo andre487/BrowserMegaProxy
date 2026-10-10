@@ -202,6 +202,8 @@ test('Opera updates each material independently and still submits after individu
     null
   ]
   for (const failure of targets) {
+    let screenshots = [{ id: 42 }]
+    let nextImageId = 43
     const calls = []
     const warnings = []
     const reads = []
@@ -229,7 +231,7 @@ test('Opera updates each material independently and still submits after individu
         } else if (options.method === 'GET' && url.endsWith('/123-0.1.0/')) {
           body = details
         } else if (options.method === 'GET') {
-          body = { screenshots: [{ id: 42 }] }
+          body = { screenshots: [...screenshots] }
           target = 'read screenshots'
         } else if (options.body instanceof FormData) {
           const filename = options.body.get('file').name
@@ -245,6 +247,16 @@ test('Opera updates each material independently and still submits after individu
           }
         }
         const failed = !!target && (failure === target || failure === 'all')
+        if (!failed && options.method === 'PATCH') {
+          const image = JSON.parse(options.body).screenshots
+          if (image?.image_id) {
+            screenshots = screenshots.filter(item => item.id !== image.image_id)
+          }
+          if (image?.file_id) {
+            screenshots.push({ id: nextImageId++ })
+          }
+          assert.ok(screenshots.length <= 3)
+        }
         return { ok: !failed, status: failed ? 400 : 200, json: async () => body }
       }
     })
@@ -278,5 +290,144 @@ test('Opera updates each material independently and still submits after individu
       const attached = calls.find(call => call.method === 'PATCH' && JSON.parse(call.body).icon)
       assert.equal(JSON.parse(attached.body).icon.file_id, icon.body.get('flowIdentifier'))
     }
+  }
+})
+
+test('Opera screenshot recovery stays within three slots across excess images, partial failures and reruns', async () => {
+  for (const [initialCount, asMap] of [
+    [0, false],
+    [3, false],
+    [7, false],
+    [0, true],
+    [3, true],
+    [7, true]
+  ]) {
+    let screenshots = Array.from({ length: initialCount }, (_, id) => ({ id: id + 1 }))
+    let nextId = initialCount + 1
+    let attached = 0
+    let failAttachment = true
+    const warnings = []
+    const options = {
+      env,
+      retryWait: async () => {},
+      warn: message => warnings.push(message),
+      readMaterial: file =>
+        Buffer.from(
+          file.includes('/listings/')
+            ? JSON.stringify({
+                summary: 'Proxy',
+                description: 'Proxy manager',
+                homepage: 'https://example.org',
+                support: 'https://example.org/support'
+              })
+            : 'image'
+        ),
+      request: async (url, options) => {
+        let body = {}
+        if (url.endsWith('/packages/123/') && options.method === 'GET') {
+          body = { ...addon, versions: [{ version: '0.1.1' }, ...addon.versions] }
+        } else if (url.endsWith('/123-0.1.0/')) {
+          body = details
+        } else if (url.endsWith('/submit_for_moderation/')) {
+          assert.ok(screenshots.length <= 3)
+          body = submitted
+        } else if (url.endsWith('/123-0.1.1/')) {
+          if (options.method === 'GET') {
+            body = {
+              screenshots: asMap
+                ? Object.fromEntries(screenshots.map(image => [image.id, image]))
+                : [...screenshots]
+            }
+          } else {
+            const image = JSON.parse(options.body).screenshots
+            if (image?.image_id) {
+              screenshots = screenshots.filter(item => item.id !== image.image_id)
+            }
+            if (image?.file_id) {
+              assert.ok(screenshots.length < 3, 'Must confirm room before attachment')
+              screenshots.push({ id: nextId++ })
+              attached++
+              if (failAttachment && attached === 2) {
+                failAttachment = false
+                return new Response('Failure after saving the screenshot', { status: 500 })
+              }
+            }
+          }
+        }
+        return new Response(JSON.stringify(body))
+      }
+    }
+    assert.match(await submitOperaAddon('v0.1.1', Buffer.from('zip'), options), /submitted/)
+    assert.equal(screenshots.length, 3)
+    assert.equal(attached, 3, 'An ambiguous attachment must not be retried')
+    assert.equal(warnings.length, 1)
+    const previousIds = screenshots.map(image => image.id)
+    assert.match(await submitOperaAddon('v0.1.1', Buffer.from('zip'), options), /submitted/)
+    assert.equal(screenshots.length, 3)
+    assert.equal(attached, 6)
+    assert.ok(screenshots.every(image => !previousIds.includes(image.id)))
+  }
+})
+
+test('Opera material retries survive a server-requested pause longer than the old deadline', async () => {
+  const timeout = AbortSignal.timeout
+  const timers = []
+  let now = 0
+  let attempts = 0
+  const waits = []
+  const warnings = []
+  AbortSignal.timeout = duration => {
+    const controller = new AbortController()
+    timers.push({ deadline: now + duration, controller })
+    return controller.signal
+  }
+  try {
+    const result = await submitOperaAddon('v0.1.1', Buffer.from('zip'), {
+      env,
+      warn: message => warnings.push(message),
+      retryWait: async duration => {
+        waits.push(duration)
+        now += duration
+        for (const timer of timers) {
+          if (timer.deadline <= now) {
+            timer.controller.abort(new DOMException('Deadline reached', 'TimeoutError'))
+          }
+        }
+      },
+      readMaterial: file =>
+        Buffer.from(
+          file.includes('/listings/')
+            ? JSON.stringify({
+                summary: 'New summary',
+                description: 'Description',
+                homepage: 'https://example.org',
+                support: 'https://example.org/support'
+              })
+            : 'image'
+        ),
+      request: async (url, options) => {
+        options.signal.throwIfAborted()
+        const payload = options.method === 'PATCH' ? JSON.parse(options.body) : {}
+        if (payload.translations?.en?.short_description === 'New summary' && ++attempts === 1) {
+          return new Response('Throttled', { status: 429, headers: { 'Retry-After': '1800' } })
+        }
+        const body = url.endsWith('/packages/123/')
+          ? { ...addon, versions: [{ version: '0.1.1' }, ...addon.versions] }
+          : url.endsWith('/123-0.1.0/')
+            ? details
+            : url.endsWith('/submit_for_moderation/')
+              ? submitted
+              : url.endsWith('/123-0.1.1/') && options.method === 'GET'
+                ? { screenshots: {} }
+                : {}
+        return new Response(JSON.stringify(body))
+      }
+    })
+    assert.match(result, /submitted for moderation/)
+    assert.equal(attempts, 2)
+    assert.deepEqual(waits, [1800000])
+    assert.deepEqual(warnings, [])
+  } finally {
+    AbortSignal.timeout = timeout
   }
 })

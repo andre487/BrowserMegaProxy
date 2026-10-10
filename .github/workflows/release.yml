@@ -91,7 +91,7 @@ jobs:
     needs: release
     if: ${{ !cancelled() && (needs.release.result == 'success' || (inputs.dry_run && needs.release.result == 'skipped')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 90
     concurrency:
       group: chrome-web-store
       cancel-in-progress: false
