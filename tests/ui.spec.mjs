@@ -1117,6 +1117,7 @@ test('profile actions menu supports keyboard activation and dismissal', async ({
   await page.getByLabel('Название').fill('Menu profile')
   await page.getByLabel('Хост прокси').fill('proxy.example.com')
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('#editor')).toBeHidden()
   const summary = page.locator('.profile-menu > summary')
   await summary.focus()
   await page.keyboard.press('Enter')
