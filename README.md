@@ -9,6 +9,10 @@
 [![Firefox Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml?query=branch%3Amain+event%3Apush)
 [![Vivaldi Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml?query=branch%3Amain+event%3Apush)
 
+<p align="center">
+  <img src="extension/icons/icon.png" width="160" alt="MegaProxy extension icon">
+</p>
+
 Browser extensions for Chromium and Firefox.
 HTTP/HTTPS CONNECT, SOCKS5 and experimental MASQUE (Firefox 146+), multiple profiles, authentication, knock hosts, domain exclusions,
 profile import/export, local-network bypass, connection checks, and light/dark themes
