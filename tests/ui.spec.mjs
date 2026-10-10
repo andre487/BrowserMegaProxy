@@ -1457,9 +1457,72 @@ test('routing source editors are exclusive and tab controls follow browser capab
     await page.locator('#routing-mode').selectOption('tabs')
     await expect(page.locator('#routing-list-label')).toHaveText('Сайты для проксирования вкладок')
     await expect(page.locator('#rule-tab-url')).toBeVisible()
+    await expect(page.locator('#rule-tab-url')).toBeEnabled()
+    await page.locator('#rule-tab-url').fill('invalid URL')
+    await page.locator('#routing-mode').selectOption('manual')
   } else {
     await expect(page.locator('#rule-tab-url')).toBeHidden()
+    await page.locator('#rule-tab-url').evaluate(element => {
+      element.value = 'invalid URL'
+    })
   }
+  await expect(page.locator('#rule-tab-url')).toBeDisabled()
+  await page.locator('#rule-url').fill('https://example.com/')
+  expect(await page.locator('#rule-test-form').evaluate(form => form.checkValidity())).toBe(true)
+})
+
+test('native selectors and helper text expose only the current browser capabilities', async ({
+  page,
+  browserName
+}) => {
+  const firefox = browserName === 'firefox'
+  const values = selector =>
+    page.locator(`${selector} option`).evaluateAll(options => options.map(option => option.value))
+  const webRTC = [
+    'browser',
+    'default',
+    'default_public_and_private_interfaces',
+    'default_public_interface_only',
+    'disable_non_proxied_udp'
+  ]
+  expect(await values('#webrtc')).toEqual(firefox ? [...webRTC, 'proxy_only', 'disabled'] : webRTC)
+  expect(await values('#routing-mode')).toEqual(
+    firefox ? ['all', 'manual', 'lists', 'tabs'] : ['all', 'manual', 'lists']
+  )
+
+  await page.locator('#settings > summary').click()
+  for (const language of ['en', 'ru']) {
+    await page.locator('#language').selectOption(language)
+    await expect(page.locator('html')).toHaveAttribute('lang', language)
+    await expect(page.locator('#network-hint')).not.toContainText(firefox ? 'Chromium' : 'Firefox')
+    if (firefox) {
+      await expect(page.locator('#theme-hint')).not.toContainText('Chrome')
+      await expect(page.locator('#network-hint')).toContainText(
+        language === 'en' ? 'tab-site list' : 'по вкладкам'
+      )
+    } else {
+      await expect(page.locator('#network-hint')).not.toContainText(
+        language === 'en' ? 'tab-site list' : 'по вкладкам'
+      )
+      await expect(page.locator('#webrtc')).toHaveValue('browser')
+    }
+    await page.locator('#new').click()
+    if (firefox) {
+      await expect(page.locator('#knock-hint')).not.toContainText('Chromium')
+    } else {
+      await expect(page.locator('#profile-form option[value=masque]')).toHaveCount(0)
+      await expect(page.locator('#knock-hint')).toContainText('HTTP')
+    }
+    await page.locator('#cancel-profile').click()
+  }
+
+  await page.setViewportSize({ width: 320, height: 640 })
+  expect(await values('#webrtc')).toEqual(firefox ? [...webRTC, 'proxy_only', 'disabled'] : webRTC)
+  expect(await values('#routing-mode')).toEqual(
+    firefox ? ['all', 'manual', 'lists', 'tabs'] : ['all', 'manual', 'lists']
+  )
+  await page.reload()
+  expect(await values('#webrtc')).toEqual(firefox ? [...webRTC, 'proxy_only', 'disabled'] : webRTC)
 })
 
 test('automatic theme responds live to browser media preference and explicit choices override it', async ({
