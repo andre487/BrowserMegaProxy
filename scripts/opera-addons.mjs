@@ -23,12 +23,11 @@ export async function submitOperaAddon(
   // ponytail: undocumented dashboard API; update endpoints if Opera changes the cabinet.
   const api = async (endpoint, { method = 'GET', body, raw = false } = {}) => {
     const response = await requestWithRetry(
-      request,
+      (url, options) => request(url, { ...options, signal: AbortSignal.timeout(180000) }),
       `https://addons.opera.com/api/${endpoint}`,
       {
         method,
         redirect: 'error',
-        signal: AbortSignal.timeout(180000),
         headers: {
           Accept: 'application/json; version=1.0',
           Cookie: `sessionid=${env.OPERA_SESSION_ID}; csrftoken=${csrf}`,
@@ -40,7 +39,12 @@ export async function submitOperaAddon(
         body:
           body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body)
       },
-      { secrets: [env.OPERA_SESSION_ID, csrf], wait: retryWait }
+      {
+        secrets: [env.OPERA_SESSION_ID, csrf],
+        wait: retryWait,
+        maxAttempts: 6,
+        initialDelay: 10000
+      }
     )
     if (!response.ok) {
       throw await globalThis.MegaErrors.httpError(
