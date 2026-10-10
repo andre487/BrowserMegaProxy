@@ -294,7 +294,14 @@ test('Opera updates each material independently and still submits after individu
 })
 
 test('Opera screenshot recovery stays within three slots across excess images, partial failures and reruns', async () => {
-  for (const initialCount of [0, 3, 7]) {
+  for (const [initialCount, asMap] of [
+    [0, false],
+    [3, false],
+    [7, false],
+    [0, true],
+    [3, true],
+    [7, true]
+  ]) {
     let screenshots = Array.from({ length: initialCount }, (_, id) => ({ id: id + 1 }))
     let nextId = initialCount + 1
     let attached = 0
@@ -326,7 +333,11 @@ test('Opera screenshot recovery stays within three slots across excess images, p
           body = submitted
         } else if (url.endsWith('/123-0.1.1/')) {
           if (options.method === 'GET') {
-            body = { screenshots: [...screenshots] }
+            body = {
+              screenshots: asMap
+                ? Object.fromEntries(screenshots.map(image => [image.id, image]))
+                : [...screenshots]
+            }
           } else {
             const image = JSON.parse(options.body).screenshots
             if (image?.image_id) {

@@ -223,18 +223,22 @@ export async function submitOperaAddon(
       )
     )
     const maxScreenshots = 3
-    const current = await attemptMaterial('read screenshots', () => materialApi(versionPath))
-    if (current && !Array.isArray(current.screenshots)) {
-      warn(
-        'Opera screenshot metadata: ' +
-          globalThis.MegaErrors.responseText(JSON.stringify(current.screenshots), [
-            env.OPERA_SESSION_ID,
-            csrf
-          ])
+    const readScreenshots = async () => {
+      const { screenshots } = await materialApi(versionPath)
+      assert.ok(
+        screenshots && typeof screenshots === 'object',
+        'Opera screenshot list is unavailable'
       )
+      const images = Object.values(screenshots)
+      assert.ok(
+        images.every(image => Number.isInteger(image?.id)),
+        'Invalid Opera screenshot IDs'
+      )
+      return images
     }
-    if (current && Array.isArray(current.screenshots)) {
-      for (const screenshot of (current.screenshots || []).slice(maxScreenshots)) {
+    const current = await attemptMaterial('read screenshots', readScreenshots)
+    if (current) {
+      for (const screenshot of current.slice(maxScreenshots)) {
         await attemptMaterial(`remove excess screenshot ${screenshot.id}`, () =>
           patch({ screenshots: { image_id: screenshot.id } })
         )
@@ -244,23 +248,19 @@ export async function submitOperaAddon(
       await attemptMaterial(`screenshot ${index}`, async () => {
         const file = `store/assets/opera/en/0${index}.png`
         const id = await upload(await readMaterial(file), path.basename(file), materialApi)
-        const screenshots = (await materialApi(versionPath)).screenshots
-        assert.ok(Array.isArray(screenshots), 'Opera screenshot list is unavailable')
+        const screenshots = await readScreenshots()
         assert.ok(
           screenshots.length <= maxScreenshots,
           'Opera still has excess screenshots; skipping attachment'
         )
         if (screenshots.length === maxScreenshots) {
-          const previous = screenshots.find(image =>
-            current?.screenshots?.some(old => old.id === image.id)
+          const previous = screenshots.find(
+            image => current && current.some(old => old.id === image.id)
           )
           assert.ok(previous, 'Opera screenshot slots are full; skipping attachment')
           await patch({ screenshots: { image_id: previous.id } })
-          const remaining = (await materialApi(versionPath)).screenshots
-          assert.ok(
-            Array.isArray(remaining) && remaining.length < maxScreenshots,
-            'Opera screenshot removal was not confirmed'
-          )
+          const remaining = await readScreenshots()
+          assert.ok(remaining.length < maxScreenshots, 'Opera screenshot removal was not confirmed')
         }
         // A failed attachment may already have succeeded; retrying 5xx could add duplicates.
         await materialApi(versionPath, {
