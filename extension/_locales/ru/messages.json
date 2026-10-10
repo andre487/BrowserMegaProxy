@@ -1143,7 +1143,7 @@
     "message": "Логин Basic Auth (необязательно)"
   },
   "subscriptionPassword": {
-    "message": "Пароль Basic Auth"
+    "message": "Пароль Basic Auth (необязательно)"
   },
   "configFollow": {
     "message": "Подписаться на обновления конфигурации"

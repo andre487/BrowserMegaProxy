@@ -1143,7 +1143,7 @@
     "message": "Basic Auth username (optional)"
   },
   "subscriptionPassword": {
-    "message": "Basic Auth password"
+    "message": "Basic Auth password (optional)"
   },
   "configFollow": {
     "message": "Subscribe to configuration updates"
