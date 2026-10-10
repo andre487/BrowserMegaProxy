@@ -1,4 +1,5 @@
 import { requestWithRetry } from './http-request.mjs'
+import { readListing } from './store-materials.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -149,7 +150,8 @@ export async function prepareStoreMaterials(destination = 'dist/store-materials'
   for (const shop of ['chrome', 'firefox', 'opera']) {
     for (const locale of ['en', 'ru']) {
       const file = path.join(store, 'listings', shop, locale)
-      const listing = JSON.parse(await readFile(`${file}.json`, 'utf8'))
+      const listing = await readListing(file)
+      await writeFile(`${file}.json`, `${JSON.stringify(listing, null, 2)}\n`)
       const description = listing.description.replace(/^• /gm, '- ')
       const captions = listing.screenshotCaptions.map(caption => `- ${caption}`).join('\n')
       await writeFile(

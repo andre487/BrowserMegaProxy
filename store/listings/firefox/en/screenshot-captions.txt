@@ -1,0 +1,5 @@
+Profiles and quick actions in the dark theme.
+Connection check and saved profiles in the light theme.
+Firefox tab routing and the rule tester.
+Automatic domain lists with optional updates through the proxy.
+Local network monitor and failed request domains.

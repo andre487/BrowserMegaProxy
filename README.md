@@ -64,7 +64,7 @@ Opening Settings activates its tab, reuses an existing settings tab in the curre
 window when available, and closes the action popup. This also applies to the
 popup's Add profile and Import actions, including Firefox Android.
 The popup provides quick actions to select and connect a profile, disconnect and knock.
-Disconnect selects System and releases MegaProxy's proxy control. Changes to the active profile apply immediately.
+Disconnect selects System and releases MegaProxy's proxy control. Changes to the active profile apply to new requests immediately; existing connections may need a page reload or browser restart. See [connection-update notices](#configuration-subscriptions).
 Knock opens a separate tab, active when credentials are missing and otherwise in the background,
 which closes automatically after a successful load.
 Settings → Language offers Auto, Russian and English. Auto is the default:
@@ -171,8 +171,10 @@ fields remain optional and compatible with Android's version 8 configuration.
 
 Selective routing offers predefined domain lists from
 [itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains).
-Subscriptions for destination-domain routing and Firefox split proxy are selected
-independently. Settings save automatically. Updates run manually or daily while the
+Automatic lists use the **Automatic lists** routing strategy. **By tabs** is a manual
+Firefox strategy; its saved `siteSources` stay inactive. Legacy imported configs
+without an explicit `browser.routing.strategy` can combine manual patterns with
+downloaded lists, including Firefox tab-site lists. Settings save automatically. Updates run manually or daily while the
 browser is running and the selected mode uses those lists. Failed updates retry
 after an hour. “Update lists through the active proxy” uses the selected profile,
 even with selective routing. Without an active profile it fails, without direct
@@ -475,8 +477,9 @@ SOCKS4, user PAC, downloaded rule lists, regex/full-URL/time conditions, unequal
 per-protocol endpoints or credentials, multiple switch trees and incompatible
 rule ordering produce review warnings or skipped profiles. A fixed switch
 default cannot activate a local connection automatically and is warned about.
-Unsupported settings are not retained. Arbitrary subscription URLs, user PAC
-scripts and a separate startup-profile selector remain deliberately out of scope.
+Unsupported settings are not retained. ZeroOmega remote rule-list subscriptions,
+user PAC scripts and its startup-profile selector are not imported. Subscribing to
+the complete settings JSON uses [MegaProxy's configuration subscription](#configuration-subscriptions).
 
 ## Connection checks
 
@@ -635,7 +638,7 @@ services:
         keyFile: key.pem
 ```
 
-JSON imports/exports preserve `proxy.type: "MASQUE"` and
+JSON imports/exports preserve the profile's `proxy.type: "MASQUE"` and
 `browser.masqueTemplate`. Both fields are part of the shared schema vendored from
 MegaProxyConfig, with its revision recorded in `config-schema/schema-lock.json`; clients
 must explicitly support it.

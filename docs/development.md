@@ -94,12 +94,12 @@ Together they cover:
 
 - ESLint: code quality rules for all JS/MJS files; errors and warnings block the PR.
 - Prettier: consistent JS/MJS, HTML/CSS/JSON, Markdown and YAML formatting; differences block the PR.
-- Node: validation, Unicode Basic, routing, imports, retry limits and credential protection.
+- Node: validation, Unicode Basic, routing, imports, retry limits and credential protection; configuration-subscription source failover, profile replacement, rollback and connection-update notices.
 - Playwright Chromium: installed MV3 extension, a real proxy challenge, knock, subsequent CONNECT and no credentials reaching the origin.
 - Playwright Firefox: temporary add-on installation through Mozilla DevTools Protocol; a test-only sidecar in a temporary copy invokes the normal background handler and is excluded from builds. Playwright checks real network requests; controlling `moz-extension` pages is unsupported.
 - MegaProxyServer: real GOST 3.3.0 and HAProxy in Docker, templates and exports from a pinned server commit; HTTPS/407, camouflage with and without knock, separate chain camouflage settings, direct and SNI-chain routes (including a server with no direct route), IP endpoints, invalid/empty credentials, no origin credential leaks, exit failure without direct fallback, split proxy, proxied subscriptions, diagnostics and request-statistics preferences.
 - Chrome development launcher: current code after relaunch and language persistence in a separate profile, when regular Chrome is installed.
-- Chromium and Firefox UI: create/edit/delete, imports, themes, keyboard access and mobile widths; automatic browser-language selection, persisted manual choices, translated errors and form preservation on language changes.
+- Chromium and Firefox UI: create/edit/delete, imports, themes, keyboard access and mobile widths; automatic browser-language selection, persisted manual choices, translated errors and form preservation on language changes; manual subscription refresh while paused, connection notices and optional notification consent/refusal.
 
 ## Code organization
 

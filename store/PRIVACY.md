@@ -20,11 +20,18 @@ When a proxy is selected, matching traffic and proxy authentication are sent to 
 
 A configured knock host may be opened to trigger proxy authentication: in a background tab with saved credentials, or in the foreground when credentials are missing so you can use the browser’s authentication dialog. Credentials entered in that dialog are managed by the browser and are not copied into a MegaProxy profile.
 
+If saved proxy credentials are rejected, MegaProxy can open its own authentication
+window or mobile tab. Replacement credentials remain in memory until a challenged
+request receives an HTTP response other than a proxy authentication challenge (407),
+then are saved to that profile and synchronized according to your
+password-sync preference. Cancellation, network failures and repeated proxy-authentication
+challenges do not replace saved credentials.
+
 When you run a connection check, the extension contacts example.com and public IP/country lookup services: ifconfig.me, api.ipify.org, icanhazip.com, ifconfig.co, ipapi.co and api.country.is. Some are fallback endpoints. They receive the IP address of the connection used for the check and ordinary HTTP request metadata. Results are displayed locally.
 
 Automatic list features fetch catalog metadata and selected domain lists from GitHub (api.github.com and raw.githubusercontent.com, including itdoginfo/allow-domains). If selected lists exceed the rule limit, a public popularity ranking may be fetched from the wangmm001/tranco-top1m-cache GitHub mirror or tranco-list.eu to prioritize domains. These providers receive ordinary request metadata, including the source IP. The extension does not send your browsing history to rank domains. Updates can be sent through the active proxy. Unused lists are not downloaded in other routing modes; opening routing settings can refresh stale catalog metadata.
 
-Importing a configuration from a URL contacts that user-provided address. A configuration subscription repeats these requests automatically until disabled in Settings. The subscription URL and optional Basic Auth credentials are stored locally and are included in exports according to the password export preference; they are not browser-synchronized. The server receives normal request metadata, X-MegaProxy-Client and X-MegaProxy-Version headers identifying the browser client implementation and extension version, and, when configured, the subscription credentials over HTTPS. The imported configuration may contain proxy credentials and change proxy settings; use a trusted source. Failed updates preserve the last working configuration.
+Importing a configuration from a URL contacts that user-provided address. A configuration subscription repeats these requests at the saved interval until automatic checks are paused in Settings. Manual refresh remains available while paused. Backup URLs are tried in order when an earlier source fails; each configured source may receive the same Basic Auth credentials, so only use servers you trust. Subscription downloads reject redirects. The subscription URLs and optional Basic Auth credentials are stored locally and included in exports; passwords follow the password export preference. Subscription settings are not browser-synchronized. The server receives normal request metadata, X-MegaProxy-Client and X-MegaProxy-Version headers identifying the browser client implementation and extension version, and, when configured, the subscription credentials over HTTPS. The imported configuration may contain proxy credentials and change proxy settings; use a trusted source. Failed updates preserve the last working configuration.
 
 ## Control and contact
 

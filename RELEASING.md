@@ -207,7 +207,8 @@ For a first submission, `web-ext` creates the listing using the tagged source
 archive's reviewer notes and MIT license, with EN/RU listings from the released
 store-materials archive and Other categories for desktop and Android. After
 submission, the job updates the listing, privacy policy and icon, then uploads
-the EN/RU Firefox screenshots with captions. Previous screenshots are removed
+the five English and five Russian Firefox screenshots with captions into AMO's
+single shared gallery. AMO localizes captions, not the image gallery. Previous screenshots are removed
 only after all replacements are accepted. Rerunning an already submitted version
 still synchronizes materials without uploading the package again. Both first
 submissions and updates include the source ZIP for reproducible review.

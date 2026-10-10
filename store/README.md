@@ -5,9 +5,17 @@ Automatic Chrome release submission and dry runs are described in [RELEASING.md]
 Optional Opera submission, dry runs and manual recovery are described in [RELEASING.md](../RELEASING.md#opera-add-ons).
 Firefox Add-ons submission and dry runs are described in [RELEASING.md](../RELEASING.md#firefox-add-ons-amo).
 
-Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English and Russian copy is in `listings/{chrome,firefox,opera}/{en,ru}.json`: Firefox and Opera release jobs synchronize supported fields from the released materials archive; Chrome requires manual synchronization in its dashboard. Each summary is at most 132 characters. Screenshot captions are supplied for accessibility fields where available. Release store-materials archives include readable Markdown copies beside the JSON listings.
+Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English and Russian copy is in `listings/{chrome,firefox,opera}/{en,ru}/`: Firefox and Opera release jobs synchronize supported fields from the released materials archive; Chrome requires manual synchronization in its dashboard. Each summary is at most 132 characters. Screenshot captions are supplied for accessibility fields where available.
 
-Run `npm run store:materials` to copy the current assets and generate all six Markdown listings in `dist/store-materials/store/`. JSON files remain the source of truth; release packaging runs this generation automatically.
+Edit `name.txt`, `summary.txt`, `description.txt`, `homepage.txt` and `support.txt` directly.
+Descriptions use plain text with `•` bullet markers, not Markdown. Put one screenshot
+caption per line in `screenshot-captions.txt`, in gallery order.
+
+Run `npm run store:materials` to copy these sources and current assets to
+`dist/store-materials/store/`. Packaging derives the six JSON listings used by the
+existing release integrations and combined Markdown copies for convenience; those
+generated files are not sources to edit or commit. Existing release archives remain
+compatible with the uploaders. Release packaging runs this generation automatically.
 
 | Store            | Screenshots                                           | Icon                         | Promotion                                       |
 | ---------------- | ----------------------------------------------------- | ---------------------------- | ----------------------------------------------- |
@@ -16,6 +24,12 @@ Run `npm run store:materials` to copy the current assets and generate all six Ma
 | Opera Add-ons    | `assets/opera/en/01.png` … `03.png` (default gallery) | `assets/shared/icon-64.png`  | `promo-opera.png` (300×188)                     |
 
 Chrome and Firefox screenshots are 1280×800 opaque PNGs; Opera copies are resized to 612×408 with opaque margins. They show actual packaged UI rendered in Chromium or Firefox with isolated fictional profiles, counters and connection results. The screenshots are composed with captions; no credentials, user profiles or real endpoint information are used. Opera reuses the Chromium UI materials, rather than claiming screenshots from an Opera session. The Firefox routing screenshot shows its exclusive By tabs mode.
+
+Chrome supports localized screenshot sets. AMO has one shared screenshot gallery
+with localizable captions; the current integration uploads the five English and
+five Russian Firefox images into that shared gallery, not separate locale galleries.
+Opera uses the first three English captures. The five-caption JSON arrays are shared
+listing source data; only the screenshots supported by each integration are uploaded.
 
 The shared 128×128 icon has 96×96 artwork and 16 px transparent margins. Promotion images are 300×188 (Opera), 440×280 and 1400×560 opaque PNGs, without locale-specific text. They reuse the AndroidMegaProxy logo under the license in `assets/shared/LICENSE`.
 
