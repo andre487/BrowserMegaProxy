@@ -43,7 +43,7 @@ test('release notes use the selected model and reject incomplete, refused or inv
   const notes = { en: '- Added proxy settings.', ru: '- Добавлены настройки прокси.' }
   const options = {
     apiKey: 'test-key',
-    model: 'gpt-6-luna',
+    model: 'gpt-6.1-sol',
     history: 'Add proxy settings',
     stat: '1 file',
     previous: null

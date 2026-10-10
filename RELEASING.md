@@ -29,12 +29,12 @@ submission, all in one workflow run.
 6. In **Settings → Secrets and variables → Actions → Secrets**, add the repository
    secret **OPENAI_API_KEY**. Never put the key in repository files.
 7. Under **Variables**, add the repository variable **OPENAI_RELEASE_MODEL** with
-   the value **gpt-6-luna**, following the other repositories. This is also the
+   the value **gpt-6.1-sol**, following the other repositories. This is also the
    default when no variable exists. A secret with the same name is supported for
    compatibility. The workflow's **model** input overrides both the variable and secret.
 
 The generator uses the [OpenAI Responses API](https://developers.openai.com/api/docs/quickstart)
-and [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
+and [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol).
 It sends commit history and file-change statistics since the previous release
 tag, or the complete history for the first release. File contents are not sent;
 API response storage is disabled (`store: false`). The EN/RU changelog is saved in
@@ -51,7 +51,7 @@ Android signing and store credentials are not needed for GitHub releases.
    It must be at least the version in `package.json` and its release tag must not exist.
    The current version can be used for its first release; three components from 0–65535 are allowed,
    without leading zeros or `beta`/`rc` suffixes.
-   Leave **model** empty to use `OPENAI_RELEASE_MODEL` / `gpt-6-luna`, or specify
+   Leave **model** empty to use `OPENAI_RELEASE_MODEL` / `gpt-6.1-sol`, or specify
    another model identifier available to your project.
 4. Wait for completion. The workflow generates the EN/RU changelog, updates
    `package.json` and `package-lock.json`, creates `release/vX.Y.Z` and a PR,

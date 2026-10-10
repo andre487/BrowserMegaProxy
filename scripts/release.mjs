@@ -130,7 +130,7 @@ async function writeNotes(version) {
   const stat = git('diff', '--stat', base, 'HEAD', '--')
   const notes = await generateNotes(version, {
     apiKey: process.env.OPENAI_API_KEY,
-    model: process.env.OPENAI_RELEASE_MODEL || 'gpt-6-luna',
+    model: process.env.OPENAI_RELEASE_MODEL || 'gpt-6.1-sol',
     previous: previous || null,
     history,
     stat

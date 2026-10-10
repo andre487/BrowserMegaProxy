@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       model:
-        description: OpenAI model override; otherwise OPENAI_RELEASE_MODEL or gpt-6-luna
+        description: OpenAI model override; otherwise OPENAI_RELEASE_MODEL or gpt-6.1-sol
         required: false
         type: string
 permissions:
@@ -41,7 +41,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_RELEASE_MODEL: ${{ inputs.model || vars.OPENAI_RELEASE_MODEL || secrets.OPENAI_RELEASE_MODEL || 'gpt-6-luna' }}
+          OPENAI_RELEASE_MODEL: ${{ inputs.model || vars.OPENAI_RELEASE_MODEL || secrets.OPENAI_RELEASE_MODEL || 'gpt-6.1-sol' }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           test -n "$GH_TOKEN" || { echo 'Configure RELEASE_BOT_TOKEN'; exit 1; }
