@@ -66,7 +66,7 @@
     "message": "Knock host"
   },
   "knockHint": {
-    "message": "Required in Chromium and when credentials are not saved. Opens at connection and browser startup for proxy authentication."
+    "message": "Required when credentials are not saved. Opens at connection and browser startup for proxy authentication."
   },
   "bypass": {
     "message": "Connect directly for domains"
@@ -663,7 +663,7 @@
     "message": "No open HTTP or HTTPS sites"
   },
   "themeHint": {
-    "message": "Auto follows the system theme, falling back to dark when unavailable. If Chrome uses a different theme, choose a theme here."
+    "message": "Auto follows the system theme, falling back to dark when unavailable. You can also choose a theme manually."
   },
   "extensionSettings": {
     "message": "Extension preferences"
@@ -1183,5 +1183,11 @@
   },
   "understood": {
     "message": "Understood"
+  },
+  "knockChromiumHint": {
+    "message": "Required for HTTP and HTTPS proxies. Opens at connection and browser startup for proxy authentication."
+  },
+  "networkDomainsHint": {
+    "message": "Up to 200 recent requests per tab and 50 tabs. Domains only, without URL paths, query strings or request contents. Navigation or background restart clears the data. System mode cannot identify an external proxy. Selected domains can be added to the manual domain list."
   }
 }

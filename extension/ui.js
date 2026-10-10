@@ -373,9 +373,6 @@ function render() {
       $('#config-subscription-interval').value = state.subscription.intervalMinutes
     }
     $('#webrtc').value = state.webRTC || 'browser'
-    for (const option of $('#webrtc').options) {
-      option.hidden = !platform.supportsWebRTC(option.value)
-    }
 
     $('#sync-enabled').checked = syncOptions.enabled
     $('#sync-passwords').checked = syncOptions.includePasswords
@@ -624,7 +621,6 @@ function renderRouting() {
   $('#routing-mode').setAttribute('aria-label', t('routingMode'))
   routingDrafts = { domains: config.domains.join('\n'), tabs: config.sites.join('\n') }
   routingDraftMode = config.mode
-  $('#routing-mode option[value="tabs"]').hidden = !platform.supportsTabRouting
   const tabs = config.mode === 'tabs'
   $('#routing-list').value = config[tabs ? 'sites' : 'domains'].join('\n')
   $('#routing-list-label').dataset.i18n = tabs ? 'routingSiteList' : 'routingDomainList'
@@ -637,7 +633,8 @@ function renderRouting() {
 function renderRoutingMode() {
   const strategy = $('#routing-mode').value
   const tabs = strategy === 'tabs'
-  $('#rule-tab-url').closest('label').hidden = !platform.supportsTabRouting || !tabs
+  $('#rule-tab-url').disabled = !platform.supportsTabRouting || !tabs
+  $('#rule-tab-url').closest('label').hidden = $('#rule-tab-url').disabled
   $('#manual-routing').hidden = !['manual', 'tabs'].includes(strategy)
   $('#list-routing').hidden = strategy !== 'lists'
   $('#routing-list-label').dataset.i18n = tabs ? 'routingSiteList' : 'routingDomainList'
@@ -914,7 +911,9 @@ function syncKnock() {
       : form.elements.type.value === 'socks5'
         ? 'knockSocksHint'
         : needed
-          ? 'knockHint'
+          ? platform.id === 'chromium'
+            ? 'knockChromiumHint'
+            : 'knockHint'
           : 'knockDisabledHint'
   )
 }
@@ -1026,6 +1025,17 @@ $('#check').onclick = async () => {
 }
 
 if (isOptions) {
+  for (const option of [...$('#webrtc').options]) {
+    if (!platform.supportsWebRTC(option.value)) {
+      option.remove()
+    }
+  }
+  if (!platform.supportsTabRouting) {
+    $('#routing-mode option[value="tabs"]').remove()
+  }
+  $('#network-hint').dataset.i18n = platform.supportsTabRouting
+    ? 'networkHint'
+    : 'networkDomainsHint'
   if (platform.defaultTheme !== 'system') {
     $('#theme option[value=system]').remove()
   }
