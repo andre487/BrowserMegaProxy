@@ -9,11 +9,11 @@ Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English 
 
 Run `npm run store:materials` to copy the current assets and generate all six Markdown listings in `dist/store-materials/store/`. JSON files remain the source of truth; release packaging runs this generation automatically.
 
-| Store            | Screenshots                                       | Icon                                                     | Promotion                                       |
-| ---------------- | ------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
-| Chrome Web Store | `assets/chromium/{en,ru}/01.png` … `05.png`       | `assets/shared/icon-128.png`                             | `promo-small.png`; optional `promo-marquee.png` |
-| Firefox Add-ons  | `assets/firefox/{en,ru}/01.png` … `05.png`        | `assets/shared/icon-128.png`                             | Not needed                                      |
-| Opera Add-ons    | Reuse `assets/chromium/{en,ru}/01.png` … `05.png` | `assets/shared/icon-128.png`; `icon-64.png` if requested | `promo-opera.png` (300×188)                     |
+| Store            | Screenshots                                                                | Icon                                                     | Promotion                                       |
+| ---------------- | -------------------------------------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
+| Chrome Web Store | `assets/chromium/{en,ru}/01.png` … `05.png`                                | `assets/shared/icon-128.png`                             | `promo-small.png`; optional `promo-marquee.png` |
+| Firefox Add-ons  | `assets/firefox/{en,ru}/01.png` … `05.png`                                 | `assets/shared/icon-128.png`                             | Not needed                                      |
+| Opera Add-ons    | Resize copies of `assets/chromium/{en,ru}/01.png` … `05.png` before upload | `assets/shared/icon-128.png`; `icon-64.png` if requested | `promo-opera.png` (300×188)                     |
 
 Screenshots are 1280×800 opaque PNGs. They show actual packaged UI rendered in Chromium or Firefox with isolated fictional profiles, counters and connection results. The screenshots are composed with captions; no credentials, user profiles or real endpoint information are used. Opera reuses the Chromium UI materials, rather than claiming screenshots from an Opera session. The Firefox routing screenshot shows its exclusive By tabs mode.
 
@@ -35,8 +35,8 @@ The command builds the extension and regenerates all PNGs with the installed Pla
 - [Permission justifications](PERMISSIONS.md): English text for each requested permission and host access.
 - [Reviewer notes](REVIEWER-NOTES.md): review steps and package selection.
 
-These materials do not publish the extension. The store dashboard’s current fields, release package and target-browser behavior still need to be checked at submission time. Prepared on 6 October 2026 using the official guidance:
+These materials do not publish the extension. The store dashboard’s current fields, release package and target-browser behavior still need to be checked at submission time. Opera screenshots need resizing before upload: the generator produces Chromium screenshots at 1280×800, while Opera's guidance recommends 612×408 and sets a maximum of 800×600. Keep the original Chrome/Firefox assets at their generated size.
 
 - [Chrome image requirements](https://developer.chrome.com/docs/webstore/images) and [listing fields](https://developer.chrome.com/docs/webstore/cws-dashboard-listing).
 - [Mozilla listing guidance](https://extensionworkshop.com/documentation/develop/create-an-appealing-listing/).
-- [Opera publishing guidelines](https://help.opera.com/en/extensions/publishing-guidelines/) and [acceptance criteria](https://help.opera.com/en/extensions/acceptance-criteria/). Opera’s public guidance does not specify an exact screenshot size; 1280×800 is supplied for reuse, not presented as an Opera requirement.
+- [Opera publishing guidelines](https://help.opera.com/en/extensions/publishing-guidelines/) and [acceptance criteria](https://help.opera.com/en/extensions/acceptance-criteria/).

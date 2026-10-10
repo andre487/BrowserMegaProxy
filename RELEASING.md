@@ -1,8 +1,8 @@
 # Releasing MegaProxy
 
 The process follows AndroidMegaProxy: manual version input → release PR →
-required checks → merge → tag → build and GitHub Release → Chrome Web Store
-submission, all in one workflow run.
+required checks → merge → tag → build and GitHub Release → Chrome Web Store,
+Firefox Add-ons and Opera Add-ons submission, all in one workflow run.
 
 ## One-time setup
 
@@ -248,7 +248,7 @@ in Opera's dashboard. Opera submission is enabled by default after normal releas
 set `OPERA_PUBLISH_ENABLED=false` to disable it explicitly.
 
 The job uploads the ZIP in chunks, copies existing metadata and localized summaries,
-and submits for moderation. It resumes an uploaded version after a failed attempt
+and submits for moderation. It resumes a version already created in Opera after a failed attempt
 and skips a version already submitted. A successful submission does not mean Opera
 has approved or published it. Sessions can expire and dashboard API changes can
 require updating the integration. No account password is stored by this workflow.
@@ -262,10 +262,21 @@ triggering Chrome publication. Clearing **dry_run** submits the selected release
 The **Release extension artifacts** workflow with **dry_run** enabled also checks
 Opera unless `OPERA_PUBLISH_ENABLED=false`, alongside its Chrome access check.
 
+Opera API requests retry HTTP 5xx with exponential backoff; see
+[HTTP failure diagnostics](#http-failure-diagnostics) for the retry policy.
+
 Failures in normal Opera submission are non-blocking: the workflow emits a warning
 and a job summary with manual upload and credential renewal instructions. GitHub
-Release and Chrome publication continue independently. Dry-run failures remain
+Release and Chrome publication continue independently. A green workflow does not
+confirm Opera submission: check the integration step's log for confirmation and
+the summary for recovery warnings. Dry-run failures remain
 blocking so invalid credentials are reported clearly.
+
+If creating a version returns HTTP 500 after upload, the dry run does not exercise
+that failing request. Check the endpoint and response excerpt before changing
+credentials; a server error alone does not mean the session expired. Try the same
+ZIP through the dashboard and inspect its response to distinguish an integration
+request problem from a failure in Opera's package processing.
 
 Manual recovery: download the Chromium ZIP from the GitHub release, open
 [Opera Developer Dashboard](https://addons.opera.com/developer/), select the extension's
@@ -284,7 +295,15 @@ Release API calls (Chrome, Firefox, Opera and release-note generation), schema/c
 renewal and extension downloads include response excerpts for HTTP 500–599 errors.
 The shared handler reads at most 16 KiB and outputs at most 4,096 characters, with
 known credentials, authorization fields, URLs and control characters redacted.
-Errors identify the method and endpoint in release logs. Release and maintenance API calls and extension configuration downloads retry HTTP 5xx up to three total attempts with 1 and 2 second delays; each failed attempt logs its response excerpt. Connection checks do not retry requests. HTTP 4xx and transport failures are not retried by this handler. Empty or unreadable bodies
+Errors identify the method and endpoint in release logs. By default, release and maintenance
+API calls and extension configuration downloads retry HTTP 5xx up to three total
+attempts with 1 and 2 second delays. Opera uses a longer exponential retry policy,
+configured in `scripts/opera-addons.mjs`; its request timeout starts afresh for each
+attempt. The Opera job time limit is configured in `.github/workflows/opera-addons.yml`.
+Each retry logs its response excerpt. Connection checks do not retry requests.
+HTTP 4xx and transport failures are not retried by this handler. Opera separately
+retries HTTP 400/404 during version creation while uploaded chunks become available.
+Empty or unreadable bodies
 are marked explicitly; HTTP 4xx response bodies are not logged.
 
 Extension 5xx diagnostics are also retained across error wrapping and displayed in

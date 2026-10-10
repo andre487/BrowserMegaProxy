@@ -79,12 +79,13 @@ automatically determine logical boundaries.
 ## Checks and pull requests
 
 ```sh
-# Requires Docker with a running daemon, uv, Git and OpenSSL.
+# Requires Docker with a running daemon, uv, Git, OpenSSL, zip/unzip and tar.
 npx playwright install chromium firefox
 npm run check
 ```
 
-`npm run check` runs linting, a build, unit tests and desktop browser tests.
+`npm run check` runs linting, a build, unit tests and desktop browser tests on
+macOS or Linux; the GOST test-binary preparation does not support Windows.
 Android checks need an emulator and run separately; see [testing](testing.md).
 
 [.github/workflows/pr.yml](../.github/workflows/pr.yml) runs checks on every PR

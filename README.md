@@ -9,10 +9,14 @@
 [![Firefox Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml?query=branch%3Amain+event%3Apush)
 [![Vivaldi Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml?query=branch%3Amain+event%3Apush)
 
+<p align="center">
+  <img src="extension/icons/icon.png" width="160" alt="MegaProxy extension icon">
+</p>
+
 Browser extensions for Chromium and Firefox.
 HTTP/HTTPS CONNECT, SOCKS5 and experimental MASQUE (Firefox 146+), multiple profiles, authentication, knock hosts, domain exclusions,
 profile import/export, local-network bypass, connection checks, and light/dark themes
-(with automatic appearance in Firefox). The UI uses no external libraries or resources.
+(with automatic appearance in Firefox). The UI uses native HTML/CSS and packaged resources.
 
 MegaProxy manages proxies you provide; it does not include proxy servers or a VPN service.
 Safari and browsers without extension proxy APIs are not supported.
@@ -56,6 +60,9 @@ including release PRs that merge before the publication job starts.
 
 Open Settings from the popup: profiles, import/export, routing, language and appearance
 are on a separate page. Add a profile with a server address, port, username and password.
+Opening Settings activates its tab, reuses an existing settings tab in the current
+window when available, and closes the action popup. This also applies to the
+popup's Add profile and Import actions, including Firefox Android.
 The popup provides quick actions to select and connect a profile, disconnect and knock.
 Disconnect selects System and releases MegaProxy's proxy control. Changes to the active profile apply immediately.
 Knock opens a separate tab, active when credentials are missing and otherwise in the background,
@@ -70,7 +77,8 @@ extension description language independently of the manual UI selection.
 Passwords are stored in `storage.local` and synchronized through `storage.sync` by default;
 password sync can be disabled separately. MegaProxy does not encrypt them separately.
 Chromium private-window access is disabled by default. Firefox requires private-window
-permission for `proxy.settings`; the active profile applies in those windows too.
+permission for proxy control: desktop uses `proxy.settings`, while Android uses
+`proxy.onRequest`. The active profile applies in those windows too.
 
 ## Connection modes and network monitor
 
@@ -370,8 +378,9 @@ SOCKS5 uses proxy-side DNS. Firefox supports SOCKS5 username/password authentica
 Chromium supports only anonymous SOCKS5. Its profile editor disables the credential
 fields with an explanation, and imports with SOCKS5 credentials report an explicit
 compatibility error. SOCKS5 does not use HTTP proxy authorization or knock hosts.
-The shared configuration accepts `SOCKS5`; current Android clients require an update
-to support that value and must report unsupported profiles instead of changing the protocol.
+The shared configuration accepts `SOCKS5`; importing it into another client requires
+that client's explicit support. Unsupported profiles must be reported instead of
+changing the protocol.
 
 ## ZeroOmega import compatibility
 
@@ -549,8 +558,9 @@ services:
 
 JSON imports/exports preserve `proxy.type: "MASQUE"` and
 `browser.masqueTemplate`. This is currently a browser schema addition, recorded
-in `config-schema/schema-lock.json` and proposed in
-[MegaProxyConfig PR #2](https://github.com/andre487/MegaProxyConfig/pull/2); clients
+in `config-schema/schema-lock.json` and accepted upstream in
+[MegaProxyConfig PR #2](https://github.com/andre487/MegaProxyConfig/pull/2). The bundled
+schema still applies the override to its pinned upstream revision; clients
 must explicitly support it.
 `masque://proxy.example:8443` imports use the default template.
 
@@ -562,8 +572,9 @@ npm run prepare:gost-e2e
 npx playwright test tests/masque.spec.mjs --project=firefox
 ```
 
-The test downloads GOST 3.3.0 with a pinned SHA-256 checksum and temporary TLS
-certificates. HTTP/HTTPS CONNECT-TCP and failure without a direct fallback pass.
+The preparation command downloads GOST 3.3.0 with a pinned SHA-256 checksum; the
+test generates temporary TLS certificates. HTTP/HTTPS CONNECT-TCP and failure
+without a direct fallback pass.
 Successful HTTP/3 page loading via CONNECT-UDP through GOST is not confirmed:
 our manual test encountered `DATAGRAM frame too large`. Automated browser tests
 cover working CONNECT-TCP scenarios only. Test-specific certificate exceptions
