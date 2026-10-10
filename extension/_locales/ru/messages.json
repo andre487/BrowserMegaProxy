@@ -1135,5 +1135,38 @@
   },
   "working": {
     "message": "Выполнение…"
+  },
+  "configSubscription": {
+    "message": "Подписка на конфигурацию"
+  },
+  "subscriptionUsername": {
+    "message": "Логин Basic Auth (необязательно)"
+  },
+  "subscriptionPassword": {
+    "message": "Пароль Basic Auth"
+  },
+  "configFollow": {
+    "message": "Подписаться на обновления конфигурации"
+  },
+  "updateConfigSubscription": {
+    "message": "Обновить конфигурацию сейчас"
+  },
+  "configSubscriptionUpdated": {
+    "message": "Последний успешный импорт: $1"
+  },
+  "operationConfigSubscription": {
+    "message": "Подписка на конфигурацию"
+  },
+  "operationUpdateConfigSubscription": {
+    "message": "Обновление конфигурации по подписке"
+  },
+  "configSubscriptionFallback": {
+    "message": "Обновлено из резервного источника $1."
+  },
+  "configSubscriptionInterval": {
+    "message": "Интервал проверки (в минутах)"
+  },
+  "errorConfigSubscription": {
+    "message": "Некорректные учётные данные подписки или интервал обновления"
   }
 }

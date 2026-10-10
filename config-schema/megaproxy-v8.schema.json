@@ -106,6 +106,16 @@
       },
       "required": [],
       "additionalProperties": true
+    },
+    "subscription": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/configSubscription"
+        }
+      ]
     }
   },
   "required": [
@@ -319,11 +329,13 @@
             "SAMSUNG_INTERNET",
             "YANDEX_BROWSER",
             "CUSTOM"
-          ]
+          ],
+          "description": "Outer TLS/QUIC preset. Android selects the document-level preset; DEFAULT resolves to CHROME_ANDROID. MASQUE supports CHROME_ANDROID, FIREFOX_ANDROID, RANDOMIZED and CUSTOM."
         },
         "customJa3": {
           "type": "string",
-          "maxLength": 8192
+          "maxLength": 8192,
+          "description": "Custom outer handshake JA3. Android HTTPS uses the document-level value; MASQUE uses profiles[].tls.customJa3 for its separate QUIC-compatible JA3. Consumers validate JA3 semantics beyond this schema."
         }
       },
       "required": [],
@@ -601,6 +613,46 @@
       },
       "required": [],
       "additionalProperties": true
+    },
+    "configSubscription": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^https://",
+          "maxLength": 2048
+        },
+        "username": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "password": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "intervalMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10080
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "fallbackUrls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^https://",
+            "maxLength": 2048
+          },
+          "maxItems": 7,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "additionalProperties": false
     }
   }
 }

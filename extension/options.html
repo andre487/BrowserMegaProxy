@@ -353,6 +353,19 @@
               placeholder="https://example.com/MegaProxy.json"
               autocomplete="off"
           /></label>
+          <label
+            ><span data-i18n="subscriptionUsername">Basic Auth username (optional)</span
+            ><input id="config-username" type="text" autocomplete="off"
+          /></label>
+          <label
+            ><span data-i18n="subscriptionPassword">Basic Auth password</span
+            ><input id="config-password" type="password" autocomplete="off"
+          /></label>
+          <label class="checkbox"
+            ><input id="config-follow" type="checkbox" /><span data-i18n="configFollow"
+              >Subscribe to configuration updates</span
+            ></label
+          >
           <p class="hint" data-i18n="importURLHint"></p>
           <div class="actions">
             <button id="cancel-url-import" type="button" class="secondary" data-i18n="cancel">
@@ -361,6 +374,27 @@
           </div>
         </form>
       </dialog>
+      <section id="config-subscription" hidden>
+        <h2 data-i18n="configSubscription">Configuration subscription</h2>
+        <label class="checkbox"
+          ><input id="config-subscription-enabled" type="checkbox" /><span data-i18n="configFollow"
+            >Automatic updates</span
+          ></label
+        >
+        <label
+          ><span data-i18n="configSubscriptionInterval">Check interval (minutes)</span
+          ><input id="config-subscription-interval" type="number" min="1" max="10080" required
+        /></label>
+        <p id="config-subscription-status" class="hint" role="status" aria-live="polite"></p>
+        <button
+          id="update-config-subscription"
+          type="button"
+          class="secondary"
+          data-i18n="updateConfigSubscription"
+        >
+          Update configuration now
+        </button>
+      </section>
       <footer>
         <div class="import-actions">
           <button id="open-import" type="button" class="secondary" data-i18n="importJSON">

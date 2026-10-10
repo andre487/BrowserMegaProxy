@@ -24,7 +24,7 @@ When you run a connection check, the extension contacts example.com and public I
 
 Automatic list features fetch catalog metadata and selected domain lists from GitHub (api.github.com and raw.githubusercontent.com, including itdoginfo/allow-domains). If selected lists exceed the rule limit, a public popularity ranking may be fetched from the wangmm001/tranco-top1m-cache GitHub mirror or tranco-list.eu to prioritize domains. These providers receive ordinary request metadata, including the source IP. The extension does not send your browsing history to rank domains. Updates can be sent through the active proxy. Unused lists are not downloaded in other routing modes; opening routing settings can refresh stale catalog metadata.
 
-Importing a configuration from a URL contacts that user-provided address. That server receives normal request metadata. The imported configuration may contain proxy credentials; use a trusted source.
+Importing a configuration from a URL contacts that user-provided address. A configuration subscription repeats these requests automatically until disabled in Settings. The subscription URL and optional Basic Auth credentials are stored locally and are included in exports according to the password export preference; they are not browser-synchronized. The server receives normal request metadata, X-MegaProxy-Client and X-MegaProxy-Version headers identifying the browser client implementation and extension version, and, when configured, the subscription credentials over HTTPS. The imported configuration may contain proxy credentials and change proxy settings; use a trusted source. Failed updates preserve the last working configuration.
 
 ## Control and contact
 

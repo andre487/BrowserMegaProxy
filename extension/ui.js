@@ -14,6 +14,7 @@ let statistics
 let statisticsTimer
 let connectionCheck
 let pendingImport
+let pendingSubscription
 let currentSite
 let syncOptions = { enabled: true, includePasswords: true }
 let syncError
@@ -322,6 +323,35 @@ function render() {
 
   if (isOptions) {
     renderPrivateAccess()
+    $('#config-subscription').hidden = !state.subscription
+    if (state.subscription) {
+      $('#config-subscription-enabled').checked = state.subscription.enabled
+      $('#config-subscription-interval').value = state.subscription.intervalMinutes
+      $('#update-config-subscription').disabled = !state.subscription.enabled
+      const status = state.configSubscriptionState
+      $('#config-subscription-status').textContent = status?.error
+        ? MegaErrors.format(
+            { message: status.error, errorDetails: status.errorDetails },
+            'updateConfigSubscription',
+            t
+          )
+        : status?.lastUpdated
+          ? t('configSubscriptionUpdated', new Date(status.lastUpdated).toLocaleString())
+          : ''
+      $('#config-subscription-status').textContent +=
+        ' ' +
+        [
+          !status?.error && status?.sourceIndex > 0
+            ? t('configSubscriptionFallback', String(status.sourceIndex))
+            : '',
+          status?.skipped?.length ? t('importSkipped', status.skipped.join(', ')) : '',
+          status?.unknownFields ? t('unknownConfigFields') : '',
+          status?.unsupportedSplitProxy ? t('splitUnsupportedWarning') : '',
+          status?.unsupportedWebRTC ? t('errorWebRTCUnsupported') : ''
+        ]
+          .filter(Boolean)
+          .join(' ')
+    }
     $('#webrtc').value = state.webRTC || 'browser'
     for (const option of $('#webrtc').options) {
       option.hidden = !platform.supportsWebRTC(option.value)
@@ -677,9 +707,10 @@ function renderThemeHint() {
         )
 }
 
-async function reviewImport(data) {
+async function reviewImport(data, subscription) {
   const preview = await send('previewImport', { data })
   pendingImport = data
+  pendingSubscription = subscription
   $('#import-warnings').textContent = [
     preview.skippedMasque ? t('masqueImportDisabled') : '',
     preview.skipped.length ? t('importSkipped', preview.skipped.join(', ')) : '',
@@ -1092,12 +1123,30 @@ if (isOptions) {
   $('#import-url-form').onsubmit = event => {
     event.preventDefault()
     action(async () => {
-      await reviewImport((await send('fetchConfig', { url: $('#config-url').value })).data)
+      const url = $('#config-url').value
+      const username = $('#config-username').value
+      const password = $('#config-password').value
+      const auth = username || password ? { username, password } : undefined
+      const subscription = $('#config-follow').checked
+        ? MegaProxy.subscription({ url, ...auth })
+        : undefined
+      const data = (await send('fetchConfig', { url, auth: subscription || auth })).data
+      await reviewImport(data, subscription)
+      $('#config-password').value = ''
       $('#url-import').close()
       $('#apply-import').focus()
       $('#import-review').scrollIntoView({ block: 'start' })
     })
   }
+  $('#config-subscription-enabled').onchange = () =>
+    action(() => send('configSubscription', { enabled: $('#config-subscription-enabled').checked }))
+  $('#config-subscription-interval').onchange = () =>
+    action(() =>
+      send('configSubscription', {
+        intervalMinutes: Number($('#config-subscription-interval').value)
+      })
+    )
+  $('#update-config-subscription').onclick = () => action(() => send('updateConfigSubscription'))
   $('#new').onclick = () => edit({ color: state.profiles.length % MegaProxy.colors.length })
   $('#profile-form').addEventListener('input', syncKnock)
   $('#statistics-enabled').onchange = () =>
@@ -1182,7 +1231,11 @@ if (isOptions) {
         throw new Error('errorPrivacyPermission')
       }
 
-      const result = await send('import', { data: pendingImport, removeIds })
+      const result = await send('import', {
+        data: pendingImport,
+        removeIds,
+        ...(pendingSubscription ? { subscription: pendingSubscription } : {})
+      })
       placeNotice($('#open-import')).textContent = result.unsupportedSplitProxy
         ? t('splitUnsupportedWarning')
         : result.skipped?.length
@@ -1190,10 +1243,12 @@ if (isOptions) {
           : t('imported')
       $('#import-review').hidden = true
       pendingImport = null
+      pendingSubscription = undefined
     }, 'import')
   $('#cancel-import').onclick = () => {
     $('#import-review').hidden = true
     pendingImport = null
+    pendingSubscription = undefined
   }
   $('#export').onclick = () =>
     action(async () => {

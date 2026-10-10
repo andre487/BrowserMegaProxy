@@ -331,6 +331,64 @@ Bypass domains include their subdomains without requiring wildcards or PAC.
 Firefox returns a chain ending in `null` to prevent direct fallback.
 Chromium uses one fixed proxy.
 
+## Configuration subscriptions
+
+The delivery contract is documented in the
+[MegaProxyConfig subscription protocol](https://github.com/andre487/MegaProxyConfig/blob/main/docs/subscription-protocol.md).
+
+A MegaProxy configuration can contain a root `subscription` property. Import that
+file once to keep receiving updates, including after a browser restart:
+
+```json
+{
+  "subscription": {
+    "url": "https://configs.example.com/MegaProxy.json",
+    "fallbackUrls": ["https://backup.example.com/MegaProxy.json"],
+    "username": "subscriber",
+    "password": "secret",
+    "intervalMinutes": 60,
+    "enabled": true
+  }
+}
+```
+
+This is a fragment of a complete version 8 configuration with `schema`, `version`
+and `profiles`. Only `url` is required; omit both credentials for a public URL. Optional
+`fallbackUrls` are tried in order when earlier sources cannot download or import
+usable content. Every refresh starts with the primary URL and stops at the first
+successful import. Basic Auth credentials are shared across the explicitly listed
+sources; only list servers trusted to receive them. Failure of all sources retains
+the last working snapshot. The status shows when a backup source supplied it.
+The first automatic download runs shortly after import. Settings also lets you
+subscribe when importing a URL, change the check interval, pause updates, refresh manually and see the last
+successful import or error. Basic Auth requires HTTPS. Subscription downloads
+reject redirects; use the final URL. They use the browser's current proxy settings. Configuration requests include
+`X-MegaProxy-Client: browser_chromium` or `browser_firefox`, allowing the server
+to select a compatible response. `X-MegaProxy-Version` carries the installed
+extension version from its manifest.
+
+Updates replace profiles from the previous subscription snapshot and remove those
+no longer present. Profiles added separately remain; the current connection mode
+and active profile stay selected while that profile still exists. Each update replaces all settings represented by its format; a full MegaProxy
+configuration also resets omitted browser preferences to their defaults. Settings
+not represented by the source format remain local. Supported subscription bodies
+are MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON, ProxyList and SuperProxy, with
+the same protocol and routing limitations as manual imports. Unsupported profiles
+and fields produce warnings; a source with no usable profiles fails the update.
+A failed download or invalid configuration preserves the last working snapshot.
+Use stable IDs in MegaProxy and stable names in ZeroOmega. Formats without stable
+IDs match uniquely named profiles, then unique proxy type/host/port endpoints;
+ambiguous or entirely changed profiles get new IDs. A downloaded configuration need not repeat
+its subscription settings: the URL and credentials configured locally remain in use.
+
+Subscription settings and status stay on this device; browser sync does not start
+subscriptions on another device. Export includes the subscription settings, with
+its password following **Include passwords**. An import without `subscription`
+keeps the current subscription; `"subscription": null` removes it. Reimporting the
+same URL and username without a password preserves the saved password. Use an empty
+password explicitly to clear it. Import configurations only from a trusted source:
+the subscription server can change your proxy profiles and imported preferences.
+
 ## Configuration compatibility
 
 The shared version 8 contract, English documentation, schemas and examples are in

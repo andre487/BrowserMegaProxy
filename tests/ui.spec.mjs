@@ -108,6 +108,15 @@ test.beforeEach(async ({ page, browserName, context }) => {
             }
           }
 
+          if (message.command === 'configSubscription') {
+            if (message.enabled !== undefined) {
+              state.subscription.enabled = message.enabled
+            }
+            if (message.intervalMinutes !== undefined) {
+              state.subscription.intervalMinutes = message.intervalMinutes
+            }
+          }
+
           if (message.command === 'connectionMode') {
             state.connectionMode = message.mode
             if (message.mode === 'proxy') {
@@ -240,6 +249,9 @@ test.beforeEach(async ({ page, browserName, context }) => {
             state.bypassLocalNetworks = message.enabled
           }
           if (message.command === 'import') {
+            if (message.subscription) {
+              state.subscription = M.subscription(message.subscription)
+            }
             const result = M.importProfiles(
               message.data,
               globalThis.MEGA_TARGET,
@@ -2452,3 +2464,50 @@ test('import uses the same chooser and profile deletion can be cancelled', async
   await expect(page.locator('#notice')).toBeVisible()
   await expect(page.locator('#notice')).toHaveText('Сохранено')
 })
+
+for (const format of ['MegaProxy', 'ProxyList']) {
+  test(`URL import can embed subscription settings and expose pause and update controls (${format})`, async ({
+    page
+  }) => {
+    const config = {
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      profiles: [
+        { id: 'remote', name: 'Remote', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }
+      ]
+    }
+    await page.route('https://config.example/MegaProxy.json', route =>
+      route.fulfill({ json: config })
+    )
+    await page.goto('http://127.0.0.1:8765/options.html')
+    await expect(page.locator('#config-subscription')).toBeHidden()
+    await page.locator('#open-url-import').click()
+    await page.locator('#config-url').fill('https://config.example/MegaProxy.json')
+    await page.locator('#config-username').fill('reader')
+    await page.locator('#config-password').fill('subscription-secret')
+    await page.locator('#config-follow').check()
+    await page.locator('#import-url-form button[type=submit]').click()
+    await expect(page.locator('#import-review')).toBeVisible()
+    await expect(page.locator('#config-password')).toHaveValue('')
+    await page.locator('#apply-import').click()
+    await expect(page.locator('#config-subscription')).toBeVisible()
+    await expect(page.locator('#config-subscription-enabled')).toBeChecked()
+    await expect(page.locator('#config-subscription-interval')).toHaveValue('60')
+    await page.locator('#config-subscription-interval').fill('30')
+    await page.locator('#config-subscription-interval').blur()
+    await expect(page.locator('#config-subscription-interval')).toHaveValue('30')
+    const subscription = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('testState')).subscription
+    )
+    expect(subscription).toMatchObject({
+      url: 'https://config.example/MegaProxy.json',
+      username: 'reader',
+      password: 'subscription-secret',
+      enabled: true
+    })
+    await page.locator('#update-config-subscription').click()
+    expect(await page.evaluate(() => globalThis.testCommands)).toContain('updateConfigSubscription')
+    await page.locator('#config-subscription-enabled').uncheck()
+    await expect(page.locator('#update-config-subscription')).toBeDisabled()
+  })
+}

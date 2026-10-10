@@ -1135,5 +1135,38 @@
   },
   "working": {
     "message": "Working…"
+  },
+  "configSubscription": {
+    "message": "Configuration subscription"
+  },
+  "subscriptionUsername": {
+    "message": "Basic Auth username (optional)"
+  },
+  "subscriptionPassword": {
+    "message": "Basic Auth password"
+  },
+  "configFollow": {
+    "message": "Subscribe to configuration updates"
+  },
+  "updateConfigSubscription": {
+    "message": "Update configuration now"
+  },
+  "configSubscriptionUpdated": {
+    "message": "Last successful import: $1"
+  },
+  "operationConfigSubscription": {
+    "message": "Configuration subscription"
+  },
+  "operationUpdateConfigSubscription": {
+    "message": "Configuration subscription update"
+  },
+  "configSubscriptionFallback": {
+    "message": "Updated from backup source $1."
+  },
+  "configSubscriptionInterval": {
+    "message": "Check interval (minutes)"
+  },
+  "errorConfigSubscription": {
+    "message": "Invalid subscription credentials or update interval"
   }
 }

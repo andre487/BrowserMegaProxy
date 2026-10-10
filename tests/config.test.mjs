@@ -415,7 +415,7 @@ test('MASQUE import and export preserve the Firefox template and reject Chromium
   config.profiles[0].proxy.password = ''
   config.profiles[0].browser.masqueTemplate = '/custom/{target_host}/{target_port}/'
   assert.ok(validate(config), JSON.stringify(validate.errors))
-  assert.equal(android(config), false)
+  assert.ok(android(config), JSON.stringify(android.errors))
   const imported = M.importProfiles(config, 'firefox', true)
   const state = M.mergeImport(M.defaults(), imported)
   assert.equal(state.profiles[0].masqueTemplate, config.profiles[0].browser.masqueTemplate)
@@ -460,4 +460,58 @@ test('disabled MASQUE imports skip profiles with a warning, including MASQUE-onl
   assert.equal(result.skippedMasque, true)
   assert.equal(result.profiles.length, portable.profiles.length)
   assert.equal(M.importProfiles(config, 'firefox', true).profiles.length, config.profiles.length)
+})
+
+test('root config subscriptions validate, round-trip and follow secret omission semantics', () => {
+  const config = structuredClone(portable)
+  config.subscription = {
+    url: 'https://config.example/MegaProxy.json',
+    username: 'reader',
+    password: 'private',
+    fallbackUrls: ['https://backup.example/MegaProxy.json']
+  }
+  assert.ok(validate(config), JSON.stringify(validate.errors))
+  let state = M.mergeImport(M.defaults(), M.importProfiles(config, 'firefox'))
+  assert.equal(state.subscription.enabled, true)
+  assert.equal(state.subscription.intervalMinutes, 60)
+  const exported = M.exportConfig(state)
+  assert.ok(validate(exported), JSON.stringify(validate.errors))
+  assert.equal(exported.subscription.password, undefined)
+  assert.equal(M.exportConfig(state, true).subscription.password, 'private')
+  state = M.mergeImport(state, M.importProfiles(exported, 'firefox'))
+  assert.equal(state.subscription.password, 'private')
+  const publicConfig = { ...config, subscription: { url: 'https://public.example/' } }
+  const publicState = M.mergeImport(M.defaults(), M.importProfiles(publicConfig, 'firefox'))
+  assert.equal(
+    Object.hasOwn(
+      M.mergeImport(publicState, M.importProfiles(publicConfig, 'firefox')).subscription,
+      'password'
+    ),
+    false
+  )
+  const changed = structuredClone(exported)
+  changed.subscription.url = 'https://other.example/MegaProxy.json'
+  assert.equal(
+    M.mergeImport(state, M.importProfiles(changed, 'firefox')).subscription.password,
+    undefined
+  )
+  for (const invalid of [
+    { url: 'http://config.example/' },
+    { url: 'https://reader:secret@config.example/' },
+    { url: 'https://config.example/#fragment' },
+    { url: 'https://config.example/', username: 'user:other' },
+    { url: 'https://config.example/', password: 'secret\n' },
+    { url: 'https://config.example/', intervalMinutes: 0 },
+    { url: 'https://config.example/', intervalMinutes: 1.5 },
+    { url: 'https://config.example/', enabled: 'yes' },
+    { url: 'https://config.example/', fallbackUrls: 'https://backup.example/' },
+    { url: 'https://config.example/', fallbackUrls: ['http://backup.example/'] },
+    { url: 'https://config.example/', fallbackUrls: ['https://CONFIG.example/'] },
+    { url: 'https://config.example/', fallbackUrls: ['https://reader:secret@backup.example/'] }
+  ]) {
+    assert.throws(() => M.importProfiles({ ...config, subscription: invalid }, 'firefox'))
+  }
+  state = M.mergeImport(state, M.importProfiles({ ...config, subscription: null }, 'firefox'))
+  assert.equal(state.subscription, null)
+  assert.equal(M.exportConfig(state, true).subscription, undefined)
 })

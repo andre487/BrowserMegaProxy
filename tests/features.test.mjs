@@ -42,8 +42,10 @@ function harness(target = 'firefox', shared = {}, fetch = globalThis.fetch, init
     }
   }
   const api = {
+    alarms: initial.alarms,
     runtime: {
       id: 'test',
+      getManifest: () => ({ version: '1.2.3' }),
       getURL: path => `moz-extension://test/${path}`,
       onMessage: listener('message'),
       openOptionsPage: async () => calls.push(['options'])
@@ -640,7 +642,11 @@ test('URL import bounds downloads, validates data, rejects unsafe schemes and do
     profiles: [{ id: 'remote', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }]
   }
   let response = new Response(JSON.stringify(config))
-  const h = harness('chromium', {}, async () => response)
+  const h = harness('chromium', {}, async (_, options) => {
+    assert.equal(options.headers['X-MegaProxy-Client'], 'browser_chromium')
+    assert.equal(options.headers['X-MegaProxy-Version'], '1.2.3')
+    return response
+  })
   const downloaded = await h.send({
     command: 'fetchConfig',
     url: 'https://config.example/MegaProxy.json'
@@ -1551,4 +1557,335 @@ test('config downloads retry only 5xx with backoff and stop after success', asyn
       assert.equal(response.data, config)
     }
   }
+})
+
+test('config subscriptions authenticate, replace owned profiles atomically and resume after restart', async () => {
+  const alarms = new Map()
+  let onAlarm
+  let remote
+  let requests = 0
+  const fetch = async (url, options) => {
+    requests++
+    assert.equal(url, 'https://config.example/MegaProxy.json')
+    assert.equal(
+      options.headers.Authorization,
+      `Basic ${Buffer.from('читатель:пароль').toString('base64')}`
+    )
+    assert.equal(options.redirect, 'error')
+    assert.equal(options.headers['X-MegaProxy-Client'], 'browser_firefox')
+    assert.equal(options.headers['X-MegaProxy-Version'], '1.2.3')
+    assert.equal(options.credentials, 'omit')
+    return new Response(typeof remote === 'string' ? remote : JSON.stringify(remote), {
+      status: typeof remote === 'string' ? 401 : 200
+    })
+  }
+  const alarmAPI = {
+    create: async (name, options) => alarms.set(name, options),
+    clear: async name => alarms.delete(name),
+    get: async name => alarms.get(name),
+    onAlarm: {
+      addListener: listener => {
+        onAlarm = listener
+      }
+    }
+  }
+  const h = harness('firefox', {}, fetch, { alarms: alarmAPI })
+  const config = {
+    schema: 'net.megaproxy487.config',
+    version: 8,
+    subscription: {
+      url: 'https://config.example/MegaProxy.json',
+      username: 'читатель',
+      password: 'пароль',
+      intervalMinutes: 15
+    },
+    profiles: ['one', 'gone'].map(id => ({
+      id,
+      proxy: { type: 'HTTPS', host: `${id}.example`, port: 443 }
+    }))
+  }
+  remote = {
+    ...config,
+    profiles: [
+      config.profiles[0],
+      { id: 'new', proxy: { type: 'HTTPS', host: 'new.example', port: 443 } }
+    ]
+  }
+  delete remote.subscription
+  assert.equal((await h.send({ command: 'import', data: config })).ok, true)
+  assert.equal(alarms.get('configSubscription').periodInMinutes, 15)
+  assert.equal((await h.send({ command: 'configSubscription', intervalMinutes: 30 })).ok, true)
+  assert.equal(alarms.get('configSubscription').periodInMinutes, 30)
+  assert.equal((await h.send({ command: 'configSubscription', intervalMinutes: 0 })).ok, false)
+  assert.equal(alarms.get('configSubscription').periodInMinutes, 30)
+  await h.send({ command: 'save', profile: { id: 'local', host: 'local.example', port: 443 } })
+  await h.send({ command: 'activate', id: 'one' })
+  await h.send({ command: 'connectionMode', mode: 'direct' })
+  onAlarm({ name: 'configSubscription' })
+  await h.flush()
+  let state = (await h.send({ command: 'get' })).state
+  assert.deepEqual(
+    Array.from(state.profiles, p => p.id),
+    ['one', 'local', 'new']
+  )
+  assert.equal(state.activeId, 'one')
+  assert.equal(state.connectionMode, 'direct')
+  assert.equal(state.subscription.password, 'пароль')
+  assert.ok(state.configSubscriptionState.lastUpdated)
+  assert.equal(state.configSubscriptionState.error, undefined)
+  const snapshot = JSON.stringify(state.profiles)
+  for (const invalid of [
+    'Access denied',
+    { schema: config.schema, version: 8, profiles: [] },
+    {
+      schema: config.schema,
+      version: 8,
+      profiles: [{ id: 'unsupported', proxy: { type: 'SSH', host: 'ssh.example', port: 22 } }]
+    }
+  ]) {
+    remote = invalid
+    await h.send({ command: 'updateConfigSubscription' })
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(JSON.stringify(state.profiles), snapshot)
+    assert.ok(state.configSubscriptionState.error)
+  }
+  const failed = structuredClone(state)
+  failed.configSubscriptionState.lastAttempt = 0
+  remote = { ...config, profiles: [config.profiles[0]] }
+  const restarted = harness('firefox', {}, fetch, { state: failed, alarms: alarmAPI })
+  await restarted.flush()
+  state = (await restarted.send({ command: 'get' })).state
+  assert.deepEqual(
+    Array.from(state.profiles, p => p.id),
+    ['one', 'local']
+  )
+  assert.equal(state.configSubscriptionState.error, undefined)
+  const count = requests
+  await restarted.send({ command: 'configSubscription', enabled: false })
+  onAlarm({ name: 'configSubscription' })
+  await restarted.flush()
+  assert.equal(requests, count)
+  assert.equal(alarms.has('configSubscription'), false)
+  assert.equal(
+    (
+      await restarted.send({
+        command: 'fetchConfig',
+        url: 'http://config.example/',
+        auth: { username: 'reader', password: 'secret' }
+      })
+    ).error,
+    'errorConfigURL'
+  )
+  assert.equal(requests, count)
+  const synced = harness('firefox', restarted.shared)
+  await synced.send({ command: 'get' })
+  await synced.flush()
+  assert.equal((await synced.send({ command: 'get' })).state.subscription, undefined)
+})
+
+test('legacy subscription snapshots reuse profiles and replace only settings represented by their format', async () => {
+  const feeds = [
+    {
+      name: 'LegacyMegaProxy',
+      data: {
+        schema: 'net.megaproxy487.config',
+        version: 6,
+        profiles: [
+          {
+            name: 'Feed',
+            proxy: {
+              type: 'HTTPS',
+              host: 'proxy.example',
+              port: 443,
+              username: 'user',
+              password: 'secret'
+            }
+          }
+        ]
+      }
+    },
+    { name: 'ProxyList', data: 'https://user:secret@proxy.example:443?title=Feed' },
+    {
+      name: 'FoxyProxy',
+      data: {
+        data: [
+          {
+            type: 'ssl',
+            address: 'proxy.example',
+            port: '443',
+            title: 'Feed',
+            username: 'user',
+            password: 'secret'
+          },
+          { type: 'pac', title: 'Unsupported PAC' }
+        ]
+      }
+    },
+    {
+      name: 'SuperProxy',
+      data: [
+        {
+          title: 'Feed',
+          proxy: {
+            type: 'HTTPS',
+            host: 'proxy.example',
+            port: 443,
+            username: 'user',
+            password: 'secret'
+          }
+        }
+      ]
+    },
+    {
+      name: 'ZeroOmega',
+      data: {
+        schemaVersion: 2,
+        '-startupProfileName': 'switch',
+        '+Feed': {
+          name: 'Feed',
+          profileType: 'FixedProfile',
+          fallbackProxy: { scheme: 'https', host: 'proxy.example', port: 443 },
+          auth: { all: { username: 'user', password: 'secret' } }
+        },
+        '+switch': {
+          profileType: 'SwitchProfile',
+          defaultProfileName: 'direct',
+          rules: [
+            {
+              condition: { conditionType: 'HostWildcardCondition', pattern: '*.feed.example' },
+              profileName: 'Feed'
+            }
+          ]
+        }
+      }
+    }
+  ]
+  for (const { name, data } of feeds) {
+    let body = typeof data === 'string' ? data : JSON.stringify(data)
+    const h = harness('firefox', {}, async (_, options) => {
+      assert.equal(options.headers.Authorization, undefined)
+      assert.equal(options.headers['X-MegaProxy-Client'], 'browser_firefox')
+      return new Response(body)
+    })
+    assert.equal(
+      (
+        await h.send({
+          command: 'import',
+          data,
+          subscription: { url: 'https://config.example/feed', enabled: true }
+        })
+      ).ok,
+      true,
+      name
+    )
+    await h.send({ command: 'theme', theme: 'light' })
+    await h.send({ command: 'language', language: 'ru' })
+    const initial = (await h.send({ command: 'get' })).state
+    const id = initial.profiles[0].id
+    await h.send({ command: 'activate', id })
+    await h.send({ command: 'save', profile: { id: 'manual', host: 'manual.example', port: 443 } })
+    await h.send({ command: 'routing', routing: { enabled: true, domains: ['old.example'] } })
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await h.send({ command: 'updateConfigSubscription' })
+      const state = (await h.send({ command: 'get' })).state
+      assert.equal(state.profiles.length, 2, name)
+      assert.equal(state.profiles[0].id, id, name)
+      assert.equal(state.activeId, id, name)
+      assert.equal(state.theme, name === 'LegacyMegaProxy' ? 'system' : 'light', name)
+      assert.equal(state.language, name === 'LegacyMegaProxy' ? 'auto' : 'ru', name)
+      assert.equal(
+        state.browserRouting.domains[0],
+        name === 'ZeroOmega'
+          ? '**.feed.example'
+          : name === 'LegacyMegaProxy'
+            ? undefined
+            : 'old.example',
+        name
+      )
+      assert.equal(state.configSubscriptionState.error, undefined, name)
+      if (name === 'FoxyProxy') {
+        assert.equal(state.configSubscriptionState.skipped.length, 1)
+      }
+    }
+    body = JSON.stringify({
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      profiles: [{ id, proxy: { type: 'HTTPS', host: 'replacement.example', port: 443 } }]
+    })
+    await h.send({ command: 'updateConfigSubscription' })
+    const state = (await h.send({ command: 'get' })).state
+    assert.equal(state.profiles[0].host, 'replacement.example')
+    assert.equal(state.theme, 'system')
+    assert.equal(state.language, 'auto')
+    assert.equal(state.browserRouting.enabled, false)
+    assert.equal(state.profiles.length, 2)
+    assert.equal(state.activeId, id)
+  }
+})
+
+test('subscription failover tries sources in order, imports legacy feeds and retries the primary next time', async () => {
+  const urls = [
+    'https://primary.example/feed',
+    'https://backup.example/feed',
+    'https://last.example/feed'
+  ]
+  const requests = []
+  let mode = 'backup'
+  const feed = 'https://proxy-user:proxy-secret@backup-proxy.example:443?title=Feed'
+  const h = harness('firefox', {}, async (url, options) => {
+    requests.push(url)
+    assert.equal(options.redirect, 'error')
+    assert.equal(
+      options.headers.Authorization,
+      `Basic ${Buffer.from('reader:feed-secret').toString('base64')}`
+    )
+    if (mode === 'offline') {
+      throw new TypeError('Failed to fetch')
+    }
+    if (mode === 'primary' || url === urls[2]) {
+      return new Response(feed)
+    }
+    return url === urls[0]
+      ? new Response('Unauthorized', { status: 401 })
+      : new Response('Invalid configuration')
+  })
+  const config = {
+    schema: 'net.megaproxy487.config',
+    version: 8,
+    subscription: {
+      url: urls[0],
+      fallbackUrls: urls.slice(1),
+      username: 'reader',
+      password: 'feed-secret'
+    },
+    profiles: [
+      { id: 'one', name: 'Feed', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }
+    ]
+  }
+  assert.equal((await h.send({ command: 'import', data: config })).ok, true)
+  await h.send({ command: 'activate', id: 'one' })
+  await h.send({ command: 'updateConfigSubscription' })
+  let state = (await h.send({ command: 'get' })).state
+  assert.deepEqual(requests, urls)
+  assert.equal(state.activeId, 'one')
+  assert.equal(state.profiles[0].host, 'backup-proxy.example')
+  assert.equal(state.profiles[0].password, 'proxy-secret')
+  assert.equal(state.subscription.password, 'feed-secret')
+  assert.equal(state.configSubscriptionState.sourceIndex, 2)
+  assert.equal(state.configSubscriptionState.error, undefined)
+  const snapshot = JSON.stringify(state.profiles)
+  mode = 'offline'
+  requests.length = 0
+  await h.send({ command: 'updateConfigSubscription' })
+  state = (await h.send({ command: 'get' })).state
+  assert.deepEqual(requests, urls)
+  assert.equal(JSON.stringify(state.profiles), snapshot)
+  assert.equal(state.configSubscriptionState.error, 'errorConfigDownload')
+  mode = 'primary'
+  requests.length = 0
+  await h.send({ command: 'updateConfigSubscription' })
+  state = (await h.send({ command: 'get' })).state
+  assert.deepEqual(requests, [urls[0]])
+  assert.equal(state.configSubscriptionState.sourceIndex, 0)
+  assert.equal(state.configSubscriptionState.error, undefined)
 })

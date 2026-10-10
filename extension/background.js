@@ -854,7 +854,7 @@ async function handle(message) {
   }
 
   if (message.command === 'fetchConfig') {
-    return { ok: true, data: await fetchConfig(message.url) }
+    return { ok: true, data: await fetchConfig(message.url, message.auth) }
   }
 
   if (message.command === 'testRule') {
@@ -917,6 +917,11 @@ async function handle(message) {
     const result = await checkConnection()
     diagnosticLog?.write('connection_check_finished', { code: result.connectionCheck?.error })
     return result
+  }
+
+  if (message.command === 'updateConfigSubscription') {
+    await refreshConfigSubscription()
+    return { ok: true, state }
   }
 
   if (message.command === 'export') {
@@ -1012,9 +1017,85 @@ async function handle(message) {
     if (next.activeId === message.id) {
       next.activeId = null
     }
+  } else if (message.command === 'configSubscription') {
+    if (!next.subscription) {
+      throw new Error('errorConfigURL')
+    }
+    next.subscription = M.subscription({
+      ...next.subscription,
+      ...(Object.hasOwn(message, 'enabled') ? { enabled: message.enabled } : {}),
+      ...(Object.hasOwn(message, 'intervalMinutes')
+        ? { intervalMinutes: message.intervalMinutes }
+        : {})
+    })
   } else if (message.command === 'import') {
     const result = M.importProfiles(message.data, MEGA_TARGET, state.masqueEnabled === true)
-    next = M.mergeImport(next, result, message.removeIds || [])
+    const subscriptionUpdate = message.subscriptionUpdate
+    if (subscriptionUpdate) {
+      if (!result.profiles.length) {
+        throw new Error('errorImportCompatible')
+      }
+      result.replaceSettings = true
+      if (
+        (result.config?.version || 0) < 7 &&
+        !result.profiles.every(p => p.id.startsWith('zero:'))
+      ) {
+        const remaining = state.profiles.filter(p =>
+          state.configSubscriptionState?.profileIds?.includes(p.id)
+        )
+        for (const p of result.profiles) {
+          if (p.portable?.id) {
+            continue
+          }
+          const previousId = p.id
+          const named = p.name ? remaining.filter(old => old.name === p.name) : []
+          const matches =
+            named.length === 1
+              ? named
+              : remaining.filter(
+                  old => old.type === p.type && old.host === p.host && old.port === p.port
+                )
+          if (matches.length === 1) {
+            p.id = matches[0].id
+            remaining.splice(remaining.indexOf(matches[0]), 1)
+          } else if (p.portable) {
+            p.id = crypto.randomUUID()
+          }
+          const passwordIndex = result.missingPasswords.indexOf(previousId)
+          if (passwordIndex >= 0) {
+            result.missingPasswords[passwordIndex] = p.id
+          }
+        }
+      }
+    }
+    const removeIds = subscriptionUpdate
+      ? (state.configSubscriptionState?.profileIds || []).filter(
+          id => state.profiles.some(p => p.id === id) && !result.profiles.some(p => p.id === id)
+        )
+      : message.removeIds || []
+    if (subscriptionUpdate && result.config) {
+      result.config.subscription = state.subscription
+    }
+    next = M.mergeImport(next, result, removeIds)
+    if (Object.hasOwn(message, 'subscription')) {
+      next.subscription = M.subscription(message.subscription)
+    }
+    if (
+      subscriptionUpdate ||
+      Object.hasOwn(message, 'subscription') ||
+      (result.config && Object.hasOwn(result.config, 'subscription'))
+    ) {
+      next.configSubscriptionState = {
+        profileIds: result.profiles.map(p => p.id),
+        lastAttempt: subscriptionUpdate ? Date.now() : 0,
+        lastUpdated: Date.now(),
+        sourceIndex: message.subscriptionSource,
+        skipped: result.skipped,
+        unknownFields: result.unknownFields,
+        unsupportedSplitProxy: result.unsupportedSplitProxy,
+        unsupportedWebRTC: result.unsupportedWebRTC
+      }
+    }
     message.skippedMasque = result.skippedMasque
     message.skipped = result.skipped
     message.unsupportedSplitProxy = result.unsupportedSplitProxy
@@ -1163,6 +1244,12 @@ async function handle(message) {
     })
   }
 
+  if (
+    (message.command === 'import' && !message.subscriptionUpdate) ||
+    message.command === 'configSubscription'
+  ) {
+    await scheduleConfigSubscription()
+  }
   await publishSync()
   diagnosticLog?.write('settings_changed', {
     mode: state.connectionMode,
@@ -1670,6 +1757,8 @@ for (const event of ['onInstalled', 'onStartup']) {
       .then(async () => {
         await ready
         await scheduleSubscriptions()
+        await scheduleConfigSubscription()
+        await refreshConfigSubscription(true)
         await apply(state)
         await refreshBadges()
         if (M.active(state)) {
@@ -1692,6 +1781,9 @@ for (const event of ['onInstalled', 'onStartup']) {
 }
 
 api.alarms?.onAlarm.addListener(alarm => {
+  if (alarm.name === 'configSubscription') {
+    queue = queue.then(() => refreshConfigSubscription(true)).catch(() => {})
+  }
   if (alarm.name === 'subscriptions') {
     queue = queue
       .then(async () => {
@@ -1703,6 +1795,75 @@ api.alarms?.onAlarm.addListener(alarm => {
 })
 
 ready.then(scheduleSubscriptions).catch(() => {})
+queue = queue
+  .then(async () => {
+    await ready
+    await scheduleConfigSubscription()
+    await refreshConfigSubscription(true)
+  })
+  .catch(() => {})
+
+async function scheduleConfigSubscription() {
+  if (!api.alarms) {
+    return
+  }
+  if (!state.subscription?.enabled) {
+    await api.alarms.clear('configSubscription')
+    return
+  }
+  const settings = M.subscription(state.subscription)
+  const when = Math.max(
+    Date.now() + 1000,
+    (state.configSubscriptionState?.lastAttempt || 0) + settings.intervalMinutes * 60000
+  )
+  await api.alarms.create('configSubscription', { when, periodInMinutes: settings.intervalMinutes })
+}
+
+async function refreshConfigSubscription(onlyDue = false) {
+  await ready
+  if (!state.subscription?.enabled) {
+    return
+  }
+  const settings = M.subscription(state.subscription)
+  if (
+    onlyDue &&
+    Date.now() <
+      (state.configSubscriptionState?.lastAttempt || 0) + settings.intervalMinutes * 60000
+  ) {
+    return
+  }
+  const urls = [settings.url, ...(settings.fallbackUrls || [])]
+  let failure
+  for (const [sourceIndex, url] of urls.entries()) {
+    try {
+      const data = await fetchConfig(url, settings)
+      await handle({
+        command: 'import',
+        data,
+        subscriptionUpdate: true,
+        subscriptionSource: sourceIndex
+      })
+      failure = undefined
+      break
+    } catch (error) {
+      failure = MegaErrors.details(error, 'updateConfigSubscription')
+      diagnosticLog?.write('config_subscription_source_failed', failure)
+    }
+  }
+  if (failure) {
+    state = {
+      ...state,
+      configSubscriptionState: {
+        ...state.configSubscriptionState,
+        lastAttempt: Date.now(),
+        error: failure.code,
+        errorDetails: failure
+      }
+    }
+    await api.storage.local.set({ state })
+  }
+  await scheduleConfigSubscription()
+}
 
 async function applyWebRTC(value) {
   M.webRTC(value)
@@ -1777,7 +1938,7 @@ async function applyWebRTC(value) {
   }
 }
 
-async function fetchConfig(value) {
+async function fetchConfig(value, auth) {
   let url
   try {
     url = new URL(value)
@@ -1789,8 +1950,18 @@ async function fetchConfig(value) {
     throw new Error('errorConfigURL')
   }
 
+  if (auth) {
+    M.subscription({ url: url.href, username: auth.username, password: auth.password })
+  }
+  const authorization =
+    auth && (auth.username !== undefined || auth.password !== undefined)
+      ? M.basic({ username: auth.username || '', password: auth.password || '' })
+      : undefined
   let response
   const secrets = [
+    auth?.username,
+    auth?.password,
+    authorization,
     ...url.searchParams.values(),
     ...state.profiles.flatMap(p => [p.username, p.password, p.host, p.knockHost])
   ]
@@ -1800,7 +1971,13 @@ async function fetchConfig(value) {
         signal: AbortSignal.timeout(30000),
         credentials: 'omit',
         cache: 'no-store',
-        referrerPolicy: 'no-referrer'
+        referrerPolicy: 'no-referrer',
+        ...(auth ? { redirect: 'error' } : {}),
+        headers: {
+          'X-MegaProxy-Client': `browser_${platform.id}`,
+          'X-MegaProxy-Version': api.runtime.getManifest().version,
+          ...(authorization ? { Authorization: authorization } : {})
+        }
       })
       if (!(response.status >= 500 && response.status <= 599) || attempt === 2) {
         break
@@ -1854,7 +2031,12 @@ async function fetchConfig(value) {
     offset += chunk.length
   }
 
-  const data = new TextDecoder().decode(bytes)
+  let data
+  try {
+    data = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch (error) {
+    throw new Error('errorConfigDownload', { cause: error })
+  }
   M.importProfiles(data, MEGA_TARGET, state.masqueEnabled === true)
   return data
 }
