@@ -5,20 +5,20 @@ export async function requestWithRetry(
   request,
   url,
   options,
-  { secrets = [], wait = setTimeout } = {}
+  { secrets = [], wait = setTimeout, maxAttempts = 3, initialDelay = 1000 } = {}
 ) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const response = await request(url, options)
-    if (!(response.status >= 500 && response.status <= 599) || attempt === 2) {
+    if (!(response.status >= 500 && response.status <= 599) || attempt === maxAttempts - 1) {
       return response
     }
     const endpoint = new URL(url)
     const error = await globalThis.MegaErrors.httpError(
       response,
-      `${options?.method || 'GET'} ${endpoint.origin}${endpoint.pathname}: HTTP ${response.status}; attempt ${attempt + 1}/3; retrying`,
+      `${options?.method || 'GET'} ${endpoint.origin}${endpoint.pathname}: HTTP ${response.status}; attempt ${attempt + 1}/${maxAttempts}; retrying`,
       secrets
     )
     console.warn(error.message)
-    await wait(1000 * 2 ** attempt)
+    await wait(initialDelay * 2 ** attempt)
   }
 }

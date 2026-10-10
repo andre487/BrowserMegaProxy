@@ -108,6 +108,29 @@ test('Opera recovery reuses existing versions and skips a completed submission',
   }
 })
 
+test('Opera retries version creation with exponential backoff and a fresh timeout', async () => {
+  const mock = api([
+    addon,
+    details,
+    null,
+    ...Array.from({ length: 5 }, () => ({ httpError: 500 })),
+    { version: '0.1.1' },
+    {},
+    submitted
+  ])
+  const waits = []
+  await submitOperaAddon('v0.1.1', Buffer.from('zip'), {
+    env,
+    request: mock.request,
+    retryWait: async ms => waits.push(ms)
+  })
+  assert.deepEqual(waits, [10000, 20000, 40000, 80000, 160000])
+  const attempts = mock.calls.filter(call => call.url.endsWith('?package_id=123'))
+  assert.equal(attempts.length, 6)
+  assert.equal(new Set(attempts.map(call => call.signal)).size, 6)
+  assert.ok(attempts.every(call => !call.signal.aborted && call.body === attempts[0].body))
+})
+
 test('Opera rejects invalid settings and fails before submission on authentication, metadata or upload errors', async () => {
   const noRequest = () => assert.fail('Must not contact Opera')
   for (const settings of [
@@ -133,7 +156,11 @@ test('Opera rejects invalid settings and fails before submission on authenticati
   for (const responses of cases) {
     const mock = api(responses)
     await assert.rejects(
-      submitOperaAddon('v0.1.1', Buffer.from('zip'), { env, request: mock.request })
+      submitOperaAddon('v0.1.1', Buffer.from('zip'), {
+        env,
+        request: mock.request,
+        retryWait: async () => {}
+      })
     )
     assert.ok(!mock.calls.some(call => call.url.includes('submit_for_moderation')))
   }

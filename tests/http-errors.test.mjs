@@ -87,12 +87,15 @@ test('Opera 5xx details identify failures after upload and on submission', async
     'developer/package-versions/123-1.0.0/submit_for_moderation/'
   ]
   for (const stage of stages) {
+    let attempts = 0
+    const waits = []
     await assert.rejects(
       submitOperaAddon('v1.0.0', Buffer.from('zip'), {
         env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret },
-        retryWait: async () => {},
+        retryWait: async ms => waits.push(ms),
         request: async (url, options) => {
           if (url === `https://addons.opera.com/api/${stage}`) {
+            attempts++
             return failing(url, options)
           }
           let data = {}
@@ -114,6 +117,8 @@ test('Opera 5xx details identify failures after upload and on submission', async
         return true
       }
     )
+    assert.equal(attempts, 6)
+    assert.deepEqual(waits, [10000, 20000, 40000, 80000, 160000])
   }
 })
 
