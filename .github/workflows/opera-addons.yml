@@ -43,6 +43,15 @@ jobs:
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-chromium-$RELEASE_TAG.zip" --dir dist/release
+      - name: Download released store materials
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if ! gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-store-materials-$RELEASE_TAG.zip" --dir dist/release; then
+            echo '::warning title=Opera materials::Could not download store materials; package submission will continue.'
+          fi
       - name: Run Opera integration
         id: submit
         continue-on-error: ${{ !inputs.dry_run }}

@@ -47,11 +47,11 @@ test('Opera chunks the archive, retries delayed validation and preserves localiz
   const archive = Buffer.alloc(chunkSize + 3, 1)
   const mock = api([
     addon,
-    details,
     null,
     null,
     { httpError: 404 },
     { version: '0.1.1' },
+    details,
     {},
     submitted
   ])
@@ -80,7 +80,7 @@ test('Opera chunks the archive, retries delayed validation and preserves localiz
       archive.subarray(i * chunkSize, (i + 1) * chunkSize)
     )
   }
-  const validated = JSON.parse(mock.calls[5].body)
+  const validated = JSON.parse(mock.calls[4].body)
   assert.equal(validated.metadata_from, '0.1.0')
   assert.equal(validated.file_id, uploads[0].body.get('flowIdentifier'))
   assert.deepEqual(JSON.parse(mock.calls[6].body), details)
@@ -99,22 +99,21 @@ test('Opera recovery reuses existing versions and skips a completed submission',
           ...addon.versions
         ]
       },
-      details,
-      ...(alreadySubmitted ? [] : [{}, submitted])
+      ...(alreadySubmitted ? [] : [details, {}, submitted])
     ])
     await submitOperaAddon('v0.1.1', Buffer.from('zip'), { env, request: mock.request })
     assert.ok(!mock.calls.some(call => call.url.includes('file-upload')))
-    assert.equal(mock.calls.length, alreadySubmitted ? 2 : 4)
+    assert.equal(mock.calls.length, alreadySubmitted ? 1 : 4)
   }
 })
 
 test('Opera retries version creation with exponential backoff and a fresh timeout', async () => {
   const mock = api([
     addon,
-    details,
     null,
     ...Array.from({ length: 5 }, () => ({ httpError: 500 })),
     { version: '0.1.1' },
+    details,
     {},
     submitted
   ])
@@ -131,7 +130,7 @@ test('Opera retries version creation with exponential backoff and a fresh timeou
   assert.ok(attempts.every(call => !call.signal.aborted && call.body === attempts[0].body))
 })
 
-test('Opera rejects invalid settings and fails before submission on authentication, metadata or upload errors', async () => {
+test('Opera rejects invalid settings and fails before submission on authentication or upload errors', async () => {
   const noRequest = () => assert.fail('Must not contact Opera')
   for (const settings of [
     {},
@@ -148,10 +147,9 @@ test('Opera rejects invalid settings and fails before submission on authenticati
     [{ detail: 'denied' }],
     [{ ...addon, is_editable: false }],
     [{ ...addon, versions: [] }],
-    [addon, { translations: {} }],
-    [addon, details, { httpError: 401 }],
-    [addon, details, null, { version: '0.1.2' }],
-    [addon, details, null, { version: '0.1.1' }, { httpError: 500 }]
+    [addon, { httpError: 401 }],
+    [addon, null, { version: '0.1.2' }],
+    [addon, null, { httpError: 403 }]
   ]
   for (const responses of cases) {
     const mock = api(responses)
@@ -166,9 +164,9 @@ test('Opera rejects invalid settings and fails before submission on authenticati
   }
   const mock = api([
     addon,
-    details,
     null,
     { version: '0.1.1' },
+    details,
     {},
     { version: '0.1.1', submitted_for_moderation: false }
   ])
@@ -176,4 +174,109 @@ test('Opera rejects invalid settings and fails before submission on authenticati
     submitOperaAddon('v0.1.1', Buffer.from('zip'), { env, request: mock.request }),
     /did not confirm/
   )
+})
+
+test('Opera updates each material independently and still submits after individual or total failures', async () => {
+  const listing = {
+    summary: 'New summary',
+    description: 'New description',
+    homepage: 'https://example.org',
+    support: 'https://example.org/issues'
+  }
+  const targets = [
+    'en short_description',
+    'en long_description',
+    'ru short_description',
+    'ru long_description',
+    'support',
+    'source_url',
+    'privacy_policy',
+    'icon',
+    'dev_promotional_image',
+    'read screenshots',
+    '01.png',
+    '02.png',
+    '03.png',
+    'all',
+    'missing archive',
+    null
+  ]
+  for (const failure of targets) {
+    const calls = []
+    const warnings = []
+    const reads = []
+    const result = await submitOperaAddon('v0.1.1', Buffer.from('zip'), {
+      env,
+      retryWait: async () => {},
+      warn: message => warnings.push(message),
+      readMaterial: file => {
+        reads.push(file)
+        if (failure === 'missing archive') {
+          throw new Error(`Missing archive ${env.OPERA_SESSION_ID}`)
+        }
+        return Buffer.from(file.includes('/listings/') ? JSON.stringify(listing) : 'png')
+      },
+      request: async (url, options) => {
+        calls.push({ url, ...options })
+        let body = {}
+        let target
+        if (options.method === 'GET' && url.endsWith('/packages/123/')) {
+          body = addon
+        } else if (url.endsWith('?package_id=123')) {
+          body = { version: '0.1.1' }
+        } else if (url.includes('submit_for_moderation')) {
+          body = submitted
+        } else if (options.method === 'GET' && url.endsWith('/123-0.1.0/')) {
+          body = details
+        } else if (options.method === 'GET') {
+          body = { screenshots: [{ id: 42 }] }
+          target = 'read screenshots'
+        } else if (options.body instanceof FormData) {
+          const filename = options.body.get('file').name
+          if (filename.endsWith('.png')) {
+            target = filename
+          }
+        } else if (options.method === 'PATCH') {
+          const data = JSON.parse(options.body)
+          target = Object.keys(data)[0]
+          if (data.translations) {
+            const locale = Object.keys(data.translations)[0]
+            target = `${locale} ${Object.keys(data.translations[locale])[0]}`
+          }
+        }
+        const failed = !!target && (failure === target || failure === 'all')
+        return { ok: !failed, status: failed ? 400 : 200, json: async () => body }
+      }
+    })
+    assert.match(result, /submitted for moderation/)
+    assert.ok(calls.at(-1).url.includes('submit_for_moderation'))
+    assert.equal(reads.filter(file => file.includes('/listings/')).length, 6)
+    assert.ok(reads.includes('store/assets/shared/icon-64.png'))
+    assert.ok(reads.includes('store/assets/shared/promo-opera.png'))
+    for (let i = 1; i <= 3; i++) {
+      assert.ok(reads.includes(`store/assets/opera/en/0${i}.png`))
+    }
+    assert.equal(warnings.length > 0, failure !== null)
+    assert.ok(
+      warnings.every(
+        message => message.startsWith('::warning') && !message.includes(env.OPERA_SESSION_ID)
+      )
+    )
+    const deletes = calls.filter(
+      call => call.method === 'PATCH' && JSON.parse(call.body).screenshots?.image_id
+    )
+    assert.equal(
+      deletes.length,
+      ['01.png', '02.png', '03.png', 'all', 'missing archive', 'read screenshots'].includes(failure)
+        ? 0
+        : 1
+    )
+    if (failure === null) {
+      const icon = calls.find(
+        call => call.body instanceof FormData && call.body.get('file').name === 'icon-64.png'
+      )
+      const attached = calls.find(call => call.method === 'PATCH' && JSON.parse(call.body).icon)
+      assert.equal(JSON.parse(attached.body).icon.file_id, icon.body.get('flowIdentifier'))
+    }
+  }
 })

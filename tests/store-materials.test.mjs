@@ -20,9 +20,18 @@ test('store listings and PNGs match supported browsers, locales and upload sizes
       }
     }
   }
+  for (const locale of ['en', 'ru']) {
+    for (let index = 1; index <= 3; index++) {
+      const png = await readFile(`store/assets/opera/${locale}/0${index}.png`)
+      assert.equal(png.readUInt32BE(16), 612)
+      assert.equal(png.readUInt32BE(20), 408)
+      assert.equal(png[25], 2)
+    }
+  }
   for (const [file, width, height, type] of [
     ['icon-64', 64, 64, 6],
     ['icon-128', 128, 128, 6],
+    ['promo-opera', 300, 188, 2],
     ['promo-small', 440, 280, 2],
     ['promo-marquee', 1400, 560, 2]
   ]) {

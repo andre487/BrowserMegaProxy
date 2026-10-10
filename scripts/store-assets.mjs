@@ -199,9 +199,9 @@ async function demo(page, target, language, theme, strategy) {
   )
 }
 
-async function canvas(page, width, height, draw) {
+async function canvas(page, width, height, draw, outputSize = [width, height]) {
   const png = await page.evaluate(
-    async ({ width, height, draw, logo }) => {
+    async ({ width, height, draw, logo, outputSize }) => {
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
@@ -294,17 +294,35 @@ async function canvas(page, width, height, draw) {
           ctx.drawImage(shot, 510 + (728 - w) / 2, 28 + (744 - h) / 2, w, h)
         }
       }
+      if (outputSize[0] !== width || outputSize[1] !== height) {
+        const original = document.createElement('canvas')
+        original.width = width
+        original.height = height
+        original.getContext('2d').drawImage(canvas, 0, 0)
+        canvas.width = outputSize[0]
+        canvas.height = outputSize[1]
+        const scale = Math.min(canvas.width / width, canvas.height / height)
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(
+          original,
+          (canvas.width - width * scale) / 2,
+          (canvas.height - height * scale) / 2,
+          width * scale,
+          height * scale
+        )
+      }
       document.body.style.margin = '0'
       canvas.style.display = 'block'
       document.body.replaceChildren(canvas)
       return canvas.toDataURL('image/png').split(',')[1]
     },
-    { width, height, draw, logo }
+    { width, height, draw, logo, outputSize }
   )
   const buffer =
     draw.kind === 'icon' ? Buffer.from(png, 'base64') : await page.locator('canvas').screenshot()
-  assert.equal(buffer.readUInt32BE(16), width)
-  assert.equal(buffer.readUInt32BE(20), height)
+  assert.equal(buffer.readUInt32BE(16), outputSize[0])
+  assert.equal(buffer.readUInt32BE(20), outputSize[1])
   assert.equal(buffer[25], draw.kind === 'icon' ? 6 : 2, 'Only icons may have transparency')
   return buffer
 }
@@ -400,6 +418,27 @@ try {
               language
             })
           )
+          if (target === 'chromium' && i < 3) {
+            const operaDir = `store/assets/opera/${language}`
+            await mkdir(operaDir, { recursive: true })
+            await writeFile(
+              `${operaDir}/0${i + 1}.png`,
+              await canvas(
+                graphics,
+                1280,
+                800,
+                {
+                  kind: 'screenshot',
+                  title,
+                  subtitle,
+                  label,
+                  shot,
+                  language
+                },
+                [612, 408]
+              )
+            )
+          }
           await page.close()
         }
       }
