@@ -302,7 +302,7 @@ test('429 retries use bounded exponential delays and leave the final response re
     },
     'https://example.org/upload',
     {},
-    { wait: async ms => waits.push(ms) }
+    { maxAttempts: 1, wait: async ms => waits.push(ms) }
   )
   assert.equal(calls, 6)
   assert.deepEqual(waits, [30000, 60000, 120000, 240000, 300000])
