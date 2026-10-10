@@ -4,7 +4,7 @@ The following text explains every permission requested by the production manifes
 
 ## Single purpose
 
-MegaProxy manages browser connections through a user-provided HTTP or HTTPS proxy. Profiles, authentication, routing rules, connection checks and local diagnostics support that purpose. MegaProxy does not provide proxy servers.
+MegaProxy manages browser connections through a user-provided HTTP, HTTPS or SOCKS5 proxy, with experimental MASQUE support in Firefox. Profiles, authentication, routing rules, connection checks and local diagnostics support that purpose. MegaProxy does not provide proxy servers.
 
 ## `proxy`
 
@@ -16,7 +16,7 @@ Required to persist proxy profiles, saved usernames and passwords, routing rules
 
 ## `scripting`
 
-Required for a user-triggered connection check to read short, plain-text IP and country results from the temporary diagnostic tab created by the extension. The packaged script reads at most 256 characters of the response body. This permission is not used to inject scripts into ordinary browsing pages or download executable code.
+Required for a user-triggered connection check to read plain-text IP and country results from the temporary diagnostic tab created by the extension, limited to 256 characters per result. For HTTP 5xx diagnostics, the packaged script may also read up to 16,384 characters of visible error-page text in that tab. Known credentials, authorization fields and URLs are redacted, and the excerpt is limited to 4,096 characters before display or logging. This permission is not used to inject scripts into ordinary browsing pages or download executable code.
 
 ## `alarms`
 

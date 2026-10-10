@@ -140,6 +140,23 @@ Before Opera publication, test the release in the target browser version.
 The workflow targets this existing item (`kfilelfnldddoncicbampiojjjcpbigo`).
 Chrome Web Store submission runs by default after a successful GitHub release.
 
+Before the first submission, follow [Google's API setup guide](https://developer.chrome.com/docs/webstore/using-api)
+to enable the Chrome Web Store API, configure OAuth consent and create an OAuth client.
+Obtain a refresh token with scope `https://www.googleapis.com/auth/chromewebstore`
+using that client's credentials and the Google account that owns the store item.
+
+In **Settings → Secrets and variables → Actions**, configure:
+
+- Repository variable `CWS_PUBLISHER_ID`: the publisher ID from the Chrome Web Store
+  Developer Dashboard's **Publisher → Settings**.
+- Repository secrets `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET` and `CWS_REFRESH_TOKEN`:
+  the OAuth client credentials and refresh token.
+
+The workflow supplies `CWS_EXTENSION_ID=kfilelfnldddoncicbampiojjjcpbigo` directly.
+Local runs need all five `CWS_*` values above exported as environment variables
+and the downloaded archive at `dist/release/MegaProxy-chromium-vX.Y.Z.zip`.
+Keep credentials out of repository files.
+
 After the GitHub Release succeeds, **Check or submit Chrome Web Store extension** downloads its
 exact Chromium ZIP, checks archive integrity and manifest version, authenticates,
 uploads through API v2, waits up to 150 seconds for processing, and submits with
