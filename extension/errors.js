@@ -16,6 +16,8 @@
     'fetchConfig',
     'configSubscription',
     'updateConfigSubscription',
+    'dismissConnectionUpdate',
+    'notification',
     'previewImport',
     'import',
     'export',

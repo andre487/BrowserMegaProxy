@@ -28,6 +28,12 @@ Importing a configuration from a URL contacts that user-provided address. A conf
 
 ## Control and contact
 
+Connection-update notices stay on this device and are not included in configuration
+exports or browser synchronization. Optional system notifications display only a
+general update/reload/restart message, without credentials or configuration contents.
+They require the separate optional notifications permission. Popup/settings notices
+remain available when system notifications are disabled.
+
 You can disable synchronization, password synchronization and request monitoring in settings; clear diagnostic logs; remove profiles; and uninstall the extension to remove its local storage. Browser-synchronized copies are subject to the browser’s sync settings. Previously exported files must be deleted separately. Firefox private-window access allows the selected proxy settings to apply there too.
 
 Questions and privacy issues: https://github.com/andre487/BrowserMegaProxy/issues. Avoid posting credentials or sensitive exported configurations in public issues.

@@ -50,6 +50,12 @@ async function refreshPrivateAccess() {
   renderPrivateAccess()
 }
 
+async function refreshNotificationPermission() {
+  $('#connection-notifications').checked =
+    (await api.permissions?.contains?.({ permissions: ['notifications'] }).catch(() => false)) ||
+    false
+}
+
 async function send(command, extra = {}) {
   const result = await api.runtime.sendMessage({ command, ...extra }).catch(error => {
     throw MegaErrors.context(error, command)
@@ -306,12 +312,50 @@ function openSettingsScenario() {
   }
 }
 
+function renderConfigSubscriptionStatus() {
+  $('#config-subscription-status').hidden = !state.subscription
+  if (!state.subscription) {
+    return
+  }
+  const status = state.configSubscriptionState
+  $('#config-subscription-status').textContent = status?.error
+    ? MegaErrors.format(
+        { message: status.error, errorDetails: status.errorDetails },
+        'updateConfigSubscription',
+        t
+      )
+    : status?.lastUpdated
+      ? t('configSubscriptionUpdated', new Date(status.lastUpdated).toLocaleString())
+      : ''
+  $('#config-subscription-status').textContent +=
+    ' ' +
+    [
+      !status?.error && status?.sourceIndex > 0
+        ? t('configSubscriptionFallback', String(status.sourceIndex))
+        : '',
+      status?.skipped?.length ? t('importSkipped', status.skipped.join(', ')) : '',
+      status?.skippedMasque ? t('masqueImportDisabled') : '',
+      status?.unknownFields ? t('unknownConfigFields') : '',
+      status?.unsupportedSplitProxy ? t('splitUnsupportedWarning') : '',
+      status?.unsupportedWebRTC ? t('errorWebRTCUnsupported') : ''
+    ]
+      .filter(Boolean)
+      .join(' ')
+  $('#config-subscription-status').classList.toggle('error', Boolean(status?.error))
+}
+
 function render() {
   if (draggingProfile) {
     return
   }
 
   MegaI18n.apply(state.language || 'auto')
+  $('#connection-update').hidden = !state.connectionUpdate
+  $('#connection-update-message').textContent = state.connectionUpdate
+    ? t(state.connectionUpdate.message)
+    : ''
+  $('#update-config-subscription').hidden = !state.subscription
+  renderConfigSubscriptionStatus()
   renderStatistics()
   if ($('#connection-mode')) {
     $('#connection-mode').value = MegaProxy.active(state)
@@ -327,31 +371,6 @@ function render() {
     if (state.subscription) {
       $('#config-subscription-enabled').checked = state.subscription.enabled
       $('#config-subscription-interval').value = state.subscription.intervalMinutes
-      $('#update-config-subscription').disabled = !state.subscription.enabled
-      const status = state.configSubscriptionState
-      $('#config-subscription-status').textContent = status?.error
-        ? MegaErrors.format(
-            { message: status.error, errorDetails: status.errorDetails },
-            'updateConfigSubscription',
-            t
-          )
-        : status?.lastUpdated
-          ? t('configSubscriptionUpdated', new Date(status.lastUpdated).toLocaleString())
-          : ''
-      $('#config-subscription-status').textContent +=
-        ' ' +
-        [
-          !status?.error && status?.sourceIndex > 0
-            ? t('configSubscriptionFallback', String(status.sourceIndex))
-            : '',
-          status?.skipped?.length ? t('importSkipped', status.skipped.join(', ')) : '',
-          status?.skippedMasque ? t('masqueImportDisabled') : '',
-          status?.unknownFields ? t('unknownConfigFields') : '',
-          status?.unsupportedSplitProxy ? t('splitUnsupportedWarning') : '',
-          status?.unsupportedWebRTC ? t('errorWebRTCUnsupported') : ''
-        ]
-          .filter(Boolean)
-          .join(' ')
     }
     $('#webrtc').value = state.webRTC || 'browser'
     for (const option of $('#webrtc').options) {
@@ -1147,7 +1166,15 @@ if (isOptions) {
         intervalMinutes: Number($('#config-subscription-interval').value)
       })
     )
-  $('#update-config-subscription').onclick = () => action(() => send('updateConfigSubscription'))
+  $('#connection-notifications').onchange = () =>
+    action(async () => {
+      if ($('#connection-notifications').checked) {
+        await api.permissions.request({ permissions: ['notifications'] })
+      } else {
+        await api.permissions.remove({ permissions: ['notifications'] })
+      }
+      await refreshNotificationPermission()
+    })
   $('#new').onclick = () => edit({ color: state.profiles.length % MegaProxy.colors.length })
   $('#profile-form').addEventListener('input', syncKnock)
   $('#statistics-enabled').onchange = () =>
@@ -1294,6 +1321,9 @@ api.storage?.onChanged?.addListener((changes, area) => {
   }
 })
 
+$('#dismiss-connection-update').onclick = () => action(() => send('dismissConnectionUpdate'))
+$('#update-config-subscription').onclick = () => action(() => send('updateConfigSubscription'))
+
 action(async () => {
   if (!isOptions) {
     const tab = api.tabs.getCurrent ? await api.tabs.getCurrent() : true
@@ -1305,7 +1335,9 @@ action(async () => {
   await send('get')
   if (isOptions) {
     await refreshPrivateAccess()
+    await refreshNotificationPermission()
     window.addEventListener('focus', refreshPrivateAccess)
+    window.addEventListener('focus', refreshNotificationPermission)
     openSettingsScenario()
     window.addEventListener('hashchange', openSettingsScenario)
   }

@@ -43,11 +43,13 @@ function harness(target = 'firefox', shared = {}, fetch = globalThis.fetch, init
   }
   const api = {
     alarms: initial.alarms,
+    notifications: initial.notifications,
     runtime: {
       id: 'test',
       getManifest: () => ({ version: '1.2.3' }),
       getURL: path => `moz-extension://test/${path}`,
       onMessage: listener('message'),
+      onStartup: listener('startup'),
       openOptionsPage: async () => calls.push(['options'])
     },
     extension: { isAllowedIncognitoAccess: async () => true },
@@ -1898,4 +1900,196 @@ test('subscription failover tries sources in order, imports legacy feeds and ret
   assert.deepEqual(requests, [urls[0]])
   assert.equal(state.configSubscriptionState.sourceIndex, 0)
   assert.equal(state.configSubscriptionState.error, undefined)
+})
+
+test('subscription updates select a replacement, reapply active parameters and notify only effective changes', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    let remote
+    const notifications = []
+    const h = harness(target, {}, async () => new Response(JSON.stringify(remote)), {
+      notifications: {
+        create: async (...args) => notifications.push(args),
+        clear: async () => {}
+      },
+      state: {
+        activeId: 'removed',
+        profiles: ['removed', 'local'].map(id => ({ id, host: `${id}.example`, port: 443 })),
+        subscription: { url: 'https://config.example/', enabled: false },
+        configSubscriptionState: { profileIds: ['removed'] }
+      }
+    })
+    await h.flush()
+    const snapshot = (ids, preferred) => ({
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      ...(preferred ? { activeProfileId: preferred } : {}),
+      profiles: ids.map(id => ({ id, proxy: { type: 'HTTPS', host: `${id}.example`, port: 443 } }))
+    })
+    remote = snapshot(['first', 'preferred'], 'preferred')
+    await h.send({ command: 'updateConfigSubscription' })
+    let state = (await h.send({ command: 'get' })).state
+    assert.equal(state.activeId, 'preferred')
+    assert.equal(state.connectionMode, 'proxy')
+    assert.equal(state.subscription.enabled, false)
+    assert.equal(
+      state.profiles.some(p => p.id === 'local'),
+      true
+    )
+    assert.equal(notifications.length, 1)
+    assert.match(state.connectionUpdate.message, target === 'chromium' ? /Chromium$/ : /Firefox$/)
+    if (target === 'firefox') {
+      const route = await h.events.proxy({ url: 'https://destination.example/', tabId: 1 })
+      assert.equal(route[0].host, 'preferred.example')
+    } else {
+      assert.equal(
+        h.calls.filter(c => c[0] === 'proxy').at(-1)[1].value.rules.singleProxy.host,
+        'preferred.example'
+      )
+    }
+    await h.send({ command: 'updateConfigSubscription' })
+    assert.equal(notifications.length, 1)
+    remote.profiles[0].proxy.host = 'inactive-change.example'
+    remote.profiles[1].name = 'Metadata only'
+    await h.send({ command: 'updateConfigSubscription' })
+    assert.equal(notifications.length, 1)
+    Object.assign(remote.profiles[1].proxy, {
+      host: 'updated.example',
+      username: 'reader',
+      password: 'secret'
+    })
+    await h.send({ command: 'updateConfigSubscription' })
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(state.profiles.find(p => p.id === state.activeId).host, 'updated.example')
+    assert.equal(notifications.length, 2)
+    assert.ok(!JSON.stringify(state.connectionUpdate).includes('secret'))
+    assert.ok(!JSON.stringify(notifications).includes('secret'))
+    const previous = state.connectionUpdate.updatedAt
+    h.api.proxy.settings.set = async () => {
+      throw new Error('native failure')
+    }
+    remote = snapshot(['replacement'])
+    await h.send({ command: 'updateConfigSubscription' })
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(state.activeId, 'preferred')
+    assert.equal(state.connectionUpdate.updatedAt, previous)
+    assert.ok(state.configSubscriptionState.error)
+    assert.equal(notifications.length, 2)
+    h.api.proxy.settings.set = async config => h.calls.push(['proxy', structuredClone(config)])
+    await h.send({ command: 'updateConfigSubscription' })
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(state.activeId, 'replacement')
+    assert.equal(notifications.length, 3)
+    h.api.notifications.create = async () => {
+      throw new Error('notifications blocked')
+    }
+    remote.profiles[0].proxy.host = 'still-applied.example'
+    await h.send({ command: 'updateConfigSubscription' })
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(state.configSubscriptionState.error, undefined)
+    assert.equal(state.profiles.find(p => p.id === state.activeId).host, 'still-applied.example')
+    const restarted = harness(target, {}, undefined, { state: structuredClone(state) })
+    await restarted.flush()
+    assert.ok((await restarted.send({ command: 'get' })).state.connectionUpdate)
+    restarted.events.startup()
+    await restarted.flush()
+    assert.equal((await restarted.send({ command: 'get' })).state.connectionUpdate, undefined)
+    await h.send({ command: 'dismissConnectionUpdate' })
+    assert.equal((await h.send({ command: 'get' })).state.connectionUpdate, undefined)
+  }
+})
+
+test('Podkop changes notify after applying effective rules; identical lists and inactive routes stay quiet', async () => {
+  for (const [target, strategy] of [
+    ['chromium', 'lists'],
+    ['firefox', 'lists'],
+    ['firefox', undefined]
+  ]) {
+    let domains = 'new.example\n'
+    const notifications = []
+    const h = harness(
+      target,
+      {},
+      async url => {
+        if (url.includes('api.github.com')) {
+          return new Response(
+            JSON.stringify({
+              truncated: false,
+              tree: [{ type: 'blob', path: 'Services/youtube.lst' }]
+            })
+          )
+        }
+        return new Response(domains)
+      },
+      {
+        notifications: { create: async (...args) => notifications.push(args) },
+        state: {
+          activeId: 'one',
+          profiles: [{ id: 'one', host: 'proxy.example', port: 443 }],
+          browserRouting: {
+            enabled: true,
+            strategy,
+            mode: strategy ? 'domains' : 'tabs',
+            subscriptions: {
+              [strategy ? 'domainSources' : 'siteSources']: ['youtube'],
+              autoUpdate: false
+            }
+          }
+        }
+      }
+    )
+    await h.flush()
+    await h.send({ command: 'updateSubscriptions' })
+    let state = (await h.send({ command: 'get' })).state
+    assert.equal(notifications.length, 1)
+    assert.ok(state.connectionUpdate)
+    assert.equal(
+      h.context.MegaProxy.routed('https://new.example/', state, 'https://new.example/'),
+      true
+    )
+    await h.send({ command: 'updateSubscriptions' })
+    assert.equal(notifications.length, 1)
+    domains = 'changed.example\n'
+    await h.send({ command: 'updateSubscriptions' })
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(notifications.length, 2)
+    assert.equal(
+      h.context.MegaProxy.routed('https://new.example/', state, 'https://new.example/'),
+      false
+    )
+    assert.equal(
+      h.context.MegaProxy.routed('https://changed.example/', state, 'https://changed.example/'),
+      true
+    )
+    await h.send({ command: 'connectionMode', mode: 'direct' })
+    domains = 'offline.example\n'
+    await h.send({ command: 'updateSubscriptions' })
+    assert.equal(notifications.length, 2)
+  }
+})
+
+test('replacing a selected subscription profile preserves Direct and System modes', async () => {
+  for (const connectionMode of ['direct', 'system']) {
+    const remote = {
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      activeProfileId: 'preferred',
+      profiles: [
+        { id: 'preferred', proxy: { type: 'HTTPS', host: 'preferred.example', port: 443 } }
+      ]
+    }
+    const h = harness('firefox', {}, async () => new Response(JSON.stringify(remote)), {
+      state: {
+        connectionMode,
+        activeId: 'removed',
+        profiles: [{ id: 'removed', host: 'removed.example', port: 443 }],
+        subscription: { url: 'https://config.example/', enabled: false },
+        configSubscriptionState: { profileIds: ['removed'] }
+      }
+    })
+    await h.send({ command: 'updateConfigSubscription' })
+    const state = (await h.send({ command: 'get' })).state
+    assert.equal(state.activeId, 'preferred')
+    assert.equal(state.connectionMode, connectionMode)
+    assert.equal(state.connectionUpdate, undefined)
+  }
 })

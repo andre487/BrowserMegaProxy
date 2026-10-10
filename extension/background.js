@@ -96,6 +96,73 @@ async function apply(next) {
   await platform.apply(next)
 }
 
+function connectionSettings(value) {
+  const profile = M.active(value)
+  if (!profile) {
+    return null
+  }
+  const routing = value.browserRouting
+  return JSON.stringify({
+    profile: Object.fromEntries(
+      [
+        'id',
+        'type',
+        'host',
+        'port',
+        'username',
+        'password',
+        'knockHost',
+        'bypass',
+        'masqueTemplate'
+      ].map(key => [key, profile[key]])
+    ),
+    bypassLocalNetworks: value.bypassLocalNetworks,
+    routing: routing.enabled
+      ? {
+          mode: routing.mode,
+          patterns: M.routingPatterns(value, routing.mode === 'tabs' ? 'sites' : 'domains')
+        }
+      : null
+  })
+}
+
+function markConnectionUpdate(next, previous) {
+  if (M.active(previous) && connectionSettings(previous) !== connectionSettings(next)) {
+    next.connectionUpdate = {
+      message:
+        platform.id === 'chromium' ? 'connectionUpdatedChromium' : 'connectionUpdatedFirefox',
+      updatedAt: Math.max(Date.now(), (previous.connectionUpdate?.updatedAt || 0) + 1)
+    }
+  }
+}
+
+async function notifyConnectionUpdate(previous) {
+  if (
+    !state.connectionUpdate ||
+    state.connectionUpdate.updatedAt === previous.connectionUpdate?.updatedAt
+  ) {
+    return
+  }
+  try {
+    connectionCheck = null
+    await storeConnectionCheck()
+    await refreshBadges()
+    if (api.notifications && (await api.permissions.contains({ permissions: ['notifications'] }))) {
+      await api.notifications.create('connection-update', {
+        type: 'basic',
+        iconUrl: api.runtime.getURL('icons/icon.png'),
+        title: api.i18n.getMessage('connectionUpdateTitle'),
+        message: api.i18n.getMessage(state.connectionUpdate.message)
+      })
+    }
+  } catch (error) {
+    diagnosticLog?.write(
+      'connection_notification_failed',
+      MegaErrors.details(error, 'notification')
+    )
+  }
+}
+
 async function knock() {
   const p = M.active(state)
   if (!p?.knockHost) {
@@ -632,6 +699,7 @@ function neededSubscriptions() {
 }
 
 async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
+  const previous = state
   const original = state.browserRouting
   const config = {
     ...original,
@@ -688,6 +756,7 @@ async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
         mode: original.mode
       }
     }
+    markConnectionUpdate(next, previous)
     await platform.applyTransient(next)
     await api.storage.local.set({ state: next })
     state = next
@@ -709,6 +778,7 @@ async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
     await platform.applyTransient(state)
   }
 
+  await notifyConnectionUpdate(previous)
   return { ok: true, state }
 }
 
@@ -1028,6 +1098,8 @@ async function handle(message) {
         ? { intervalMinutes: message.intervalMinutes }
         : {})
     })
+  } else if (message.command === 'dismissConnectionUpdate') {
+    delete next.connectionUpdate
   } else if (message.command === 'import') {
     const result = M.importProfiles(message.data, MEGA_TARGET, state.masqueEnabled === true)
     const subscriptionUpdate = message.subscriptionUpdate
@@ -1077,6 +1149,13 @@ async function handle(message) {
       result.config.subscription = state.subscription
     }
     next = M.mergeImport(next, result, removeIds)
+    if (subscriptionUpdate && state.activeId && !next.activeId) {
+      next.activeId =
+        result.profiles.find(p => p.id === result.config?.activeProfileId)?.id ||
+        result.profiles[0]?.id ||
+        next.profiles[0]?.id ||
+        null
+    }
     if (Object.hasOwn(message, 'subscription')) {
       next.subscription = M.subscription(message.subscription)
     }
@@ -1190,6 +1269,9 @@ async function handle(message) {
       await applyWebRTC(next.webRTC)
     }
 
+    if (['save', 'import', 'routing', 'bypassLocalNetworks'].includes(message.command)) {
+      markConnectionUpdate(next, old)
+    }
     await api.storage.local.set({ state: next })
     startupError = undefined
     startupErrorDetails = undefined
@@ -1259,6 +1341,10 @@ async function handle(message) {
 
   await rebuildMenus()
   await refreshBadges()
+  await notifyConnectionUpdate(old)
+  if (message.command === 'dismissConnectionUpdate') {
+    await api.notifications?.clear('connection-update').catch(() => {})
+  }
 
   return {
     ok: true,
@@ -1757,6 +1843,10 @@ for (const event of ['onInstalled', 'onStartup']) {
     queue = queue
       .then(async () => {
         await ready
+        if (event === 'onStartup' && state.connectionUpdate) {
+          delete state.connectionUpdate
+          await api.storage.local.set({ state })
+        }
         await scheduleSubscriptions()
         await scheduleConfigSubscription()
         await refreshConfigSubscription(true)
@@ -1822,7 +1912,7 @@ async function scheduleConfigSubscription() {
 
 async function refreshConfigSubscription(onlyDue = false) {
   await ready
-  if (!state.subscription?.enabled) {
+  if (!state.subscription || (onlyDue && !state.subscription.enabled)) {
     return
   }
   const settings = M.subscription(state.subscription)
@@ -2224,6 +2314,7 @@ async function receiveSync() {
     }
 
     const old = state
+    markConnectionUpdate(next, old)
     state = next
     try {
       await apply(next)
@@ -2258,6 +2349,7 @@ async function receiveSync() {
     syncError = undefined
     await rebuildMenus()
     await refreshBadges()
+    await notifyConnectionUpdate(old)
     await scheduleSubscriptions()
     const settingsChanged =
       JSON.stringify(old.browserRouting.subscriptions) !==
@@ -2509,11 +2601,11 @@ async function updateBadge(tabId, url) {
     return
   }
   await Promise.all([
-    api.action.setBadgeText({ tabId, text: '' }),
+    api.action.setBadgeText({ tabId, text: state.connectionUpdate ? '!' : '' }),
     api.action.setIcon(icon),
     api.action.setTitle({
       tabId,
-      title: `MegaProxy · ${label}${p ? `\n${p.type.toUpperCase()} · ${p.host}:${p.port}` : ''}`
+      title: `MegaProxy · ${label}${p ? `\n${p.type.toUpperCase()} · ${p.host}:${p.port}` : ''}${state.connectionUpdate ? `\n${api.i18n.getMessage(state.connectionUpdate.message)}` : ''}`
     })
   ])
 }

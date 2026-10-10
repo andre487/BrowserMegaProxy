@@ -169,7 +169,19 @@ test('native routing follows the selected profile, monitors failures, badges tab
     expect(requests[0].some(req => req.url.includes('second.invalid'))).toBe(false)
     const tabs = await command({ command: 'testTabState' })
     const tab = tabs.tabs.find(tab => tab.url === 'http://second.invalid/')
-    expect(tab.badge).toBe('')
+    expect(tab.badge).toBe('!')
+    expect((await command({ command: 'get' })).state.connectionUpdate.message).toBe(
+      testInfo.project.name === 'chromium'
+        ? 'connectionUpdatedChromium'
+        : 'connectionUpdatedFirefox'
+    )
+    await command({ command: 'dismissConnectionUpdate' })
+    await expect
+      .poll(
+        async () =>
+          (await command({ command: 'testTabState' })).tabs.find(item => item.id === tab.id).badge
+      )
+      .toBe('')
     await expect
       .poll(
         async () =>
@@ -215,6 +227,10 @@ test('native routing follows the selected profile, monitors failures, badges tab
     await command({ command: 'connectionMode', mode: 'system' })
     await page.reload()
     await expect(page.locator('body')).toHaveText('Direct page')
+    expect(
+      (await command({ command: 'testTabState' })).tabs.find(item => item.id === tab.id).badge
+    ).toBe('!')
+    await command({ command: 'dismissConnectionUpdate' })
     await expect
       .poll(
         async () =>
@@ -353,10 +369,10 @@ test('installed Chrome popup sizes correctly and profile dragging saves through 
           }
           return {
             surface: view.document.documentElement.dataset.surface,
-            width: view.innerWidth,
+            width: view.document.body.getBoundingClientRect().width,
             visible:
               view.document.querySelector('.popup-content').getBoundingClientRect().height > 100,
-            bounded: view.innerHeight <= 600
+            bounded: view.innerHeight <= 600 && view.document.body.scrollWidth <= view.innerWidth
           }
         })
       )

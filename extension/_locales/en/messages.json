@@ -1149,7 +1149,7 @@
     "message": "Subscribe to configuration updates"
   },
   "updateConfigSubscription": {
-    "message": "Update configuration now"
+    "message": "Update now"
   },
   "configSubscriptionUpdated": {
     "message": "Last successful import: $1"
@@ -1168,5 +1168,20 @@
   },
   "errorConfigSubscription": {
     "message": "Invalid subscription credentials or update interval"
+  },
+  "connectionUpdateTitle": {
+    "message": "MegaProxy connection settings updated"
+  },
+  "connectionUpdatedChromium": {
+    "message": "Connection settings changed. Restart your browser to ensure all open connections use the updated proxy and routing rules. New connections use the updated settings."
+  },
+  "connectionUpdatedFirefox": {
+    "message": "Connection settings changed and apply to new requests. Reload affected pages; existing connections may continue using the previous route."
+  },
+  "connectionNotifications": {
+    "message": "System notifications when connection settings change"
+  },
+  "understood": {
+    "message": "Understood"
   }
 }
