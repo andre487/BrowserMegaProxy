@@ -72,6 +72,12 @@ export async function submitOperaAddon(
     'Previous Opera version needs an English summary'
   )
   if (dryRun) {
+    const page = await request(`https://addons.opera.com/developer/package/${packageId}/`, {
+      redirect: 'error', headers: { Cookie: `sessionid=${env.OPERA_SESSION_ID}` }
+    })
+    assert.ok(page.ok, 'Could not read Opera developer page')
+    const html = await page.text()
+    for (const match of html.matchAll(/<script[^>]+src=[\"']([^\"']+)/g)) console.log('Opera script:', match[1])
     return `Opera ${tag}: dry run passed (authenticated; no upload or submission)`
   }
   if (existing?.submitted_for_moderation) {
