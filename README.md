@@ -1,12 +1,13 @@
 # MegaProxy
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/andre487/BrowserMegaProxy)](https://github.com/andre487/BrowserMegaProxy/releases/latest)
+[![Chromium 120+](https://img.shields.io/badge/Chromium-120%2B-4285F4?logo=googlechrome&logoColor=white)](#build-and-install)
+[![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)](#build-and-install)
+
 [![CI](https://github.com/andre487/BrowserMegaProxy/actions/workflows/pr.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/pr.yml?query=branch%3Amain+event%3Apush)
 [![Firefox Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml?query=branch%3Amain+event%3Apush)
 [![Vivaldi Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml?query=branch%3Amain+event%3Apush)
-[![Release](https://img.shields.io/github/v/release/andre487/BrowserMegaProxy)](https://github.com/andre487/BrowserMegaProxy/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Chromium 120+](https://img.shields.io/badge/Chromium-120%2B-4285F4?logo=googlechrome&logoColor=white)](#build-and-install)
-[![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)](#build-and-install)
 
 Browser extensions for Chromium and Firefox.
 HTTP/HTTPS CONNECT, SOCKS5 and experimental MASQUE (Firefox 146+), multiple profiles, authentication, knock hosts, domain exclusions,
@@ -21,6 +22,8 @@ Safari and browsers without extension proxy APIs are not supported.
 ## Build and install
 
 **Chrome:** [Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
+
+**Firefox:** [Install MegaProxy from the Mozilla Add-Ons](https://addons.mozilla.org/ru/firefox/addon/megaproxy/).
 
 For a local development build:
 
@@ -234,12 +237,50 @@ list sources belonging to inactive routing modes. Manual list updates remain ava
 
 ## Authentication and probe resistance
 
+### What is a knock host, and when do I need one?
+
+A **knock host** is the address of an HTTPS website that MegaProxy opens through
+the selected proxy to start proxy authentication. The login and password are for
+the proxy, not for that website.
+
+Some proxy servers hide their proxy functionality from unauthenticated clients
+(probe resistance). They request a login only when the browser first tries to
+connect to an allowed website. Opening that website is the "knock": it gives the
+browser a chance to authenticate before you open other sites. Chromium usually
+waits for the proxy to request credentials, so a knock can be needed even when
+the profile already has a saved login and password.
+
+If your proxy works without a knock host, leave the field empty. If its operator
+requires one, ask them which hostname to use. MegaProxy does not choose one for you.
+
+1. Open Settings and edit your HTTP or HTTPS proxy profile.
+2. Enter the supplied hostname in **Knock host**, for example `knock.example.com`,
+   without `https://` or a path. This is an illustrative address, not a working service.
+3. Save and connect the profile in **Proxy** mode. MegaProxy opens the knock tab
+   automatically when needed, including at browser startup. To retry manually,
+   use the profile's **Knock** button in Settings or the popup's knock action.
+4. If the browser asks for authentication, enter the proxy's login and password.
+   After the website loads successfully, the tab closes automatically. If it stays
+   open with an error, check the hostname, proxy credentials and website availability.
+
+For MegaProxyServer with `probe_resistance` enabled, its administrator must add
+the same hostname to the server's `knock` setting. An allowed hostname is enough
+to trigger the authentication request, but a working HTTPS website is needed for
+the tab to load and close successfully. Keep it out of proxy bypass rules.
+
+In Firefox, saved credentials are submitted through the proxy API, so the knock
+action is disabled when both login and password are saved. The hostname remains
+editable for later use without saved credentials. SOCKS5 and MASQUE do not use
+knock hosts. Opening the tab alone does not prove that authentication succeeded.
+Switching profiles may require a new knock because browsers cache proxy authentication.
+
+### Browser authentication details
+
 | Browser  | Credentials before 407                                                      | Knock                                                                                           |
 | -------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | Firefox  | Saved credentials are supplied through `ProxyInfo.proxyAuthorizationHeader` | Opens on connection and browser startup without saved credentials; disabled when both are saved |
 | Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
 
-A knock host is optional: its absence does not prevent connecting a profile or show a warning.
 When configured, a normal HTTPS tab opens, active when credentials are missing and otherwise in the background. Without a saved username
 and password, MegaProxy leaves authentication to the browser's native dialog.
 A repeated 407 challenge after supplying saved credentials opens MegaProxy's authentication window with focus requested,
@@ -251,8 +292,8 @@ response other than 407; then they are saved to that profile, the dialog closes 
 according to the existing sync preferences. Network failures, cancellation, profile
 changes, and failed local storage writes do not replace the saved credentials.
 If a request expires while the dialog is open, reload its original page to retry.
-Firefox disables the knock field and button when both username and password are saved,
-without deleting the saved knock host.
+Firefox disables the knock action when both username and password are saved.
+The knock host remains editable and is retained for connections without saved credentials.
 After a successful HTTP response and completed load, the knock tab closes automatically.
 Load errors, cancellation or unsuccessful authentication leave it open; a successful
 retry still closes it after the page finishes loading. Chromium
@@ -273,14 +314,6 @@ and `isProxy`. It first supplies saved credentials, then holds a repeated challe
 while the user edits credentials in the extension dialog. Concurrent requests do
 not open additional dialogs. Credentials are never added to destination-site
 headers or used for its 401 response.
-
-For MegaProxyServer with `probe_resistance` enabled, add an allowed name to the
-server's `knock` setting and use the same name in the extension profile.
-That name needs a working HTTPS website for a successful page load after CONNECT;
-an allowed server-side knock hostname is sufficient to obtain the 407 itself.
-No public knock hosts are selected automatically. Knock must not be bypassed.
-Opening a tab alone does not verify successful authentication. Switching profiles
-may require a new knock because of browser authentication caches.
 
 HTTPS here means TLS **to the proxy**, regardless of the destination website's scheme.
 HTTP proxies transmit Basic credentials without TLS on the connection to the proxy.
