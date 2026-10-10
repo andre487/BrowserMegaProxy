@@ -34,3 +34,25 @@ export async function reportStoreDashboard(name, url, env = process.env) {
     await appendFile(env.GITHUB_STEP_SUMMARY, `[${name} developer dashboard](${url})\n\n`)
   }
 }
+
+export async function reportStoreAction(
+  name,
+  url,
+  action,
+  { env = process.env, warn = console.warn } = {}
+) {
+  const message = `Manual action required: ${action} Developer dashboard: ${url}`
+  warn(
+    `::warning title=${name} manual action::${message.replace(/%/gu, '%25').replace(/\r/gu, '%0D').replace(/\n/gu, '%0A')}`
+  )
+  if (env.GITHUB_STEP_SUMMARY) {
+    await appendFile(
+      env.GITHUB_STEP_SUMMARY,
+      `### ${name}: manual action required\n\n${action}\n\n[Open developer dashboard](${url})\n\n`
+    ).catch(() =>
+      warn(
+        `::warning title=${name} manual action::Could not write the job summary; see the dashboard instructions above.`
+      )
+    )
+  }
+}

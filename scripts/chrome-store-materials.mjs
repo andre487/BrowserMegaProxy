@@ -164,6 +164,7 @@ export async function checkChromeStoreMaterials({
 } = {}) {
   const report = []
   const warn = message => {
+    message += `; Manual action required: review these materials and synchronize them if needed at ${dashboard}`
     report.push(`Warning: ${message}`)
     console.warn(
       `::warning title=Chrome Web Store materials::${message.replace(/%/gu, '%25').replace(/\r/gu, '%0D').replace(/\n/gu, '%0A')}`

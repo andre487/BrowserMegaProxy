@@ -42,3 +42,38 @@ test('store listings and PNGs match supported browsers, locales and upload sizes
     assert.equal(png[25], type)
   }
 })
+
+test('manual store actions include instructions and a dashboard link in annotations and job summaries', async () => {
+  const { mkdtemp, rm } = await import('node:fs/promises')
+  const { tmpdir } = await import('node:os')
+  const path = await import('node:path')
+  const { reportStoreAction } = await import('../scripts/store-materials.mjs')
+  const directory = await mkdtemp(path.join(tmpdir(), 'mega-store-action-'))
+  const summary = path.join(directory, 'summary.md')
+  const warnings = []
+  try {
+    await reportStoreAction(
+      'Example Store',
+      'https://example.org/dashboard',
+      'Fix metadata.\nSave 100% of changes.',
+      {
+        env: { GITHUB_STEP_SUMMARY: summary },
+        warn: message => warnings.push(message)
+      }
+    )
+    assert.match(warnings[0], /Manual action required/)
+    assert.match(warnings[0], /Fix metadata\.%0ASave 100%25/)
+    assert.match(warnings[0], /https:\/\/example\.org\/dashboard/)
+    const markdown = await readFile(summary, 'utf8')
+    assert.match(markdown, /manual action required/)
+    assert.match(markdown, /Fix metadata/)
+    assert.match(markdown, /\[Open developer dashboard\]\(https:\/\/example.org\/dashboard\)/)
+    await reportStoreAction('Example Store', 'https://example.org/dashboard', 'Fix metadata.', {
+      env: { GITHUB_STEP_SUMMARY: directory },
+      warn: message => warnings.push(message)
+    })
+    assert.match(warnings.at(-1), /Could not write the job summary/)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+})

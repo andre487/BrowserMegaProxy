@@ -1,5 +1,5 @@
 import { requestWithRetry } from './http-request.mjs'
-import { readStoreFile, reportStoreDashboard } from './store-materials.mjs'
+import { readStoreFile, reportStoreAction, reportStoreDashboard } from './store-materials.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
@@ -149,17 +149,11 @@ export async function submitOperaAddon(
         csrf
       ])
       warnings.push(message)
-      if (env.GITHUB_STEP_SUMMARY) {
-        try {
-          await appendFile(env.GITHUB_STEP_SUMMARY, `- Warning: ${message}\n`)
-        } catch (summaryError) {
-          warn(
-            `Opera warning summary could not be written: ${summaryError.code || 'Unknown error'}`
-          )
-        }
-      }
-      warn(
-        `::warning title=Opera materials::${message.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`
+      await reportStoreAction(
+        'Opera materials',
+        `https://addons.opera.com/developer/package/${packageId}/`,
+        `${message}. Verify and, if necessary, update this material manually.`,
+        { env, warn }
       )
       return false
     }

@@ -1,5 +1,5 @@
 import { requestWithRetry } from './http-request.mjs'
-import { readStoreFile, reportStoreDashboard } from './store-materials.mjs'
+import { readStoreFile, reportStoreAction, reportStoreDashboard } from './store-materials.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createHmac, randomUUID } from 'node:crypto'
@@ -265,7 +265,16 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     result = `Firefox ${tag}: submitted to AMO for review`
   }
   if (process.env.AMO_DRY_RUN !== 'true') {
-    await syncFirefoxMaterials(tag, manifest)
+    try {
+      await syncFirefoxMaterials(tag, manifest)
+    } catch (error) {
+      await reportStoreAction(
+        'Firefox Add-ons',
+        'https://addons.mozilla.org/developers/addons',
+        `${result}. Material synchronization did not finish. Check the listing, privacy policy, icon and screenshots; update remaining materials manually or retry after the API limit resets.`
+      )
+      throw error
+    }
     result += '; listing, privacy, icon and screenshots updated'
   }
   console.log(result)

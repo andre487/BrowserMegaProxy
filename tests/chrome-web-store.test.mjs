@@ -181,3 +181,34 @@ test('Chrome retries receive fresh timeout signals', async () => {
   assert.notEqual(signals[0], signals[1])
   assert.deepEqual(waits, [1000])
 })
+
+test('invalid Chrome item metadata explicitly requires dashboard action', async () => {
+  const warnings = []
+  const originalWarn = console.warn
+  console.warn = message => warnings.push(message)
+  let calls = 0
+  try {
+    await assert.rejects(
+      publishChromeWebStore('v1.2.0', archive, {
+        env,
+        request: async () => {
+          const body = [{ access_token: 'token' }, {}, { uploadState: 'SUCCEEDED' }][calls++]
+          return body
+            ? new Response(JSON.stringify(body))
+            : new Response(
+                JSON.stringify({ error: { details: [{ reason: 'INVALID_ITEM_METADATA' }] } }),
+                { status: 400 }
+              )
+        }
+      }),
+      /INVALID_ITEM_METADATA/
+    )
+    assert.equal(calls, 4)
+    assert.equal(warnings.length, 1)
+    assert.match(warnings[0], /Manual action required/)
+    assert.match(warnings[0], /resolve the publication errors/)
+    assert.match(warnings[0], /https:\/\/chrome.google.com\/webstore\/devconsole/)
+  } finally {
+    console.warn = originalWarn
+  }
+})
