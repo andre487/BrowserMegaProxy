@@ -541,3 +541,12 @@ test('root config subscriptions validate, round-trip and follow secret omission 
   assert.equal(state.subscription, null)
   assert.equal(M.exportConfig(state, true).subscription, undefined)
 })
+
+test('merge rejects duplicate IDs introduced after import without dropping an existing profile', () => {
+  const imported = M.importProfiles(portable)
+  const state = M.mergeImport(M.defaults(), imported)
+  imported.profiles.push({ ...imported.profiles[0], host: 'other.example' })
+  assert.throws(() => M.mergeImport(state, imported), /errorDuplicateIds/)
+  assert.equal(state.profiles.length, 1)
+  assert.equal(state.profiles[0].host, 'proxy.example')
+})

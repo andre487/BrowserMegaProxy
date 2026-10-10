@@ -157,3 +157,27 @@ test('invalid configuration, HTTP errors and failed or timed-out uploads stop su
     /Unexpected.*REJECTED/
   )
 })
+
+test('Chrome retries receive fresh timeout signals', async () => {
+  const signals = []
+  const waits = []
+  await publishChromeWebStore('v0.1.1', archive, {
+    env,
+    dryRun: true,
+    retryWait: async delay => waits.push(delay),
+    request: async (url, options) => {
+      if (url.includes('oauth2')) {
+        signals.push(options.signal)
+        assert.equal(options.signal.aborted, false)
+        if (signals.length === 1) {
+          return new Response('Unavailable', { status: 503 })
+        }
+        return new Response(JSON.stringify({ access_token: 'token' }))
+      }
+      return new Response('{}')
+    }
+  })
+  assert.equal(signals.length, 2)
+  assert.notEqual(signals[0], signals[1])
+  assert.deepEqual(waits, [1000])
+})

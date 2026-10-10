@@ -141,3 +141,36 @@ test('store material generation preserves text sources and assets and derives AP
     await rm(destination, { recursive: true, force: true })
   }
 })
+
+test('release note retries receive fresh timeout signals', async () => {
+  const signals = []
+  const notes = { en: '- Fixed subscriptions.', ru: '- Исправлены подписки.' }
+  const result = await generateNotes(
+    '1.1.1',
+    {
+      apiKey: 'test-key',
+      model: 'test-model',
+      history: 'Fix subscriptions',
+      stat: '1 file',
+      retryWait: async () => {}
+    },
+    async (_, options) => {
+      signals.push(options.signal)
+      assert.equal(options.signal.aborted, false)
+      if (signals.length === 1) {
+        return new Response('Unavailable', { status: 503 })
+      }
+      return new Response(
+        JSON.stringify({
+          status: 'completed',
+          output: [
+            { type: 'message', content: [{ type: 'output_text', text: JSON.stringify(notes) }] }
+          ]
+        })
+      )
+    }
+  )
+  assert.deepEqual(result, notes)
+  assert.equal(signals.length, 2)
+  assert.notEqual(signals[0], signals[1])
+})

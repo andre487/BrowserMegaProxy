@@ -71,12 +71,11 @@ export async function generateNotes(
     'Release history empty or too large'
   )
   const response = await requestWithRetry(
-    request,
+    (url, options) => request(url, { ...options, signal: AbortSignal.timeout(180000) }),
     'https://api.openai.com/v1/responses',
     {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(180000),
       body: JSON.stringify({
         model,
         store: false,

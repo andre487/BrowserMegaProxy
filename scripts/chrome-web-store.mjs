@@ -27,9 +27,9 @@ export async function publishChromeWebStore(
   const secrets = [env.CWS_CLIENT_SECRET, env.CWS_REFRESH_TOKEN]
   const json = async (url, options = {}) => {
     const response = await requestWithRetry(
-      request,
+      (url, options) => request(url, { ...options, signal: AbortSignal.timeout(60000) }),
       url,
-      { ...options, signal: AbortSignal.timeout(60000) },
+      options,
       { secrets, wait: retryWait }
     )
     if (!response.ok) {
