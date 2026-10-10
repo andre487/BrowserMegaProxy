@@ -369,10 +369,10 @@ test('installed Chrome popup sizes correctly and profile dragging saves through 
           }
           return {
             surface: view.document.documentElement.dataset.surface,
-            width: view.innerWidth,
+            width: view.document.body.getBoundingClientRect().width,
             visible:
               view.document.querySelector('.popup-content').getBoundingClientRect().height > 100,
-            bounded: view.innerHeight <= 600
+            bounded: view.innerHeight <= 600 && view.document.body.scrollWidth <= view.innerWidth
           }
         })
       )
