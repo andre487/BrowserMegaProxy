@@ -1,4 +1,5 @@
 import { requestWithRetry } from './http-request.mjs'
+import { reportStoreDashboard } from './store-materials.mjs'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { appendFile, readFile } from 'node:fs/promises'
@@ -92,6 +93,7 @@ export async function publishChromeWebStore(
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const tag = process.argv[2]
   assert.match(tag || '', /^v\d+\.\d+\.\d+$/)
+  await reportStoreDashboard('Chrome Web Store', 'https://chrome.google.com/webstore/devconsole')
   const file = `dist/release/MegaProxy-chromium-${tag}.zip`
   execFileSync('unzip', ['-t', file], { stdio: 'pipe' })
   const manifest = JSON.parse(
@@ -99,6 +101,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   )
   assert.equal(manifest.version, tag.slice(1), 'Archive version must match release tag')
   const archive = await readFile(file)
+  const materialsNotice =
+    'Chrome Web Store listing freshness is unknown: the public API does not expose descriptions or images. Compare the released store-materials archive with the developer dashboard and sync manually.'
+  console.warn(`::warning title=Chrome Web Store materials::${materialsNotice}`)
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await appendFile(
+      process.env.GITHUB_STEP_SUMMARY,
+      `### Chrome Web Store materials require manual verification\n\n${materialsNotice}\n\n- [Materials](https://github.com/${process.env.GITHUB_REPOSITORY}/releases/tag/${tag})\n`
+    )
+  }
   const result = await publishChromeWebStore(tag, archive, {
     dryRun: process.env.CWS_DRY_RUN === 'true'
   })

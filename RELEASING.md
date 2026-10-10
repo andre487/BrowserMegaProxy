@@ -163,7 +163,9 @@ uploads through API v2, waits up to 150 seconds for processing, and submits with
 `DEFAULT_PUBLISH`. Google reviews the update and publishes it after approval;
 workflow success means submission was accepted, not that review has completed.
 Store descriptions, screenshots, privacy fields and visibility stay managed in the
-Web Store dashboard. Submissions are serialized across release tags.
+Web Store dashboard. API v2 does not expose those fields for reading or writing,
+so the job warns that their freshness is unknown and links the release materials
+and developer dashboard for manual verification. Submissions are serialized across release tags.
 
 For a dry run, open **Actions → Release extension artifacts → Run workflow** on
 `main`, enter an existing GitHub release tag and enable **dry_run**. It downloads
@@ -189,7 +191,7 @@ new version; recovery of an older version cannot downgrade the store item.
 
 The **Submit to Firefox Add-ons** job submits the Firefox package to public AMO
 using Mozilla's official `web-ext@10.7.0 sign --channel listed`. It downloads the
-Firefox ZIP and source ZIP from the same GitHub release, validates archive integrity,
+Firefox ZIP, source ZIP and store-materials ZIP from the same GitHub release, validates archive integrity,
 versions and the manifest's `browser-mega-proxy@andre487` ID, then authenticates
 with AMO's official JWT API. Store submissions are serialized across release tags.
 
@@ -202,10 +204,12 @@ used as the extension ID. Submission is enabled by default; set repository varia
 release or disable submission until ready.
 
 For a first submission, `web-ext` creates the listing using the tagged source
-archive's EN/RU Firefox listings, privacy policy, reviewer notes, MIT license and
-Other categories for desktop and Android. Complete screenshots, icons and any
-remaining store requirements in the AMO dashboard. Later updates preserve the
-existing listing and submit version-level reviewer/build notes. Both first
+archive's reviewer notes and MIT license, with EN/RU listings from the released
+store-materials archive and Other categories for desktop and Android. After
+submission, the job updates the listing, privacy policy and icon, then uploads
+the EN/RU Firefox screenshots with captions. Previous screenshots are removed
+only after all replacements are accepted. Rerunning an already submitted version
+still synchronizes materials without uploading the package again. Both first
 submissions and updates include the source ZIP for reproducible review.
 
 AMO reviewer notes are limited to 3,000 characters, including build instructions.
@@ -231,7 +235,8 @@ uses AMO, including on supported Firefox Android versions.
 Unlike Opera's optional warning path, Firefox failures remain visible as failed
 jobs while the existing GitHub release remains available. Fix credentials or
 metadata in AMO, then rerun **Firefox Add-ons** for the same tag. Versions already
-listed as public or awaiting review with attached source are skipped. Rejected,
+listed as public or awaiting review with attached source skip package submission
+and still update store materials. Rejected,
 disabled, unlisted or incomplete existing versions require dashboard attention;
 the workflow does not silently replace or delete them.
 
@@ -247,8 +252,13 @@ variable `OPERA_PACKAGE_ID`. The listing and its first version must already exis
 in Opera's dashboard. Opera submission is enabled by default after normal releases;
 set `OPERA_PUBLISH_ENABLED=false` to disable it explicitly.
 
-The job uploads the ZIP in chunks, copies existing metadata and localized summaries,
-and submits for moderation. It resumes a version already created in Opera after a failed attempt
+The job uploads the ZIP in chunks and copies existing metadata and localized
+summaries. It then independently updates EN/RU descriptions, support/source links,
+privacy policy, icon, promotional image and the default English screenshot gallery
+from the released store-materials ZIP before submitting for moderation. Each material
+failure emits a warning and does not stop later materials or package submission.
+Material attempts have separate deadlines; see `scripts/opera-addons.mjs`. Existing
+screenshots are removed only after all replacements are accepted. It resumes a version already created in Opera after a failed attempt
 and skips a version already submitted. A successful submission does not mean Opera
 has approved or published it. Sessions can expire and dashboard API changes can
 require updating the integration. No account password is stored by this workflow.
@@ -288,6 +298,8 @@ dry run before retrying. Never share or commit the cookie value.
 
 API behavior is based on the [publish-browser-extension implementation](https://github.com/aklinker1/publish-browser-extension/blob/main/src/stores/opera-addons-store.ts);
 Opera's supported manual process is described in its [publishing guidelines](https://help.opera.com/en/extensions/publishing-guidelines/).
+
+All store integration scripts print developer-dashboard links in logs and job summaries.
 
 ## HTTP failure diagnostics
 

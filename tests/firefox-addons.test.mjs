@@ -6,7 +6,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { checkFirefoxRelease, firefoxMetadata } from '../scripts/firefox-addons.mjs'
+import {
+  checkFirefoxRelease,
+  firefoxMetadata,
+  syncFirefoxMaterials
+} from '../scripts/firefox-addons.mjs'
 
 const env = { WEB_EXT_API_KEY: 'user:123:4', WEB_EXT_API_SECRET: 'test-secret' }
 const manifest = {
@@ -37,7 +41,7 @@ test('Firefox dry-run access checks use signed, short-lived JWTs and only read e
   const tokens = new Set()
   for (const call of mock.calls) {
     assert.ok(call.url.startsWith('https://addons.mozilla.org/api/v5/'))
-    assert.equal(call.method, undefined)
+    assert.equal(call.method, 'GET')
     assert.equal(call.redirect, 'error')
     const token = call.headers.Authorization.slice(4)
     tokens.add(token)
@@ -166,11 +170,13 @@ test('Firefox CLI validates released archives and delegates submission with sour
           summary: 'Proxy manager',
           description: 'Manage proxies',
           homepage: 'https://example.org',
-          support: 'https://example.org/support'
+          support: 'https://example.org/support',
+          screenshotCaptions: []
         })
       )
     }
     await write('source/store/PRIVACY.md', 'Privacy')
+    await write('source/store/assets/shared/icon-128.png', 'png')
     await write(
       'source/store/REVIEWER-NOTES.md',
       await readFile(new URL('../store/REVIEWER-NOTES.md', import.meta.url), 'utf8')
@@ -178,7 +184,8 @@ test('Firefox CLI validates released archives and delegates submission with sour
     await mkdir(`${directory}/dist/release`, { recursive: true })
     for (const [target, archive] of [
       ['extension', 'firefox'],
-      ['source', 'source']
+      ['source', 'source'],
+      ['source', 'store-materials']
     ]) {
       execFileSync(
         'zip',
@@ -188,11 +195,12 @@ test('Firefox CLI validates released archives and delegates submission with sour
     }
     await write(
       'mock-api.mjs',
-      `globalThis.fetch = async url => ({
-      ok: url.endsWith('accounts/profile/'),
-      status: url.endsWith('accounts/profile/') ? 200 : 404,
-      json: async () => ({id: 123})
-    })`
+      `let created = false
+    globalThis.fetch = async (url, options = {}) => {
+      if (options.method === 'PATCH') created = true
+      const ok = created || options.method !== 'GET' || url.endsWith('accounts/profile/')
+      return { ok, status: ok ? 200 : 404, json: async () => ({id: 123, previews: []}) }
+    }`
     )
     await write('bin/npx', '#!/bin/sh\nprintf "%s\\n" "$@" > "$AMO_CAPTURE"\n')
     await chmod(`${directory}/bin/npx`, 0o755)
@@ -234,5 +242,63 @@ test('Firefox CLI validates released archives and delegates submission with sour
     await assert.rejects(readFile(capture), { code: 'ENOENT' })
   } finally {
     await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('Firefox replaces listing, privacy, icon and localized previews; old previews survive an upload failure', async () => {
+  const listings = Object.fromEntries(
+    ['en', 'ru'].map(locale => [
+      locale,
+      {
+        name: 'MegaProxy',
+        summary: `Summary ${locale}`,
+        description: `Description ${locale}`,
+        homepage: 'https://example.org',
+        support: 'https://example.org/issues',
+        screenshotCaptions: [`Caption ${locale}`]
+      }
+    ])
+  )
+  const read = file =>
+    Buffer.from(
+      file.includes('/listings/')
+        ? JSON.stringify(listings[file.includes('/ru.') ? 'ru' : 'en'])
+        : file.endsWith('.png')
+          ? 'png'
+          : 'Privacy'
+    )
+  for (const fail of [false, true]) {
+    const mock = api([
+      {},
+      {},
+      {},
+      { previews: [{ id: 9 }] },
+      { id: 10 },
+      {},
+      fail ? { httpError: 400 } : { id: 11 },
+      ...(fail ? [] : [{}, {}])
+    ])
+    const sync = syncFirefoxMaterials('v0.1.1', manifest, { env, request: mock.request, read })
+    if (fail) {
+      await assert.rejects(sync, /HTTP 400/)
+    } else {
+      await sync
+    }
+    assert.deepEqual(JSON.parse(mock.calls[0].body).description, {
+      'en-US': 'Description en',
+      ru: 'Description ru'
+    })
+    assert.ok(!('version' in JSON.parse(mock.calls[0].body)))
+    assert.ok(mock.calls[1].url.endsWith('/eula_policy/'))
+    assert.deepEqual(JSON.parse(mock.calls[1].body), { privacy_policy: { 'en-US': 'Privacy' } })
+    assert.equal(mock.calls[2].body.get('icon').type, 'image/png')
+    assert.equal(mock.calls[4].body.get('image').name, 'en-1.png')
+    assert.equal(mock.calls[4].body.get('position'), '0')
+    assert.deepEqual(JSON.parse(mock.calls[5].body), { caption: { 'en-US': 'Caption en' } })
+    assert.equal(mock.calls[6].body.get('image').name, 'ru-1.png')
+    assert.equal(mock.calls.filter(call => call.method === 'DELETE').length, fail ? 0 : 1)
+    if (!fail) {
+      assert.ok(mock.calls.at(-1).url.endsWith('/previews/9/'))
+    }
   }
 })

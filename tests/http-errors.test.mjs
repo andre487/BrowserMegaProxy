@@ -89,34 +89,44 @@ test('Opera 5xx details identify failures after upload and on submission', async
   for (const stage of stages) {
     let attempts = 0
     const waits = []
-    await assert.rejects(
-      submitOperaAddon('v1.0.0', Buffer.from('zip'), {
-        env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret },
-        retryWait: async ms => waits.push(ms),
-        request: async (url, options) => {
-          if (url === `https://addons.opera.com/api/${stage}`) {
-            attempts++
-            return failing(url, options)
-          }
-          let data = {}
-          if (url.endsWith('/packages/123/')) {
-            data = { id: 123, is_editable: true, versions: [{ version: '0.1.0' }] }
-          }
-          if (url.endsWith('/123-0.1.0/')) {
-            data = { translations: { en: { short_description: 'Proxy' } } }
-          }
-          if (url.endsWith('?package_id=123')) {
-            data = { version: '1.0.0' }
-          }
-          return new Response(JSON.stringify(data))
+    const warnings = []
+    const submission = submitOperaAddon('v1.0.0', Buffer.from('zip'), {
+      env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret },
+      retryWait: async ms => waits.push(ms),
+      warn: message => warnings.push(message),
+      request: async (url, options) => {
+        if (url === `https://addons.opera.com/api/${stage}`) {
+          attempts++
+          return failing(url, options)
         }
-      }),
-      error => {
+        let data = {}
+        if (url.endsWith('/packages/123/')) {
+          data = { id: 123, is_editable: true, versions: [{ version: '0.1.0' }] }
+        }
+        if (url.endsWith('/123-0.1.0/')) {
+          data = { translations: { en: { short_description: 'Proxy' } } }
+        }
+        if (url.endsWith('?package_id=123')) {
+          data = { version: '1.0.0' }
+        }
+        if (url.endsWith('/submit_for_moderation/')) {
+          data = { version: '1.0.0', submitted_for_moderation: true }
+        }
+        return new Response(JSON.stringify(data))
+      }
+    })
+    if (stage === 'developer/package-versions/123-1.0.0/') {
+      assert.match(await submission, /submitted for moderation/)
+      assert.equal(warnings.length, 1)
+      assert.match(warnings[0], /upstream processing failed/)
+      assert.ok(!warnings[0].includes(secret))
+    } else {
+      await assert.rejects(submission, error => {
         assert.match(error.message, /upstream processing failed/)
         assert.ok(error.message.includes(stage))
         return true
-      }
-    )
+      })
+    }
     assert.equal(attempts, 6)
     assert.deepEqual(waits, [10000, 20000, 40000, 80000, 160000])
   }

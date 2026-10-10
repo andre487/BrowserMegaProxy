@@ -41,7 +41,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-firefox-$RELEASE_TAG.zip" --pattern "MegaProxy-source-$RELEASE_TAG.zip" --dir dist/release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-firefox-$RELEASE_TAG.zip" --pattern "MegaProxy-source-$RELEASE_TAG.zip" --pattern "MegaProxy-store-materials-$RELEASE_TAG.zip" --dir dist/release
       - name: Run Firefox integration
         env:
           RELEASE_TAG: ${{ inputs.tag }}
