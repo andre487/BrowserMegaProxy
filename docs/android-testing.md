@@ -133,8 +133,9 @@ snapshot caching as requested and do not silently retry failed assertions.
 
 The required CI job tests one pinned Firefox release and one Android/API/device
 configuration. It verifies authenticated HTTP proxying, domain/subdomain rules,
-tab routing, Direct/System and actual native popup/settings sizing. It does not
-prove HTTPS/SOCKS, all Android releases, permission onboarding, offline behavior,
+tab routing, Direct/System and actual native popup/settings sizing. Opening settings
+must close the action popup automatically; the test does not press Back to hide it.
+It does not prove HTTPS/SOCKS, all Android releases, permission onboarding, offline behavior,
 physical-device performance or every extension feature.
 
 A future geckodriver migration should use 0.37.1 or later: 0.37.0 has a documented

@@ -12,7 +12,7 @@ There is no remote executable code. UI scripts and schema validation are package
 
 ## Review steps
 
-1. Install the browser-specific package. Chromium requires version 120+; Firefox requires 140+ (142+ on Android). Allow private-window access; desktop proxy control uses `proxy.settings`, while Android uses `proxy.onRequest`.
+1. Install the browser-specific package. Chromium requires version 120+; Firefox requires 140+ (142+ on Android). In Firefox, allow private-window access; desktop proxy control uses `proxy.settings`, while Android uses `proxy.onRequest`.
 2. Open settings. Add an HTTP or HTTPS CONNECT proxy you control. Save and select it. Test Proxy, Direct and System, then run a connection check.
 3. Expand Routing mode. Test manual domains and subdomain wildcards, rule testing and automatic list selection. Firefox additionally exposes By tabs. Chrome and Opera do not offer tab routing.
 4. Test import/export using a non-sensitive MegaProxy configuration. A complete configuration may also be imported from a URL you control.

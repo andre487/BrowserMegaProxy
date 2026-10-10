@@ -50,9 +50,13 @@ If a job fails before tests start, use its step logs; a test report may not exis
 
 ### Local commands
 
-Run `npm ci && npm run build` first. Unit tests need Node.js only; desktop E2E
-tests also need installed Playwright browsers, Docker with a running daemon,
-uv, Git and OpenSSL. Android suites require the emulator setup described below.
+Run `npm ci && npm run build` first. Unit tests also need `zip`, `unzip` and a POSIX
+shell for the Firefox publication CLI check; they do not need browsers or Docker.
+Desktop E2E tests additionally need installed Playwright browsers, Docker with a running daemon,
+uv, Git, OpenSSL and tar. The full desktop suite currently runs on macOS or Linux:
+the GOST preparation script has no Windows binary configuration. This does not
+restrict the Windows development launcher. Android suites require the emulator
+setup described below.
 
 | Command                                  | Scope                                                          |
 | ---------------------------------------- | -------------------------------------------------------------- |
@@ -117,8 +121,9 @@ archives.
 
 The tests exercise saved HTTP proxy authentication, manual domain rules and
 subdomains, tab routing with a third-party resource, Direct/System modes, and
-responsive popup/options pages in real Firefox Android. Screenshots, request
-records and logcat are uploaded as `firefox-android-results`. HTTPS/SOCKS proxies,
+responsive popup/options pages in real Firefox Android. Opening Settings must
+replace the action popup without pressing Back or manually selecting its tab.
+Screenshots, request records and logcat are uploaded as `firefox-android-results`. HTTPS/SOCKS proxies,
 unsaved-credential dialogs and the complete mobile feature set are not covered by
 this smoke test.
 

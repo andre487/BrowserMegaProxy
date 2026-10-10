@@ -1,6 +1,6 @@
 # MegaProxy privacy policy
 
-Last updated: 6 October 2026.
+Last updated: 10 October 2026.
 
 MegaProxy is an open-source browser extension that manages user-provided proxy settings. It has no developer-operated analytics, advertising, account service or telemetry endpoint. The developer does not receive your browsing history, proxy credentials, request counters or diagnostic logs from the extension.
 
@@ -18,7 +18,7 @@ The diagnostic log is stored locally in IndexedDB and rotated according to a con
 
 When a proxy is selected, matching traffic and proxy authentication are sent to the proxy you configured. The proxy operator and destination websites process these requests under their own policies. MegaProxy does not provide or operate your proxy server.
 
-A configured knock host may be opened in a background tab to trigger proxy authentication. Credentials entered in the browser’s authentication dialog are managed by the browser and are not copied into a MegaProxy profile.
+A configured knock host may be opened to trigger proxy authentication: in a background tab with saved credentials, or in the foreground when credentials are missing so you can use the browser’s authentication dialog. Credentials entered in that dialog are managed by the browser and are not copied into a MegaProxy profile.
 
 When you run a connection check, the extension contacts example.com and public IP/country lookup services: ifconfig.me, api.ipify.org, icanhazip.com, ifconfig.co, ipapi.co and api.country.is. Some are fallback endpoints. They receive the IP address of the connection used for the check and ordinary HTTP request metadata. Results are displayed locally.
 
