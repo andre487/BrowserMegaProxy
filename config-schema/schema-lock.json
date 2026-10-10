@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/andre487/MegaProxyConfig",
-  "commit": "62a6e05eab608fa406414a153676579a68249802",
+  "commit": "07680cd0f6565f33c52a8a3407531435306b27c9",
   "overrides": [],
   "upstreamFiles": {
     "megaproxy-v8.schema.json": "7361c353d29a54892d0a3de01e0163949c5a6915a8be6fc86e62e42bdc6fd4c7",
