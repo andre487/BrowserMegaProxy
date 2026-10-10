@@ -1606,12 +1606,18 @@ test('config subscriptions authenticate, replace owned profiles atomically and r
   }
   remote = {
     ...config,
+    subscription: { ...config.subscription, futureOption: true },
+    browser: {
+      routing: {
+        strategy: 'failover',
+        assignments: [{ domain: 'example.com', profileId: 'one' }]
+      }
+    },
     profiles: [
       config.profiles[0],
       { id: 'new', proxy: { type: 'HTTPS', host: 'new.example', port: 443 } }
     ]
   }
-  delete remote.subscription
   assert.equal((await h.send({ command: 'import', data: config })).ok, true)
   assert.equal(alarms.get('configSubscription').periodInMinutes, 15)
   assert.equal((await h.send({ command: 'configSubscription', intervalMinutes: 30 })).ok, true)
@@ -1633,6 +1639,10 @@ test('config subscriptions authenticate, replace owned profiles atomically and r
   assert.equal(state.subscription.password, 'пароль')
   assert.ok(state.configSubscriptionState.lastUpdated)
   assert.equal(state.configSubscriptionState.error, undefined)
+  assert.equal(state.configSubscriptionState.unknownFields, true)
+  assert.equal(state.subscription.futureOption, undefined)
+  assert.equal(state.portable.browser.routing.strategy, 'manual')
+  assert.equal(state.portable.browser.routing.assignments.length, 0)
   const snapshot = JSON.stringify(state.profiles)
   for (const invalid of [
     'Access denied',

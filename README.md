@@ -404,9 +404,8 @@ npm run renew-config-schema -- --ref=<full-commit>
 This command updates `config-schema/`: both schemas, the license, commit and SHA-256
 values in the lock file. Review and commit schema copies and the lock file together.
 The formatter excludes this directory to preserve original bytes and checksums.
-The renewal command also applies the browser additions in
-`scripts/config-schema-overrides.mjs`; `schema-lock.json` records upstream and
-effective checksums. Review those overrides when adopting a newer upstream schema.
+Both schemas are vendored unchanged from MegaProxyConfig; the lock file records
+their upstream checksums. Browser additions are defined in that shared contract.
 
 Imports accept MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON (`https`/`ssl`,
 `hostname`/`address`), ProxyList and Android-compatible SuperProxy format.
@@ -615,10 +614,8 @@ services:
 ```
 
 JSON imports/exports preserve `proxy.type: "MASQUE"` and
-`browser.masqueTemplate`. This is currently a browser schema addition, recorded
-in `config-schema/schema-lock.json` and accepted upstream in
-[MegaProxyConfig PR #2](https://github.com/andre487/MegaProxyConfig/pull/2). The bundled
-schema still applies the override to its pinned upstream revision; clients
+`browser.masqueTemplate`. Both fields are part of the shared schema vendored from
+MegaProxyConfig, with its revision recorded in `config-schema/schema-lock.json`; clients
 must explicitly support it.
 `masque://proxy.example:8443` imports use the default template.
 

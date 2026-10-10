@@ -1091,6 +1091,7 @@ async function handle(message) {
         lastUpdated: Date.now(),
         sourceIndex: message.subscriptionSource,
         skipped: result.skipped,
+        skippedMasque: result.skippedMasque,
         unknownFields: result.unknownFields,
         unsupportedSplitProxy: result.unsupportedSplitProxy,
         unsupportedWebRTC: result.unsupportedWebRTC

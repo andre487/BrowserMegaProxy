@@ -43,6 +43,8 @@ const portable = {
 test('vendored schemas match recorded checksums and identify their upstream revision', async () => {
   const lock = JSON.parse(await readFile('config-schema/schema-lock.json'))
   assert.match(lock.commit, /^[a-f0-9]{40}$/)
+  assert.deepEqual(lock.files, lock.upstreamFiles)
+  assert.deepEqual(lock.overrides, [])
   for (const [file, hash] of Object.entries(lock.files)) {
     assert.equal(
       createHash('sha256')
@@ -263,6 +265,30 @@ test('standalone browser validator rejects invalid optional fields at import', a
     M.mergeImport(M.defaults(), M.importProfiles(portable))
   )
   assert.ok(context.MegaValidate(config))
+  const future = structuredClone(config)
+  future.subscription = { url: 'https://configs.example/', futureSetting: { secret: 'hidden' } }
+  future.profiles[0].routing = { bypassLocalNetworks: false }
+  future.browser.routing = {
+    strategy: 'failover',
+    assignments: [{ domain: 'example.com', profileId: 'server' }]
+  }
+  for (const target of ['chromium', 'firefox']) {
+    const imported = context.MegaProxy.importProfiles(future, target)
+    assert.equal(imported.unknownFields, true)
+    assert.equal(imported.config.subscription.futureSetting, undefined)
+    assert.equal(imported.profiles[0].portable.routing, undefined)
+    assert.equal(imported.config.browser.routing.strategy, 'manual')
+    assert.equal(imported.config.browser.routing.enabled, false)
+    assert.equal(imported.config.browser.routing.assignments.length, 0)
+    const exported = context.MegaProxy.exportConfig(
+      context.MegaProxy.mergeImport(context.MegaProxy.defaults(), imported)
+    )
+    assert.equal(exported.subscription.futureSetting, undefined)
+    assert.equal(exported.profiles[0].routing, undefined)
+    assert.ok(context.MegaValidate(exported))
+  }
+  future.subscription.intervalMinutes = '60'
+  assert.throws(() => context.MegaProxy.importProfiles(future), /errorProfileFields/)
 })
 
 test('unknown and unsupported fields produce one flag and never survive import or export', () => {

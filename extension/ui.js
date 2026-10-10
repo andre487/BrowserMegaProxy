@@ -345,6 +345,7 @@ function render() {
             ? t('configSubscriptionFallback', String(status.sourceIndex))
             : '',
           status?.skipped?.length ? t('importSkipped', status.skipped.join(', ')) : '',
+          status?.skippedMasque ? t('masqueImportDisabled') : '',
           status?.unknownFields ? t('unknownConfigFields') : '',
           status?.unsupportedSplitProxy ? t('splitUnsupportedWarning') : '',
           status?.unsupportedWebRTC ? t('errorWebRTCUnsupported') : ''

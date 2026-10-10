@@ -258,6 +258,14 @@ test.beforeEach(async ({ page, browserName, context }) => {
               state.masqueEnabled === true
             )
             Object.assign(state, M.mergeImport(state, result, message.removeIds))
+            if (state.subscription) {
+              state.configSubscriptionState = {
+                lastUpdated: Date.now(),
+                unknownFields: result.unknownFields,
+                skipped: result.skipped,
+                skippedMasque: result.skippedMasque
+              }
+            }
             localStorage.setItem('testState', JSON.stringify(state))
 
             return {
@@ -607,6 +615,7 @@ test('unknown and Android-only fields show a single general import warning', asy
     version: 8,
     tls: { fingerprint: 'DEFAULT' },
     unknownOption: 'future',
+    subscription: { url: 'https://config.example/', enabled: false, futureOption: true },
     profiles: [
       {
         id: 'example',
@@ -629,6 +638,10 @@ test('unknown and Android-only fields show a single general import warning', asy
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('testState')))
   expect(state.portable.tls).toBeUndefined()
   expect(state.portable.unknownOption).toBeUndefined()
+  expect(state.subscription.futureOption).toBeUndefined()
+  await expect(page.locator('#config-subscription-status')).toContainText(
+    'Конфигурация содержит неизвестные поля'
+  )
   expect(state.profiles[0].portable.dns).toBeUndefined()
   expect(state.profiles[0].portable.unknownProfileOption).toBeUndefined()
 })

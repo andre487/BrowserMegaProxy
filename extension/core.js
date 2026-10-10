@@ -624,10 +624,9 @@ function FindProxyForURL(url, host) {
         'autoUpdate',
         'throughProxy'
       ],
-      '/profiles/*': ['id', 'name', 'color', 'countryCode', 'proxy', 'browser', 'routing'],
+      '/profiles/*': ['id', 'name', 'color', 'countryCode', 'proxy', 'browser'],
       '/profiles/*/proxy': ['type', 'host', 'port', 'username', 'password'],
-      '/profiles/*/browser': ['knockHost', 'bypass', 'authMode', 'masqueTemplate'],
-      '/profiles/*/routing': ['bypassLocalNetworks']
+      '/profiles/*/browser': ['knockHost', 'bypass', 'authMode', 'masqueTemplate']
     }
     let unknownFields = false
 
@@ -841,7 +840,10 @@ function FindProxyForURL(url, host) {
       unknownFields =
         filtered.unknownFields ||
         Boolean(data.browser?.routing?.assignments?.length) ||
-        data.browser?.routing?.strategy === 'profiles'
+        ['profiles', 'failover'].includes(data.browser?.routing?.strategy)
+      if (browserRouting) {
+        data.browser.routing = structuredClone(browserRouting)
+      }
     }
 
     const profiles = []
