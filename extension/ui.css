@@ -273,8 +273,11 @@ footer span {
   margin-top: 12px;
 }
 
-.popup {
+.popup,
+:root[data-surface='popup'] {
   width: 380px;
+}
+.popup {
   max-width: 100vw;
   margin-inline: auto;
 }
