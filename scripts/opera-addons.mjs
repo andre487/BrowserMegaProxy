@@ -66,7 +66,8 @@ export async function submitOperaAddon(
       throw await globalThis.MegaErrors.httpError(
         response,
         `Opera ${method} ${endpoint} failed: HTTP ${response.status}`,
-        [env.OPERA_SESSION_ID, csrf]
+        [env.OPERA_SESSION_ID, csrf],
+        { includeResponseBody: true }
       )
     }
     if (raw) {
@@ -137,7 +138,7 @@ export async function submitOperaAddon(
   let materialSignal
   const attemptMaterial = async (name, action) => {
     try {
-      materialSignal = AbortSignal.timeout(60000)
+      materialSignal = AbortSignal.timeout(900000)
       return await action()
     } catch (error) {
       const message = globalThis.MegaErrors.responseText(`Opera ${name}: ${error.message}`, [

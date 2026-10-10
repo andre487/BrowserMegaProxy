@@ -232,7 +232,7 @@ test('schema and catalog renewal CLI failures print server response details', ()
   }
 })
 
-test('5xx retries are bounded, preserve request bodies and stop on success, 4xx or transport errors', async () => {
+test('5xx retries are bounded, preserve request bodies and stop on success, non-retryable 4xx or transport errors', async () => {
   const options = { method: 'POST', body: new URLSearchParams({ value: 'test' }) }
   const waits = []
   let attempts = 0
@@ -263,7 +263,7 @@ test('5xx retries are bounded, preserve request bodies and stop on success, 4xx 
   )
   assert.equal(attempts, 3)
   assert.equal(await exhausted.text(), 'still down')
-  for (const status of [200, 400, 403, 404, 429]) {
+  for (const status of [200, 400, 403, 404]) {
     attempts = 0
     await requestWithRetry(
       async () => {
@@ -290,4 +290,116 @@ test('5xx retries are bounded, preserve request bodies and stop on success, 4xx 
     /network failure/
   )
   assert.equal(attempts, 1)
+})
+
+test('429 retries use bounded exponential delays and leave the final response readable', async () => {
+  const waits = []
+  let calls = 0
+  const response = await requestWithRetry(
+    async () => {
+      calls++
+      return new Response('Rate limit exceeded', { status: 429 })
+    },
+    'https://example.org/upload',
+    {},
+    { wait: async ms => waits.push(ms) }
+  )
+  assert.equal(calls, 6)
+  assert.deepEqual(waits, [30000, 60000, 120000, 240000, 300000])
+  assert.equal(await response.text(), 'Rate limit exceeded')
+})
+
+test('429 Retry-After seconds and dates respect the delay bounds; malformed values use backoff', async () => {
+  for (const [header, expected] of [
+    ['1', 30000],
+    ['120', 120000],
+    ['600', 300000],
+    [new Date(Date.now() + 600000).toUTCString(), 300000],
+    [new Date(Date.now() - 600000).toUTCString(), 30000],
+    ['invalid', 30000]
+  ]) {
+    const waits = []
+    let calls = 0
+    const response = await requestWithRetry(
+      async () =>
+        ++calls === 1
+          ? new Response('', { status: 429, headers: { 'Retry-After': header } })
+          : new Response('Accepted'),
+      'https://example.org/',
+      {},
+      { wait: async ms => waits.push(ms) }
+    )
+    assert.equal(response.status, 200)
+    assert.equal(calls, 2)
+    assert.deepEqual(waits, [expected])
+  }
+})
+
+test('all three stores recover from 429 and expose sanitized 400 diagnostics', async () => {
+  for (const status of [429, 400]) {
+    for (const store of ['chrome', 'firefox', 'opera']) {
+      const waits = []
+      const signals = []
+      let calls = 0
+      const request = async (url, options) => {
+        signals.push(options.signal)
+        if (++calls === 1) {
+          return new Response(JSON.stringify({ error: 'Listing is incomplete', echoed: secret }), {
+            status
+          })
+        }
+        const data = url.includes('oauth2')
+          ? { access_token: 'access-token' }
+          : url.endsWith('accounts/profile/')
+            ? { id: 1 }
+            : url.includes('addons.mozilla.org')
+              ? { guid: 'browser-mega-proxy@andre487', authors: [{ id: 1 }] }
+              : url.endsWith('/packages/123/')
+                ? { id: 123, is_editable: true, versions: [{ version: '1.0.0' }] }
+                : {}
+        return new Response(JSON.stringify(data))
+      }
+      const options = { request, retryWait: async ms => waits.push(ms), dryRun: true }
+      const invoke = () =>
+        store === 'chrome'
+          ? publishChromeWebStore('v1.0.0', Buffer.from('zip'), {
+              ...options,
+              env: {
+                CWS_PUBLISHER_ID: 'publisher',
+                CWS_EXTENSION_ID: 'extension',
+                CWS_CLIENT_ID: 'client',
+                CWS_CLIENT_SECRET: secret,
+                CWS_REFRESH_TOKEN: secret
+              }
+            })
+          : store === 'firefox'
+            ? checkFirefoxRelease(
+                'v1.0.0',
+                {
+                  version: '1.0.0',
+                  browser_specific_settings: { gecko: { id: 'browser-mega-proxy@andre487' } }
+                },
+                { ...options, env: { WEB_EXT_API_KEY: 'key', WEB_EXT_API_SECRET: secret } }
+              )
+            : submitOperaAddon('v1.0.0', Buffer.from('zip'), {
+                ...options,
+                env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret }
+              })
+      if (status === 429) {
+        await invoke()
+        assert.deepEqual(waits, [30000], store)
+        assert.notEqual(signals[0], signals[1], store)
+        assert.equal(signals[1].aborted, false)
+      } else {
+        await assert.rejects(invoke(), error => {
+          assert.equal(error.status, 400)
+          assert.match(error.message, /Listing is incomplete/)
+          assert.ok(!error.message.includes(secret))
+          return true
+        })
+        assert.deepEqual(waits, [])
+        assert.equal(calls, 1)
+      }
+    }
+  }
 })

@@ -56,7 +56,8 @@ function firefoxApi({ env = process.env, request = fetch, retryWait } = {}) {
       throw await globalThis.MegaErrors.httpError(
         response,
         `AMO ${method} ${endpoint} failed: HTTP ${response.status}`,
-        secrets
+        secrets,
+        { includeResponseBody: true }
       )
     }
     return response.status === 204 ? null : response.json()

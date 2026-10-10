@@ -36,7 +36,8 @@ export async function publishChromeWebStore(
       throw await globalThis.MegaErrors.httpError(
         response,
         `Chrome Web Store ${options.method || 'GET'} ${url} failed: HTTP ${response.status}`,
-        secrets
+        secrets,
+        { includeResponseBody: true }
       )
     }
     return response.json()
