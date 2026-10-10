@@ -67,6 +67,16 @@ setup described below.
 | `npm run test:android:chromium`          | Nine Vivaldi Android smoke scenarios                           |
 | `npm run check`                          | Lint, build, units and both desktop projects; excludes Android |
 
+## Configuration subscriptions and notices
+
+Configuration-subscription tests in `features.test.mjs` use controlled downloads
+and browser API mocks to cover Basic Auth, source failover, replacement of a removed
+profile, Direct/System preservation, rollback and changed active-profile/Podkop rules.
+UI tests cover **Update now** while paused, notice acknowledgment and notification
+permission refusal. Installed-extension feature tests check the toolbar notice and
+its dismissal in both desktop browsers. Native operating-system notification delivery
+and the complete mobile subscription flow are not automated.
+
 ## Server integration tests
 
 `npm run test:e2e` prepares the pinned MegaProxyServer checkout, its locked Python dependencies (using uv), and Docker images before running all Playwright tests. GitHub Actions runs this on every PR and push to `main`, and retains Playwright traces and server logs on failure. No remote server is provisioned: each test creates and removes its own Docker network, GOST entry/exit servers, HAProxy frontend, origin, certificates and browser profiles.

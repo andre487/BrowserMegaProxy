@@ -20,7 +20,7 @@ Required for a user-triggered connection check to read plain-text IP and country
 
 ## `alarms`
 
-Required to schedule freshness checks and updates for automatic domain lists used by selective proxy routing. List content is downloaded only when the current connection and routing settings need it. Alarms avoid keeping the extension's background process running continuously.
+Required to schedule checks for user-configured configuration subscriptions and automatic domain lists used by selective proxy routing. Configuration checks use the saved interval and stop when paused; manual refresh remains available. Domain-list content is downloaded only when the current connection and routing settings need it. Alarms avoid keeping the extension's background process running continuously.
 
 ## `contextMenus`
 
