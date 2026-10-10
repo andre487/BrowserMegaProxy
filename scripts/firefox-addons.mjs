@@ -11,32 +11,41 @@ import { validateVersion } from './release.mjs'
 function firefoxApi({ env = process.env, request = fetch, retryWait } = {}) {
   const base = 'https://addons.mozilla.org/api/v5/'
   return async (endpoint, { method = 'GET', body, allowMissing = false } = {}) => {
-    const now = Math.floor(Date.now() / 1000)
     const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
-    const unsigned = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
-      iss: env.WEB_EXT_API_KEY,
-      jti: randomUUID(),
-      iat: now - 30,
-      exp: now + 60
-    })}`
-    const signature = createHmac('sha256', env.WEB_EXT_API_SECRET)
-      .update(unsigned)
-      .digest('base64url')
+    const secrets = [env.WEB_EXT_API_KEY, env.WEB_EXT_API_SECRET]
     const response = await requestWithRetry(
-      (url, options) => request(url, { ...options, signal: AbortSignal.timeout(60000) }),
+      (url, options) => {
+        // A slow 5xx response and backoff can outlive the previous JWT.
+        const now = Math.floor(Date.now() / 1000)
+        const unsigned = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
+          iss: env.WEB_EXT_API_KEY,
+          jti: randomUUID(),
+          iat: now - 30,
+          exp: now + 60
+        })}`
+        const signature = createHmac('sha256', env.WEB_EXT_API_SECRET)
+          .update(unsigned)
+          .digest('base64url')
+        const token = `${unsigned}.${signature}`
+        secrets.push(token)
+        return request(url, {
+          ...options,
+          headers: { ...options.headers, Authorization: `JWT ${token}` },
+          signal: AbortSignal.timeout(60000)
+        })
+      },
       `${base}${endpoint}`,
       {
         redirect: 'error',
         method,
         headers: {
-          Authorization: `JWT ${unsigned}.${signature}`,
           ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {})
         },
         body:
           body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body)
       },
       {
-        secrets: [env.WEB_EXT_API_KEY, env.WEB_EXT_API_SECRET, `${unsigned}.${signature}`],
+        secrets,
         wait: retryWait
       }
     )
@@ -47,7 +56,7 @@ function firefoxApi({ env = process.env, request = fetch, retryWait } = {}) {
       throw await globalThis.MegaErrors.httpError(
         response,
         `AMO ${method} ${endpoint} failed: HTTP ${response.status}`,
-        [env.WEB_EXT_API_KEY, env.WEB_EXT_API_SECRET, `${unsigned}.${signature}`]
+        secrets
       )
     }
     return response.status === 204 ? null : response.json()

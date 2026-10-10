@@ -1110,6 +1110,7 @@ async function handle(message) {
 
     await api.storage.local.set({ state: next })
     startupError = undefined
+    startupErrorDetails = undefined
     if (['save', 'activate', 'delete', 'import', 'connectionMode'].includes(message.command)) {
       reconcileAuthDialogs()
     }
@@ -2011,9 +2012,7 @@ async function receiveSync() {
     const preferences = payload.preferences || {}
     const routing = M.routing(preferences.routing)
 
-    if (platform.downgradeRouting(routing)) {
-      startupError = 'splitUnsupportedWarning'
-    }
+    const unsupportedRouting = platform.downgradeRouting(routing)
 
     if (
       !['auto', 'ru', 'en'].includes(preferences.language) ||
@@ -2057,6 +2056,8 @@ async function receiveSync() {
       throw error
     }
 
+    startupError = unsupportedRouting ? 'splitUnsupportedWarning' : undefined
+    startupErrorDetails = undefined
     reconcileAuthDialogs()
     tabOverrides.clear()
     connectionCheck = null

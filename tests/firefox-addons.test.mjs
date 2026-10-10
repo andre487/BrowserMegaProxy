@@ -76,6 +76,39 @@ test('Firefox access checks allow a new listing and report an already uploaded v
   )
 })
 
+test('Firefox renews JWT and timeout after a slow 5xx response without leaking tokens', async t => {
+  let now = 1000000
+  t.mock.method(Date, 'now', () => now)
+  const warnings = t.mock.method(console, 'warn', () => {})
+  const tokens = []
+  const signals = []
+  const result = await checkFirefoxRelease('v0.1.1', manifest, {
+    env,
+    retryWait: async delay => {
+      now += delay
+    },
+    request: async (url, options) => {
+      const token = options.headers.Authorization.slice(4)
+      const claims = JSON.parse(Buffer.from(token.split('.')[1], 'base64url'))
+      assert.ok(claims.exp > now / 1000, 'JWT must still be valid when a retry starts')
+      tokens.push(token)
+      signals.push(options.signal)
+      if (tokens.length === 1) {
+        now += 59500
+        return new Response(`Slow server failure: ${token}`, { status: 503 })
+      }
+      return new Response(JSON.stringify({ id: 123 }), {
+        status: url.endsWith('accounts/profile/') ? 200 : 404
+      })
+    }
+  })
+  assert.equal(result.exists, false)
+  assert.equal(new Set(tokens).size, tokens.length)
+  assert.equal(new Set(signals).size, signals.length)
+  assert.equal(warnings.mock.calls.length, 1)
+  assert.ok(!warnings.mock.calls[0].arguments[0].includes(tokens[0]))
+})
+
 test('Firefox validates manifest and credentials before requests and rejects unauthorized or foreign listings', async () => {
   const noRequest = () => assert.fail('No API request expected')
   for (const args of [
