@@ -368,3 +368,66 @@ test('Opera screenshot recovery stays within three slots across excess images, p
     assert.ok(screenshots.every(image => !previousIds.includes(image.id)))
   }
 })
+
+test('Opera material retries survive a server-requested pause longer than the old deadline', async () => {
+  const timeout = AbortSignal.timeout
+  const timers = []
+  let now = 0
+  let attempts = 0
+  const waits = []
+  const warnings = []
+  AbortSignal.timeout = duration => {
+    const controller = new AbortController()
+    timers.push({ deadline: now + duration, controller })
+    return controller.signal
+  }
+  try {
+    const result = await submitOperaAddon('v0.1.1', Buffer.from('zip'), {
+      env,
+      warn: message => warnings.push(message),
+      retryWait: async duration => {
+        waits.push(duration)
+        now += duration
+        for (const timer of timers) {
+          if (timer.deadline <= now) {
+            timer.controller.abort(new DOMException('Deadline reached', 'TimeoutError'))
+          }
+        }
+      },
+      readMaterial: file =>
+        Buffer.from(
+          file.includes('/listings/')
+            ? JSON.stringify({
+                summary: 'New summary',
+                description: 'Description',
+                homepage: 'https://example.org',
+                support: 'https://example.org/support'
+              })
+            : 'image'
+        ),
+      request: async (url, options) => {
+        options.signal.throwIfAborted()
+        const payload = options.method === 'PATCH' ? JSON.parse(options.body) : {}
+        if (payload.translations?.en?.short_description === 'New summary' && ++attempts === 1) {
+          return new Response('Throttled', { status: 429, headers: { 'Retry-After': '1800' } })
+        }
+        const body = url.endsWith('/packages/123/')
+          ? { ...addon, versions: [{ version: '0.1.1' }, ...addon.versions] }
+          : url.endsWith('/123-0.1.0/')
+            ? details
+            : url.endsWith('/submit_for_moderation/')
+              ? submitted
+              : url.endsWith('/123-0.1.1/') && options.method === 'GET'
+                ? { screenshots: {} }
+                : {}
+        return new Response(JSON.stringify(body))
+      }
+    })
+    assert.match(result, /submitted for moderation/)
+    assert.equal(attempts, 2)
+    assert.deepEqual(waits, [1800000])
+    assert.deepEqual(warnings, [])
+  } finally {
+    AbortSignal.timeout = timeout
+  }
+})

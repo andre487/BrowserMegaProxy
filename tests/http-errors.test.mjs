@@ -309,13 +309,14 @@ test('429 retries use bounded exponential delays and leave the final response re
   assert.equal(await response.text(), 'Rate limit exceeded')
 })
 
-test('429 Retry-After seconds and dates respect the delay bounds; malformed values use backoff', async () => {
-  for (const [header, expected] of [
-    ['1', 30000],
+test('429 honors Retry-After seconds and dates without clamping; malformed values use backoff', async () => {
+  for (const [header, expected, tolerance = 0] of [
+    ['0', 0],
+    ['1', 1000],
     ['120', 120000],
-    ['600', 300000],
-    [new Date(Date.now() + 600000).toUTCString(), 300000],
-    [new Date(Date.now() - 600000).toUTCString(), 30000],
+    ['600', 600000],
+    [new Date(Date.now() + 600000).toUTCString(), 600000, 1000],
+    [new Date(Date.now() - 600000).toUTCString(), 0],
     ['invalid', 30000]
   ]) {
     const waits = []
@@ -331,7 +332,8 @@ test('429 Retry-After seconds and dates respect the delay bounds; malformed valu
     )
     assert.equal(response.status, 200)
     assert.equal(calls, 2)
-    assert.deepEqual(waits, [expected])
+    assert.equal(waits.length, 1)
+    assert.ok(Math.abs(waits[0] - expected) <= tolerance, `${header}: ${waits[0]}`)
   }
 })
 

@@ -141,7 +141,7 @@ export async function submitOperaAddon(
   let materialSignal
   const attemptMaterial = async (name, action) => {
     try {
-      materialSignal = AbortSignal.timeout(900000)
+      materialSignal = AbortSignal.timeout(3600000)
       return await action()
     } catch (error) {
       const message = globalThis.MegaErrors.responseText(`Opera ${name}: ${error.message}`, [

@@ -19,13 +19,16 @@ export async function requestWithRetry(
     }
     let delay = initialDelay * 2 ** attempt
     if (limited) {
-      const retryAfter = response.headers?.get('Retry-After')
-      const requestedDelay = retryAfter
-        ? /^\d+$/u.test(retryAfter.trim())
+      delay = Math.min(300000, 30000 * 2 ** rateLimits++)
+      const retryAfter = response.headers?.get('Retry-After')?.trim()
+      if (retryAfter) {
+        const requestedDelay = /^\d+$/u.test(retryAfter)
           ? Number(retryAfter) * 1000
           : Date.parse(retryAfter) - Date.now()
-        : 0
-      delay = Math.min(300000, Math.max(30000 * 2 ** rateLimits++, requestedDelay || 0))
+        if (Number.isFinite(requestedDelay)) {
+          delay = Math.max(0, requestedDelay)
+        }
+      }
       await response.body?.cancel()
     }
     const endpoint = new URL(url)
