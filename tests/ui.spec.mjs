@@ -321,7 +321,7 @@ test('profile lifecycle, import, themes and responsive keyboard-accessible form'
   await expect(page.getByLabel('Название')).toBeFocused()
   await page.getByLabel('Название').fill('Main')
   await page.getByLabel('Хост прокси').fill('proxy.example')
-  await page.getByLabel('Логин').fill('user')
+  await page.getByLabel('Логин', { exact: true }).fill('user')
   await page.getByLabel('Пароль', { exact: true }).fill('secret')
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
   await expect(page.locator('.profile')).toHaveCount(1)
@@ -435,12 +435,12 @@ test('manual language persists, preserves input and translates errors and dynami
   await expect(page.locator('#editor .dialog-error')).toHaveText(
     'Save profile: A password requires a username'
   )
-  await page.getByLabel('Username').fill('user')
+  await page.getByLabel('Username', { exact: true }).fill('user')
   await page.getByRole('button', { name: 'Save profile' }).click()
   await expect(page.locator('#editor .dialog-error')).toContainText('without a scheme or path')
 
   await page.getByLabel('Proxy host').fill('proxy.example')
-  await page.getByLabel('Username').fill('user')
+  await page.getByLabel('Username', { exact: true }).fill('user')
   await page.getByRole('button', { name: 'Save profile' }).click()
   await expect(page.locator('.profile')).toContainText('Мой proxy')
   await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
@@ -573,7 +573,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
 }) => {
   await page.getByRole('button', { name: 'Добавить' }).click()
   await expect(page.getByLabel('Knock host')).toBeEnabled()
-  await page.getByLabel('Логин').fill('user')
+  await page.getByLabel('Логин', { exact: true }).fill('user')
   await page.getByLabel('Пароль', { exact: true }).fill('secret')
   await expect(page.getByLabel('Knock host')).toBeEnabled()
   await page.locator('.profile-advanced > summary').click()
