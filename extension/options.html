@@ -25,6 +25,17 @@
         </select></label
       >
       <p id="notice" role="status" aria-live="polite"></p>
+      <section id="connection-update" class="warning" hidden aria-live="polite">
+        <p id="connection-update-message"></p>
+        <button
+          id="dismiss-connection-update"
+          type="button"
+          class="secondary"
+          data-i18n="understood"
+        >
+          Understood
+        </button>
+      </section>
       <section class="connection-check" aria-labelledby="check">
         <p id="check-result" role="status" aria-live="polite"></p>
         <button id="check" type="button" class="secondary" data-i18n="checkConnection">
@@ -395,6 +406,12 @@
           Update configuration now
         </button>
       </section>
+      <label class="checkbox"
+        ><input id="connection-notifications" type="checkbox" /><span
+          data-i18n="connectionNotifications"
+          >System notifications when connection settings change</span
+        ></label
+      >
       <footer>
         <div class="import-actions">
           <button id="open-import" type="button" class="secondary" data-i18n="importJSON">

@@ -1,6 +1,6 @@
 # Permission justifications
 
-The following text explains every permission requested by the production manifests. Chromium includes Chrome and Opera. Firefox additionally requests `webRequestBlocking`. The `privacy` permission is optional in both packages.
+The following text explains every permission requested by the production manifests. Chromium includes Chrome and Opera. Firefox additionally requests `webRequestBlocking`. The `privacy` and `notifications` permissions are optional in both packages.
 
 ## Single purpose
 
@@ -45,6 +45,14 @@ Required because the user's proxy may serve requests to any HTTP or HTTPS websit
 ## `privacy` — optional
 
 Requested only when the user selects an extension-controlled WebRTC policy. It changes the browser's WebRTC IP-handling policy to limit connections that could expose an address outside the selected proxy route. The setting affects the whole browser, including pages using Direct connections, and may affect calls. Selecting Browser settings restores control to the browser. This permission is not required for basic proxy management.
+
+## `notifications` — optional
+
+Requested only when the user enables system notifications about changed connection
+settings. It displays an update notice after effective active-proxy or routing changes,
+including configuration subscriptions and Podkop list updates. Notices contain no
+credentials or configuration body. Refusing this permission leaves the popup/settings
+warning and toolbar indicator available; notifications are not needed for proxy management.
 
 ## Firefox data-collection declaration
 

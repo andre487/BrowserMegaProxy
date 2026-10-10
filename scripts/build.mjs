@@ -62,7 +62,7 @@ const base = {
   },
   options_ui: { page: 'options.html', open_in_tab: true },
   permissions: ['storage', 'scripting', 'alarms', 'contextMenus'],
-  optional_permissions: ['privacy'],
+  optional_permissions: ['privacy', 'notifications'],
   host_permissions: ['<all_urls>']
 }
 

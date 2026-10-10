@@ -360,7 +360,8 @@ successful import. Basic Auth credentials are shared across the explicitly liste
 sources; only list servers trusted to receive them. Failure of all sources retains
 the last working snapshot. The status shows when a backup source supplied it.
 The first automatic download runs shortly after import. Settings also lets you
-subscribe when importing a URL, change the check interval, pause updates, refresh manually and see the last
+subscribe when importing a URL, change the check interval, pause automatic updates, refresh manually using **Update now** in Settings or the
+popup (including while paused), and see the last
 successful import or error. Basic Auth requires HTTPS. Subscription downloads
 reject redirects; use the final URL. They use the browser's current proxy settings. Configuration requests include
 `X-MegaProxy-Client: browser_chromium` or `browser_firefox`, allowing the server
@@ -369,7 +370,11 @@ extension version from its manifest.
 
 Updates replace profiles from the previous subscription snapshot and remove those
 no longer present. Profiles added separately remain; the current connection mode
-and active profile stay selected while that profile still exists. Each update replaces all settings represented by its format; a full MegaProxy
+and active profile stay selected while that profile still exists. If it disappears,
+select the downloaded `activeProfileId` when that profile is supported, otherwise
+the first supported profile in snapshot order. This existing version 8 field also
+serves as a preferred replacement; Direct/System stay unchanged and an initial
+import does not connect automatically. Each update replaces all settings represented by its format; a full MegaProxy
 configuration also resets omitted browser preferences to their defaults. Settings
 not represented by the source format remain local. Supported subscription bodies
 are MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON, ProxyList and SuperProxy, with
@@ -388,6 +393,23 @@ keeps the current subscription; `"subscription": null` removes it. Reimporting t
 same URL and username without a password preserves the saved password. Use an empty
 password explicitly to clear it. Import configurations only from a trusted source:
 the subscription server can change your proxy profiles and imported preferences.
+
+When an update changes the active proxy parameters or effective routing rules,
+the extension applies the settings and invalidates the previous connection check.
+Firefox uses them for subsequent requests; reload affected pages because existing
+connections are not migrated. Chromium shows a restart warning to ensure all open
+connections use the updated proxy/rules; new connections use the new native
+settings immediately. This also applies to changed Podkop rules, including
+Firefox tab-site subscriptions. Identical effective settings and inactive-profile
+metadata changes do not produce a notice.
+
+The notice remains visible in popup and Settings, with `!` on the toolbar, until
+acknowledged or the browser starts again. Service-worker restarts do not clear it.
+**System notifications when connection settings change** requests the optional
+`notifications` permission; refusal leaves the in-extension notice available.
+Notification failures do not block updates. Notices and permission consent stay
+local and are not portable config fields. The complete ordered algorithm is in
+[MegaProxyConfig](https://github.com/andre487/MegaProxyConfig/blob/main/docs/subscription-protocol.md#browser-update-algorithm).
 
 ## Configuration compatibility
 

@@ -36,7 +36,11 @@ test.beforeEach(async ({ page, browserName, context }) => {
         getViews: () => [],
         isAllowedIncognitoAccess: async () => localStorage.getItem('privateAccess') === 'true'
       },
-      permissions: { request: async () => true },
+      permissions: {
+        request: async () => true,
+        contains: async () => false,
+        remove: async () => true
+      },
       tabs: {
         query: async () => [],
         update: async () => {},
@@ -115,6 +119,9 @@ test.beforeEach(async ({ page, browserName, context }) => {
             if (message.intervalMinutes !== undefined) {
               state.subscription.intervalMinutes = message.intervalMinutes
             }
+          }
+          if (message.command === 'dismissConnectionUpdate') {
+            delete state.connectionUpdate
           }
 
           if (message.command === 'connectionMode') {
@@ -2521,6 +2528,55 @@ for (const format of ['MegaProxy', 'ProxyList']) {
     await page.locator('#update-config-subscription').click()
     expect(await page.evaluate(() => globalThis.testCommands)).toContain('updateConfigSubscription')
     await page.locator('#config-subscription-enabled').uncheck()
-    await expect(page.locator('#update-config-subscription')).toBeDisabled()
+    await expect(page.locator('#update-config-subscription')).toBeEnabled()
+    await page.locator('#update-config-subscription').click()
   })
 }
+
+test('subscription quick refresh and connection change notice are available in the popup', async ({
+  page,
+  browserName
+}) => {
+  await page.evaluate(browserName => {
+    const state = JSON.parse(localStorage.getItem('testState'))
+    state.subscription = { url: 'https://config.example/', intervalMinutes: 60, enabled: false }
+    state.connectionUpdate = {
+      message: browserName === 'firefox' ? 'connectionUpdatedFirefox' : 'connectionUpdatedChromium',
+      updatedAt: 1
+    }
+    localStorage.setItem('testState', JSON.stringify(state))
+  }, browserName)
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await expect(page.getByRole('button', { name: 'Обновить сейчас', exact: true })).toBeVisible()
+  await expect(page.locator('#connection-update-message')).toContainText(
+    browserName === 'firefox' ? 'применяются к новым запросам' : 'Перезапустите браузер'
+  )
+  await page.locator('#update-config-subscription').click()
+  expect(await page.evaluate(() => globalThis.testCommands)).toContain('updateConfigSubscription')
+  await page.getByRole('button', { name: 'Понятно', exact: true }).click()
+  await expect(page.locator('#connection-update')).toBeHidden()
+})
+
+test('system notifications request optional permission and respect refusal', async ({ page }) => {
+  await page.evaluate(() => {
+    globalThis.notificationPermission = false
+    chrome.permissions.contains = async () => globalThis.notificationPermission
+    chrome.permissions.request = async () => false
+    chrome.permissions.remove = async () => {
+      globalThis.notificationPermission = false
+      return true
+    }
+  })
+  await page.locator('#connection-notifications').click()
+  await expect(page.locator('#connection-notifications')).not.toBeChecked()
+  await page.evaluate(() => {
+    chrome.permissions.request = async () => {
+      globalThis.notificationPermission = true
+      return true
+    }
+  })
+  await page.locator('#connection-notifications').check()
+  await expect(page.locator('#connection-notifications')).toBeChecked()
+  await page.locator('#connection-notifications').uncheck()
+  await expect(page.locator('#connection-notifications')).not.toBeChecked()
+})
