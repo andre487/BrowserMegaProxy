@@ -15,7 +15,7 @@ Run `npm run store:materials` to copy the current assets and generate all six Ma
 | Firefox Add-ons  | `assets/firefox/{en,ru}/01.png` … `05.png`            | `assets/shared/icon-128.png` | Not needed                                      |
 | Opera Add-ons    | `assets/opera/en/01.png` … `03.png` (default gallery) | `assets/shared/icon-64.png`  | `promo-opera.png` (300×188)                     |
 
-Screenshots are 1280×800 opaque PNGs. They show actual packaged UI rendered in Chromium or Firefox with isolated fictional profiles, counters and connection results. The screenshots are composed with captions; no credentials, user profiles or real endpoint information are used. Opera reuses the Chromium UI materials, rather than claiming screenshots from an Opera session. The Firefox routing screenshot shows its exclusive By tabs mode.
+Chrome and Firefox screenshots are 1280×800 opaque PNGs; Opera copies are resized to 612×408 with opaque margins. They show actual packaged UI rendered in Chromium or Firefox with isolated fictional profiles, counters and connection results. The screenshots are composed with captions; no credentials, user profiles or real endpoint information are used. Opera reuses the Chromium UI materials, rather than claiming screenshots from an Opera session. The Firefox routing screenshot shows its exclusive By tabs mode.
 
 The shared 128×128 icon has 96×96 artwork and 16 px transparent margins. Promotion images are 300×188 (Opera), 440×280 and 1400×560 opaque PNGs, without locale-specific text. They reuse the AndroidMegaProxy logo under the license in `assets/shared/LICENSE`.
 

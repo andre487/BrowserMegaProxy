@@ -411,6 +411,31 @@ test('cross-browser sync downgrades tab routing and unsupported privacy without 
   }
   assert.equal(received.state.webRTC, 'browser')
   assert.equal(received.state.activeId, null)
+
+  vm.runInContext(
+    "recordStartupError(new Error('errorProxyControl')); syncRevision = undefined",
+    chromium.context
+  )
+  const persist = chromium.api.storage.local.set
+  chromium.api.storage.local.set = async () => {
+    throw new Error('Storage failure')
+  }
+  await vm.runInContext('receiveSync()', chromium.context)
+  const failed = await chromium.send({ command: 'get' })
+  assert.equal(failed.syncError, 'errorSync')
+  assert.equal(failed.warning, 'errorProxyControl')
+  assert.equal(failed.warningDetails.code, 'errorProxyControl')
+
+  chromium.api.storage.local.set = persist
+  await vm.runInContext('receiveSync()', chromium.context)
+  const recovered = await chromium.send({ command: 'get' })
+  assert.equal(recovered.syncError, undefined)
+  assert.equal(recovered.warning, 'splitUnsupportedWarning')
+  assert.equal(recovered.warningDetails, undefined)
+  await chromium.send({ command: 'language', language: 'en' })
+  const cleared = await chromium.send({ command: 'get' })
+  assert.equal(cleared.warning, undefined)
+  assert.equal(cleared.warningDetails, undefined)
 })
 
 test('subscription download overrides are restricted to extension requests on Firefox', async () => {
