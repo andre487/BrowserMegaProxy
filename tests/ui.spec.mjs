@@ -108,6 +108,15 @@ test.beforeEach(async ({ page, browserName, context }) => {
             }
           }
 
+          if (message.command === 'configSubscription') {
+            if (message.enabled !== undefined) {
+              state.subscription.enabled = message.enabled
+            }
+            if (message.intervalMinutes !== undefined) {
+              state.subscription.intervalMinutes = message.intervalMinutes
+            }
+          }
+
           if (message.command === 'connectionMode') {
             state.connectionMode = message.mode
             if (message.mode === 'proxy') {
@@ -240,12 +249,23 @@ test.beforeEach(async ({ page, browserName, context }) => {
             state.bypassLocalNetworks = message.enabled
           }
           if (message.command === 'import') {
+            if (message.subscription) {
+              state.subscription = M.subscription(message.subscription)
+            }
             const result = M.importProfiles(
               message.data,
               globalThis.MEGA_TARGET,
               state.masqueEnabled === true
             )
             Object.assign(state, M.mergeImport(state, result, message.removeIds))
+            if (state.subscription) {
+              state.configSubscriptionState = {
+                lastUpdated: Date.now(),
+                unknownFields: result.unknownFields,
+                skipped: result.skipped,
+                skippedMasque: result.skippedMasque
+              }
+            }
             localStorage.setItem('testState', JSON.stringify(state))
 
             return {
@@ -309,7 +329,7 @@ test('profile lifecycle, import, themes and responsive keyboard-accessible form'
   await expect(page.getByLabel('Название')).toBeFocused()
   await page.getByLabel('Название').fill('Main')
   await page.getByLabel('Хост прокси').fill('proxy.example')
-  await page.getByLabel('Логин').fill('user')
+  await page.getByLabel('Логин', { exact: true }).fill('user')
   await page.getByLabel('Пароль', { exact: true }).fill('secret')
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
   await expect(page.locator('.profile')).toHaveCount(1)
@@ -423,12 +443,12 @@ test('manual language persists, preserves input and translates errors and dynami
   await expect(page.locator('#editor .dialog-error')).toHaveText(
     'Save profile: A password requires a username'
   )
-  await page.getByLabel('Username').fill('user')
+  await page.getByLabel('Username', { exact: true }).fill('user')
   await page.getByRole('button', { name: 'Save profile' }).click()
   await expect(page.locator('#editor .dialog-error')).toContainText('without a scheme or path')
 
   await page.getByLabel('Proxy host').fill('proxy.example')
-  await page.getByLabel('Username').fill('user')
+  await page.getByLabel('Username', { exact: true }).fill('user')
   await page.getByRole('button', { name: 'Save profile' }).click()
   await expect(page.locator('.profile')).toContainText('Мой proxy')
   await expect(page.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
@@ -561,7 +581,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
 }) => {
   await page.getByRole('button', { name: 'Добавить' }).click()
   await expect(page.getByLabel('Knock host')).toBeEnabled()
-  await page.getByLabel('Логин').fill('user')
+  await page.getByLabel('Логин', { exact: true }).fill('user')
   await page.getByLabel('Пароль', { exact: true }).fill('secret')
   await expect(page.getByLabel('Knock host')).toBeEnabled()
   await page.locator('.profile-advanced > summary').click()
@@ -595,6 +615,7 @@ test('unknown and Android-only fields show a single general import warning', asy
     version: 8,
     tls: { fingerprint: 'DEFAULT' },
     unknownOption: 'future',
+    subscription: { url: 'https://config.example/', enabled: false, futureOption: true },
     profiles: [
       {
         id: 'example',
@@ -617,6 +638,10 @@ test('unknown and Android-only fields show a single general import warning', asy
   const state = await page.evaluate(() => JSON.parse(localStorage.getItem('testState')))
   expect(state.portable.tls).toBeUndefined()
   expect(state.portable.unknownOption).toBeUndefined()
+  expect(state.subscription.futureOption).toBeUndefined()
+  await expect(page.locator('#config-subscription-status')).toContainText(
+    'Конфигурация содержит неизвестные поля'
+  )
   expect(state.profiles[0].portable.dns).toBeUndefined()
   expect(state.profiles[0].portable.unknownProfileOption).toBeUndefined()
 })
@@ -2452,3 +2477,50 @@ test('import uses the same chooser and profile deletion can be cancelled', async
   await expect(page.locator('#notice')).toBeVisible()
   await expect(page.locator('#notice')).toHaveText('Сохранено')
 })
+
+for (const format of ['MegaProxy', 'ProxyList']) {
+  test(`URL import can embed subscription settings and expose pause and update controls (${format})`, async ({
+    page
+  }) => {
+    const config = {
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      profiles: [
+        { id: 'remote', name: 'Remote', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }
+      ]
+    }
+    await page.route('https://config.example/MegaProxy.json', route =>
+      route.fulfill({ json: config })
+    )
+    await page.goto('http://127.0.0.1:8765/options.html')
+    await expect(page.locator('#config-subscription')).toBeHidden()
+    await page.locator('#open-url-import').click()
+    await page.locator('#config-url').fill('https://config.example/MegaProxy.json')
+    await page.locator('#config-username').fill('reader')
+    await page.locator('#config-password').fill('subscription-secret')
+    await page.locator('#config-follow').check()
+    await page.locator('#import-url-form button[type=submit]').click()
+    await expect(page.locator('#import-review')).toBeVisible()
+    await expect(page.locator('#config-password')).toHaveValue('')
+    await page.locator('#apply-import').click()
+    await expect(page.locator('#config-subscription')).toBeVisible()
+    await expect(page.locator('#config-subscription-enabled')).toBeChecked()
+    await expect(page.locator('#config-subscription-interval')).toHaveValue('60')
+    await page.locator('#config-subscription-interval').fill('30')
+    await page.locator('#config-subscription-interval').blur()
+    await expect(page.locator('#config-subscription-interval')).toHaveValue('30')
+    const subscription = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('testState')).subscription
+    )
+    expect(subscription).toMatchObject({
+      url: 'https://config.example/MegaProxy.json',
+      username: 'reader',
+      password: 'subscription-secret',
+      enabled: true
+    })
+    await page.locator('#update-config-subscription').click()
+    expect(await page.evaluate(() => globalThis.testCommands)).toContain('updateConfigSubscription')
+    await page.locator('#config-subscription-enabled').uncheck()
+    await expect(page.locator('#update-config-subscription')).toBeDisabled()
+  })
+}

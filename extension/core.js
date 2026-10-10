@@ -595,7 +595,16 @@ function FindProxyForURL(url, host) {
         'activeProfileId',
         'profiles',
         'routing',
-        'browser'
+        'browser',
+        'subscription'
+      ],
+      '/subscription': [
+        'url',
+        'fallbackUrls',
+        'username',
+        'password',
+        'intervalMinutes',
+        'enabled'
       ],
       '/routing': ['bypassLocalNetworks'],
       '/browser': ['theme', 'language', 'routing', 'webRTC'],
@@ -615,10 +624,9 @@ function FindProxyForURL(url, host) {
         'autoUpdate',
         'throughProxy'
       ],
-      '/profiles/*': ['id', 'name', 'color', 'countryCode', 'proxy', 'browser', 'routing'],
+      '/profiles/*': ['id', 'name', 'color', 'countryCode', 'proxy', 'browser'],
       '/profiles/*/proxy': ['type', 'host', 'port', 'username', 'password'],
-      '/profiles/*/browser': ['knockHost', 'bypass', 'authMode', 'masqueTemplate'],
-      '/profiles/*/routing': ['bypassLocalNetworks']
+      '/profiles/*/browser': ['knockHost', 'bypass', 'authMode', 'masqueTemplate']
     }
     let unknownFields = false
 
@@ -803,6 +811,10 @@ function FindProxyForURL(url, host) {
       }
     }
 
+    if (portable && Object.hasOwn(data, 'subscription')) {
+      subscription(data.subscription)
+    }
+
     const browserRouting =
       portable && data.browser?.routing !== undefined ? routing(data.browser.routing) : undefined
     const unsupportedSplitProxy = client.downgradeRouting(browserRouting)
@@ -828,7 +840,10 @@ function FindProxyForURL(url, host) {
       unknownFields =
         filtered.unknownFields ||
         Boolean(data.browser?.routing?.assignments?.length) ||
-        data.browser?.routing?.strategy === 'profiles'
+        ['profiles', 'failover'].includes(data.browser?.routing?.strategy)
+      if (browserRouting) {
+        data.browser.routing = structuredClone(browserRouting)
+      }
     }
 
     const profiles = []
@@ -1218,6 +1233,62 @@ function FindProxyForURL(url, host) {
     }
   }
 
+  function subscription(value) {
+    if (value === null) {
+      return null
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('errorConfigURL')
+    }
+    const intervalMinutes = value.intervalMinutes === undefined ? 60 : value.intervalMinutes
+    if (
+      value.fallbackUrls !== undefined &&
+      (!Array.isArray(value.fallbackUrls) || value.fallbackUrls.length > 7)
+    ) {
+      throw new Error('errorConfigURL')
+    }
+    let urls
+    try {
+      urls = [value.url, ...(value.fallbackUrls || [])].map(url => new URL(url))
+    } catch {
+      throw new Error('errorConfigURL')
+    }
+    if (
+      urls.some(
+        url =>
+          url.protocol !== 'https:' ||
+          url.username ||
+          url.password ||
+          url.hash ||
+          url.href.length > 2048
+      ) ||
+      new Set(urls.map(url => url.href)).size !== urls.length
+    ) {
+      throw new Error('errorConfigURL')
+    }
+    if (
+      (value.username !== undefined && typeof value.username !== 'string') ||
+      (value.password !== undefined && typeof value.password !== 'string') ||
+      /[:\p{Cc}]/u.test(value.username || '') ||
+      /[\p{Cc}]/u.test(value.password || '') ||
+      (value.username || '').length > 1024 ||
+      (value.password || '').length > 1024 ||
+      !Number.isInteger(intervalMinutes) ||
+      intervalMinutes < 1 ||
+      intervalMinutes > 10080 ||
+      (value.enabled !== undefined && typeof value.enabled !== 'boolean')
+    ) {
+      throw new Error('errorConfigSubscription')
+    }
+    return {
+      ...value,
+      url: urls[0].href,
+      ...(value.fallbackUrls ? { fallbackUrls: urls.slice(1).map(url => url.href) } : {}),
+      intervalMinutes,
+      enabled: value.enabled ?? true
+    }
+  }
+
   function mergeImport(state, result, removeIds = []) {
     if (!result.profiles.length && result.skippedMasque) {
       return state
@@ -1227,7 +1298,7 @@ function FindProxyForURL(url, host) {
       result.profiles.map(p => {
         const old = existing.get(p.id)
         const next = { ...p }
-        if (old && p.portable) {
+        if (old && p.portable && !result.replaceSettings) {
           for (const key of ['knockHost', 'bypass', 'authMode']) {
             if (!Object.hasOwn(p.portable.browser || {}, key)) {
               next[key] = old[key]
@@ -1262,17 +1333,35 @@ function FindProxyForURL(url, host) {
       }
     }
 
+    let nextSubscription = state.subscription
+    if (result.config && Object.hasOwn(result.config, 'subscription')) {
+      nextSubscription = subscription(result.config.subscription)
+      if (
+        nextSubscription &&
+        !Object.hasOwn(nextSubscription, 'password') &&
+        Object.hasOwn(state.subscription || {}, 'password') &&
+        nextSubscription.url === state.subscription?.url &&
+        nextSubscription.username === state.subscription?.username
+      ) {
+        nextSubscription.password = state.subscription.password
+      }
+    }
+
+    const preferences = result.replaceSettings && result.config ? defaults() : state
+    const browserRouting =
+      result.browserRouting || (result.replaceSettings && result.config ? routing() : undefined)
     return {
       ...state,
+      ...(nextSubscription !== undefined ? { subscription: nextSubscription } : {}),
       profiles,
-      ...(result.browserRouting ? { browserRouting: result.browserRouting } : {}),
+      ...(browserRouting ? { browserRouting } : {}),
       activeId: profiles.some(p => p.id === state.activeId) ? state.activeId : null,
       ...(result.config
         ? {
             portable: configuration,
-            theme: result.config.browser?.theme || state.theme,
-            language: result.config.browser?.language || state.language,
-            webRTC: result.config.browser?.webRTC || state.webRTC || 'browser',
+            theme: result.config.browser?.theme || preferences.theme,
+            language: result.config.browser?.language || preferences.language,
+            webRTC: result.config.browser?.webRTC || preferences.webRTC || 'browser',
             bypassLocalNetworks: result.bypassLocalNetworks
           }
         : {})
@@ -1334,6 +1423,11 @@ function FindProxyForURL(url, host) {
         }
       }))
     }
+    if (state.subscription) {
+      config.subscription = structuredClone(state.subscription)
+    } else {
+      delete config.subscription
+    }
     delete config.failover
 
     function stripSecrets(object) {
@@ -1375,6 +1469,7 @@ function FindProxyForURL(url, host) {
 
   root.MegaProxy = {
     defaults,
+    subscription,
     webRTC,
     routeProfile,
     routingStrategy,

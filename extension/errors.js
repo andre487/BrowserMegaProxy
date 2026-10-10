@@ -14,6 +14,8 @@
     'routingOpened',
     'updateSubscriptions',
     'fetchConfig',
+    'configSubscription',
+    'updateConfigSubscription',
     'previewImport',
     'import',
     'export',

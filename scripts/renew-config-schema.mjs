@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto'
 import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import Ajv from 'ajv/dist/2020.js'
-import { dynamicSubscriptionSchema } from './config-schema-overrides.mjs'
 
 const repository = 'andre487/MegaProxyConfig'
 const args = process.argv.slice(2)
@@ -44,9 +43,7 @@ const files = ['schemas/megaproxy-v8.schema.json', 'schemas/android-v8.schema.js
 const upstream = await Promise.all(
   files.map(file => download(`https://raw.githubusercontent.com/${repository}/${commit}/${file}`))
 )
-const contents = upstream.map((text, index) =>
-  index === 0 ? JSON.stringify(dynamicSubscriptionSchema(JSON.parse(text)), null, 2) + '\n' : text
-)
+const contents = upstream
 const ajv = new Ajv({ strict: true })
 for (const text of contents.slice(0, 2)) {
   const schema = JSON.parse(text)
@@ -60,11 +57,7 @@ for (const text of contents.slice(0, 2)) {
 const lock = {
   repository: `https://github.com/${repository}`,
   commit,
-  overrides: [
-    'Dynamic subscription source IDs: lowercase letters, digits, underscore or hyphen; up to 64 IDs per mode.',
-    'Optional browser routing strategy: manual, lists, profiles, tabs or failover.',
-    'Experimental Firefox MASQUE proxy type and browser.masqueTemplate.'
-  ],
+  overrides: [],
   upstreamFiles: Object.fromEntries(
     files.map((file, index) => [
       file.split('/').at(-1),
