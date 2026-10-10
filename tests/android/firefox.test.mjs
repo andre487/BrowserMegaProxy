@@ -491,17 +491,16 @@ describe('Firefox Android', { concurrency: false }, () => {
       } else {
         await poll(async () => tapText(await nativeUI(), 'Settings'), 'Popup settings action')
       }
-      await poll(async () => {
-        if (layouts.some(r => r.page === `/${page}.html`)) {
-          return true
-        }
-        // Some Fenix versions leave the action activity over the new options tab.
-        // Never press Back after options have already replaced that activity.
-        if (page === 'options' && (await nativeUI()).includes('content-desc="Navigate up"')) {
-          await adb('shell', 'input', 'keyevent', '4')
-        }
-        return false
-      }, `${page} mobile layout report`)
+      await poll(
+        () => layouts.some(r => r.page === `/${page}.html`),
+        `${page} mobile layout report`
+      )
+      if (page === 'options') {
+        await poll(
+          async () => !(await nativeUI()).includes('content-desc="Navigate up"'),
+          'Settings replaces the popup'
+        )
+      }
       const layout = layouts.find(r => r.page === `/${page}.html`)
       assert.ok(
         layout.width > 0 && layout.width <= 420,
