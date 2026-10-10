@@ -903,6 +903,9 @@ dialog h2 {
 }
 
 /* Browser action popups size their viewport from content; viewport limits feed back into it. */
+:root[data-surface='popup'] {
+  overflow: hidden;
+}
 :root[data-surface='popup'] .popup {
   max-width: none;
 }
