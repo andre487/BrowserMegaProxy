@@ -20,6 +20,7 @@
     "store:assets": "npm run build && node scripts/store-assets.mjs",
     "release:assets": "node scripts/release.mjs package",
     "store:materials": "node scripts/release.mjs store-materials",
+    "store:check:chrome": "node scripts/chrome-store-materials.mjs",
     "test:android": "node scripts/test.mjs android-firefox",
     "test:android:chromium": "node scripts/test.mjs android-vivaldi",
     "prepare:gost-e2e": "node scripts/prepare-gost-e2e.mjs"
@@ -31,6 +32,9 @@
     "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.13.0",
-    "prettier": "3.9.9"
+    "parse5": "8.0.1",
+    "prettier": "3.9.9",
+    "sharp": "0.35.5",
+    "ssim.js": "3.5.0"
   }
 }

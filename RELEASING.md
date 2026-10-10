@@ -163,9 +163,17 @@ uploads through API v2, waits up to 150 seconds for processing, and submits with
 `DEFAULT_PUBLISH`. Google reviews the update and publishes it after approval;
 workflow success means submission was accepted, not that review has completed.
 Store descriptions, screenshots, privacy fields and visibility stay managed in the
-Web Store dashboard. API v2 does not expose those fields for reading or writing,
-so the job warns that their freshness is unknown and links the release materials
-and developer dashboard for manual verification. Submissions are serialized across release tags.
+Web Store dashboard. Before submission, the job downloads the released materials
+archive and compares its EN/RU summaries, detailed descriptions and ordered screenshots
+with the public listing using HTTP, without a browser or dashboard session. Text
+comparison ignores whitespace; images use approximate SSIM comparison, including
+local regions. Differences produce warnings with a dashboard link, a job summary
+and an artifact containing expected/current texts, images and highlighted differences.
+Missing materials, network errors, changed page layout or invalid images also warn,
+without preventing package submission or checks of other locales and screenshots.
+The public page can still show the previous release during review. Dashboard drafts,
+privacy fields, visibility and promotional tiles cannot be verified this way; inspect
+them manually. Submissions are serialized across release tags.
 
 For a dry run, open **Actions → Release extension artifacts → Run workflow** on
 `main`, enter an existing GitHub release tag and enable **dry_run**. It downloads

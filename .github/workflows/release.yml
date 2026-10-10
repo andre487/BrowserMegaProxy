@@ -110,6 +110,19 @@ jobs:
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-chromium-$RELEASE_TAG.zip" --dir dist/release
+      - name: Install materials comparison dependencies
+        run: |
+          if ! npm ci; then
+            echo '::warning title=Chrome Web Store materials::Cannot install comparison dependencies; freshness check may be unavailable.'
+          fi
+      - name: Download released store materials
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if ! gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-store-materials-$RELEASE_TAG.zip" --dir dist/release; then
+            echo '::warning title=Chrome Web Store materials::Cannot download released materials; freshness will be unknown.'
+          fi
       - name: Check or submit Chromium extension
         env:
           RELEASE_TAG: ${{ inputs.tag }}
@@ -120,3 +133,12 @@ jobs:
           CWS_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           CWS_DRY_RUN: ${{ inputs.dry_run }}
         run: node scripts/chrome-web-store.mjs "$RELEASE_TAG"
+      - name: Upload materials comparison report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: chrome-store-materials-${{ inputs.tag }}
+          path: test-results/chrome-store-materials/
+          if-no-files-found: warn
+          retention-days: 14
