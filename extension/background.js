@@ -991,7 +991,7 @@ async function handle(message) {
 
   if (message.command === 'updateConfigSubscription') {
     await refreshConfigSubscription()
-    return { ok: true, state }
+    return { ok: true, state, warning: startupError, warningDetails: startupErrorDetails }
   }
 
   if (message.command === 'export') {
@@ -1112,8 +1112,9 @@ async function handle(message) {
         (result.config?.version || 0) < 7 &&
         !result.profiles.every(p => p.id.startsWith('zero:'))
       ) {
-        const remaining = state.profiles.filter(p =>
-          state.configSubscriptionState?.profileIds?.includes(p.id)
+        const explicitIds = new Set(result.profiles.filter(p => p.portable?.id).map(p => p.id))
+        const remaining = state.profiles.filter(
+          p => state.configSubscriptionState?.profileIds?.includes(p.id) && !explicitIds.has(p.id)
         )
         for (const p of result.profiles) {
           if (p.portable?.id) {
@@ -1275,9 +1276,6 @@ async function handle(message) {
     await api.storage.local.set({ state: next })
     startupError = undefined
     startupErrorDetails = undefined
-    if (['save', 'activate', 'delete', 'import', 'connectionMode'].includes(message.command)) {
-      reconcileAuthDialogs()
-    }
   } catch (error) {
     state = old
     diagnosticLog?.write('settings_failed', MegaErrors.details(error, message.command))
@@ -1289,61 +1287,68 @@ async function handle(message) {
     throw error
   }
 
-  // Update in-memory state only after the settings have been persisted.
-  if (old.statisticsEnabled !== next.statisticsEnabled) {
-    configureStatistics()
-  }
+  // A committed change must not be retried if a follow-up browser API fails.
+  try {
+    if (['save', 'activate', 'delete', 'import', 'connectionMode'].includes(message.command)) {
+      reconcileAuthDialogs()
+    }
+    if (old.statisticsEnabled !== next.statisticsEnabled) {
+      configureStatistics()
+    }
 
-  if (JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting)) {
-    tabOverrides.clear()
-  }
+    if (JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting)) {
+      tabOverrides.clear()
+    }
 
-  if (message.reloadTabId !== undefined) {
-    tabOverrides.delete(message.reloadTabId)
-    await api.tabs.reload(message.reloadTabId).catch(() => {})
-  }
+    if (message.reloadTabId !== undefined) {
+      tabOverrides.delete(message.reloadTabId)
+      await api.tabs.reload(message.reloadTabId).catch(() => {})
+    }
 
-  if (
-    JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting) ||
-    old.connectionMode !== next.connectionMode ||
-    old.activeId !== next.activeId
-  ) {
-    await scheduleSubscriptions()
-    const settingsChanged =
-      JSON.stringify(old.browserRouting.subscriptions) !==
-      JSON.stringify(next.browserRouting.subscriptions)
-    queue = queue.then(() => refreshSubscriptions(settingsChanged)).catch(() => {})
-  }
+    if (
+      JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting) ||
+      old.connectionMode !== next.connectionMode ||
+      old.activeId !== next.activeId
+    ) {
+      await scheduleSubscriptions().catch(error => recordStartupError(error, message.command))
+      const settingsChanged =
+        JSON.stringify(old.browserRouting.subscriptions) !==
+        JSON.stringify(next.browserRouting.subscriptions)
+      queue = queue.then(() => refreshSubscriptions(settingsChanged)).catch(() => {})
+    }
 
-  // Authentication must restart when the active proxy or its credentials change.
-  const restarted = ['id', 'host', 'port', 'type', 'username', 'password', 'knockHost'].some(
-    key => M.active(old)?.[key] !== M.active(next)?.[key]
-  )
-  if (message.command === 'activate' || message.command === 'connectionMode' || restarted) {
-    connectionCheck = null
-    await storeConnectionCheck()
-    await startKnock().catch(error => {
-      recordStartupError(error)
+    // Authentication must restart when the active proxy or its credentials change.
+    const restarted = ['id', 'host', 'port', 'type', 'username', 'password', 'knockHost'].some(
+      key => M.active(old)?.[key] !== M.active(next)?.[key]
+    )
+    if (message.command === 'activate' || message.command === 'connectionMode' || restarted) {
+      connectionCheck = null
+      await storeConnectionCheck().catch(error => recordStartupError(error, message.command))
+      await startKnock().catch(error => {
+        recordStartupError(error)
+      })
+    }
+
+    if (
+      (message.command === 'import' && !message.subscriptionUpdate) ||
+      message.command === 'configSubscription'
+    ) {
+      await scheduleConfigSubscription().catch(error => recordStartupError(error, message.command))
+    }
+    await publishSync()
+    diagnosticLog?.write('settings_changed', {
+      mode: state.connectionMode,
+      profile: state.profiles.findIndex(p => p.id === state.activeId)
     })
-  }
 
-  if (
-    (message.command === 'import' && !message.subscriptionUpdate) ||
-    message.command === 'configSubscription'
-  ) {
-    await scheduleConfigSubscription()
-  }
-  await publishSync()
-  diagnosticLog?.write('settings_changed', {
-    mode: state.connectionMode,
-    profile: state.profiles.findIndex(p => p.id === state.activeId)
-  })
-
-  await rebuildMenus()
-  await refreshBadges()
-  await notifyConnectionUpdate(old)
-  if (message.command === 'dismissConnectionUpdate') {
-    await api.notifications?.clear('connection-update').catch(() => {})
+    await rebuildMenus().catch(error => recordStartupError(error, message.command))
+    await refreshBadges().catch(error => recordStartupError(error, message.command))
+    await notifyConnectionUpdate(old)
+    if (message.command === 'dismissConnectionUpdate') {
+      await api.notifications?.clear('connection-update').catch(() => {})
+    }
+  } catch (error) {
+    recordStartupError(error, message.command)
   }
 
   return {
@@ -1886,13 +1891,6 @@ api.alarms?.onAlarm.addListener(alarm => {
 })
 
 ready.then(scheduleSubscriptions).catch(() => {})
-queue = queue
-  .then(async () => {
-    await ready
-    await scheduleConfigSubscription()
-    await refreshConfigSubscription(true)
-  })
-  .catch(() => {})
 
 async function scheduleConfigSubscription() {
   if (!api.alarms) {
@@ -1953,7 +1951,9 @@ async function refreshConfigSubscription(onlyDue = false) {
     }
     await api.storage.local.set({ state })
   }
-  await scheduleConfigSubscription()
+  await scheduleConfigSubscription().catch(error =>
+    recordStartupError(error, 'updateConfigSubscription')
+  )
 }
 
 async function applyWebRTC(value) {
@@ -2506,6 +2506,14 @@ queue = queue
   .catch(error => {
     recordStartupError(error)
   })
+
+queue = queue
+  .then(async () => {
+    await ready
+    await scheduleConfigSubscription()
+    await refreshConfigSubscription(true)
+  })
+  .catch(error => recordStartupError(error, 'updateConfigSubscription'))
 
 const toolbarPaths = Object.fromEntries(
   [16, 24, 32, 48, 64].map(size => [size, `icons/toolbar${size}.png`])

@@ -1293,6 +1293,9 @@ function FindProxyForURL(url, host) {
     if (!result.profiles.length && result.skippedMasque) {
       return state
     }
+    if (new Set(result.profiles.map(p => p.id)).size !== result.profiles.length) {
+      throw new Error('errorDuplicateIds')
+    }
     const existing = new Map(state.profiles.map(p => [p.id, p]))
     const imported = new Map(
       result.profiles.map(p => {

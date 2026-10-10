@@ -257,6 +257,7 @@ function icon(name) {
 function edit(p = {}) {
   const form = $('#profile-form')
   form.reset()
+  form.elements.id.value = p.id || ''
 
   for (const [key, value] of Object.entries(p)) {
     if (form.elements.namedItem(key)) {
@@ -1044,6 +1045,9 @@ if (isOptions) {
   }
   $('#cancel-profile').onclick = () => $('#editor').close()
   $('#editor').addEventListener('close', () => {
+    if (document.activeElement !== document.body && document.activeElement !== $('#new')) {
+      return
+    }
     const id = $('#profile-form').elements.id.value
     const trigger = id ? $(`[data-profile-id="${CSS.escape(id)}"] .actions button`) : $('#new')
     trigger?.focus()
@@ -1201,6 +1205,7 @@ if (isOptions) {
     event.preventDefault()
     action(async () => {
       const profile = Object.fromEntries(new FormData(event.target))
+      profile.id ||= crypto.randomUUID()
       if (profile.type === 'masque' || (platform.id === 'chromium' && profile.type === 'socks5')) {
         profile.username = ''
         profile.password = ''

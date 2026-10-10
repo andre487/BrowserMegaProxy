@@ -2093,3 +2093,172 @@ test('replacing a selected subscription profile preserves Direct and System mode
     assert.equal(state.connectionUpdate, undefined)
   }
 })
+
+test('startup reads remote sync before refreshing a due subscription and preserves remote manual profiles', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    const remotePayload = {
+      config: {
+        profiles: [
+          { id: 'one', host: 'one.example', port: 443 },
+          { id: 'remote-manual', host: 'remote.example', port: 443 }
+        ]
+      },
+      preferences: { language: 'en', theme: 'light', bypassLocalNetworks: true, webRTC: 'browser' }
+    }
+    const shared = {
+      megaConfig: { revision: 'remote', count: 1 },
+      'mega:remote:0': JSON.stringify(remotePayload)
+    }
+    const h = harness(
+      target,
+      shared,
+      async () =>
+        new Response(
+          JSON.stringify({
+            schema: 'net.megaproxy487.config',
+            version: 8,
+            profiles: [{ id: 'one', proxy: { type: 'HTTPS', host: 'updated.example', port: 443 } }]
+          })
+        ),
+      {
+        state: {
+          profiles: [{ id: 'one', host: 'one.example', port: 443 }],
+          subscription: { url: 'https://config.example/', enabled: true },
+          configSubscriptionState: { profileIds: ['one'], lastAttempt: 0 }
+        }
+      }
+    )
+    const operations = []
+    const read = h.api.storage.sync.get
+    const write = h.api.storage.sync.set
+    h.api.storage.sync.get = async (...args) => {
+      operations.push('read')
+      return read(...args)
+    }
+    h.api.storage.sync.set = async (...args) => {
+      operations.push('write')
+      return write(...args)
+    }
+    await h.flush()
+    const state = (await h.send({ command: 'get' })).state
+    assert.equal(operations[0], 'read', target)
+    assert.deepEqual(
+      Array.from(state.profiles, p => p.id),
+      ['one', 'remote-manual'],
+      target
+    )
+    assert.equal(state.profiles[0].host, 'updated.example')
+    const pointer = shared.megaConfig
+    const published = JSON.parse(
+      Array.from({ length: pointer.count }, (_, i) => shared[`mega:${pointer.revision}:${i}`]).join(
+        ''
+      )
+    )
+    assert.deepEqual(
+      published.config.profiles.map(p => p.id),
+      ['one', 'remote-manual']
+    )
+  }
+})
+
+test('legacy subscription matching reserves explicit IDs regardless of entry order', async () => {
+  for (const reverse of [false, true]) {
+    const one = {
+      id: 'one',
+      name: 'Shared name',
+      proxy: { type: 'HTTPS', host: 'one.example', port: 443 }
+    }
+    const initial = { schema: 'net.megaproxy487.config', version: 6, profiles: [one] }
+    const two = { name: 'Shared name', proxy: { type: 'HTTPS', host: 'two.example', port: 443 } }
+    const remote = { ...initial, profiles: reverse ? [two, one] : [one, two] }
+    const h = harness('firefox', {}, async () => new Response(JSON.stringify(remote)))
+    await h.flush()
+    await h.send({
+      command: 'import',
+      data: initial,
+      subscription: { url: 'https://config.example/', enabled: false }
+    })
+    await h.send({ command: 'activate', id: 'one' })
+    for (let update = 0; update < 2; update++) {
+      assert.equal((await h.send({ command: 'updateConfigSubscription' })).ok, true)
+      const state = (await h.send({ command: 'get' })).state
+      assert.deepEqual(
+        Array.from(state.profiles, p => p.host),
+        ['one.example', 'two.example']
+      )
+      assert.equal(state.activeId, 'one')
+      assert.equal(new Set(state.configSubscriptionState.profileIds).size, 2)
+    }
+  }
+})
+
+test('post-commit failures warn without replacing a successful subscription source or rejecting a save', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    for (const failure of ['menus', 'badges', 'session', 'alarms']) {
+      const requested = []
+      const h = harness(target, {}, async url => {
+        requested.push(url)
+        return new Response(
+          JSON.stringify({
+            schema: 'net.megaproxy487.config',
+            version: 8,
+            profiles: [{ id: 'one', proxy: { type: 'HTTPS', host: 'primary.example', port: 443 } }]
+          })
+        )
+      })
+      await h.flush()
+      await h.send({
+        command: 'import',
+        data: {
+          schema: 'net.megaproxy487.config',
+          version: 8,
+          subscription: {
+            url: 'https://primary.example/',
+            fallbackUrls: ['https://backup.example/'],
+            enabled: false
+          },
+          profiles: [{ id: 'one', proxy: { type: 'HTTPS', host: 'old.example', port: 443 } }]
+        }
+      })
+      await h.send({ command: 'activate', id: 'one' })
+      const fail = async () => {
+        throw new Error('errorUnexpected')
+      }
+      if (failure === 'menus') {
+        h.api.contextMenus.removeAll = fail
+      }
+      if (failure === 'badges') {
+        vm.runInContext(
+          'refreshBadges = async () => { throw new Error("errorUnexpected") }',
+          h.context
+        )
+      }
+      if (failure === 'session') {
+        h.api.storage.session.set = fail
+      }
+      if (failure === 'alarms') {
+        h.api.alarms = { clear: fail }
+      }
+      const updated = await h.send({ command: 'updateConfigSubscription' })
+      assert.equal(updated.ok, true, `${target}: ${failure}`)
+      assert.equal(updated.warning, 'errorUnexpected', `${target}: ${failure}`)
+      assert.deepEqual(requested, ['https://primary.example/'])
+      const state = (await h.send({ command: 'get' })).state
+      assert.equal(state.profiles[0].host, 'primary.example')
+      assert.equal(state.configSubscriptionState.sourceIndex, 0)
+      assert.equal(state.configSubscriptionState.error, undefined)
+      assert.equal((await h.send({ command: 'get' })).warning, 'errorUnexpected')
+      h.api.contextMenus.removeAll = fail
+      const saved = await h.send({
+        command: 'save',
+        profile: { id: 'local', host: 'local.example', port: 443 }
+      })
+      assert.equal(saved.ok, true)
+      assert.equal(saved.warning, 'errorUnexpected')
+      assert.equal(
+        h.stored().state.profiles.some(p => p.id === 'local'),
+        true
+      )
+    }
+  }
+})

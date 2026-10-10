@@ -1118,6 +1118,7 @@ test('profile actions menu supports keyboard activation and dismissal', async ({
   await page.getByLabel('Хост прокси').fill('proxy.example.com')
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
   await expect(page.locator('#editor')).toBeHidden()
+  await expect(page.locator('.profile .actions button').first()).toBeFocused()
   const summary = page.locator('.profile-menu > summary')
   await summary.focus()
   await page.keyboard.press('Enter')
@@ -1128,6 +1129,23 @@ test('profile actions menu supports keyboard activation and dismissal', async ({
   await summary.click()
   await page.locator('h1').click()
   await expect(page.getByRole('button', { name: 'Дублировать' })).toBeHidden()
+})
+
+test('queued editor close does not steal focus from another profile control', async ({ page }) => {
+  await page.locator('#new').click()
+  await page.getByLabel('Название').fill('Focus profile')
+  await page.getByLabel('Хост прокси').fill('proxy.example.com')
+  await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  await expect(page.locator('.profile .actions button').first()).toBeFocused()
+  await page.evaluate(() => {
+    const editor = document.querySelector('#editor')
+    editor.showModal()
+    editor.close()
+    document.querySelector('.profile-menu > summary').focus()
+  })
+  await expect(page.locator('.profile-menu > summary')).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('button', { name: 'Дублировать' })).toBeVisible()
 })
 
 test('HTML pages load vector logos and favicons', async ({ page }) => {
