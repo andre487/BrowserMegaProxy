@@ -3,6 +3,7 @@ import test from 'node:test'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { readListing } from '../scripts/store-materials.mjs'
 import {
   generateNotes,
   prepareStoreMaterials,
@@ -103,14 +104,27 @@ test('release notes use the selected model and reject incomplete, refused or inv
   )
 })
 
-test('store material generation preserves assets and renders all localized listings as Markdown', async () => {
+test('store material generation preserves text sources and assets and derives API listings and Markdown', async () => {
   const destination = await mkdtemp(path.join(tmpdir(), 'mega-store-materials-'))
   try {
     await prepareStoreMaterials(destination)
     for (const shop of ['chrome', 'firefox', 'opera']) {
       for (const locale of ['en', 'ru']) {
         const file = path.join('store', 'listings', shop, locale)
-        const listing = JSON.parse(await readFile(`${file}.json`, 'utf8'))
+        const listing = await readListing(file)
+        const generated = JSON.parse(await readFile(path.join(destination, `${file}.json`), 'utf8'))
+        assert.deepEqual(generated, listing)
+        for (const field of [
+          'name',
+          'summary',
+          'description',
+          'homepage',
+          'support',
+          'screenshot-captions'
+        ]) {
+          const source = path.join(file, `${field}.txt`)
+          assert.deepEqual(await readFile(path.join(destination, source)), await readFile(source))
+        }
         const markdown = await readFile(path.join(destination, `${file}.md`), 'utf8')
         assert.ok(markdown.includes(listing.summary))
         assert.ok(markdown.includes(listing.description.replace(/^• /gm, '- ')))

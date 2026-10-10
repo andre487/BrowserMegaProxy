@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { readListing } from '../scripts/store-materials.mjs'
 
 test('store listings and PNGs match supported browsers, locales and upload sizes', async () => {
   for (const store of ['chrome', 'firefox', 'opera']) {
     for (const locale of ['en', 'ru']) {
-      const listing = JSON.parse(await readFile(`store/listings/${store}/${locale}.json`, 'utf8'))
+      const listing = await readListing(`store/listings/${store}/${locale}`)
       assert.equal(listing.name, 'MegaProxy')
       assert.ok(listing.summary.length <= 132)
       assert.ok(listing.description.length <= 16000)
