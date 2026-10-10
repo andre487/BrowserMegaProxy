@@ -224,7 +224,16 @@ export async function submitOperaAddon(
     )
     const maxScreenshots = 3
     const current = await attemptMaterial('read screenshots', () => materialApi(versionPath))
-    if (current) {
+    if (current && !Array.isArray(current.screenshots)) {
+      warn(
+        'Opera screenshot metadata: ' +
+          globalThis.MegaErrors.responseText(JSON.stringify(current.screenshots), [
+            env.OPERA_SESSION_ID,
+            csrf
+          ])
+      )
+    }
+    if (current && Array.isArray(current.screenshots)) {
       for (const screenshot of (current.screenshots || []).slice(maxScreenshots)) {
         await attemptMaterial(`remove excess screenshot ${screenshot.id}`, () =>
           patch({ screenshots: { image_id: screenshot.id } })
