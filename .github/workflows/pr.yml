@@ -72,6 +72,11 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Generate store assets with both browsers
+        if: matrix.browser == 'chromium'
+        run: |
+          npx playwright install --with-deps firefox
+          npm run store:assets
       - name: Playwright and real MegaProxyServer
         run: npm run test:e2e -- --project=${{ matrix.browser }}
       - name: Browser test summary
