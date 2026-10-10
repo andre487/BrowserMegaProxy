@@ -1,12 +1,13 @@
 # MegaProxy
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/andre487/BrowserMegaProxy)](https://github.com/andre487/BrowserMegaProxy/releases/latest)
+[![Chromium 120+](https://img.shields.io/badge/Chromium-120%2B-4285F4?logo=googlechrome&logoColor=white)](#build-and-install)
+[![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)](#build-and-install)
+
 [![CI](https://github.com/andre487/BrowserMegaProxy/actions/workflows/pr.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/pr.yml?query=branch%3Amain+event%3Apush)
 [![Firefox Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-firefox.yml?query=branch%3Amain+event%3Apush)
 [![Vivaldi Android](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml/badge.svg?branch=main&event=push)](https://github.com/andre487/BrowserMegaProxy/actions/workflows/android-vivaldi.yml?query=branch%3Amain+event%3Apush)
-[![Release](https://img.shields.io/github/v/release/andre487/BrowserMegaProxy)](https://github.com/andre487/BrowserMegaProxy/releases/latest)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Chromium 120+](https://img.shields.io/badge/Chromium-120%2B-4285F4?logo=googlechrome&logoColor=white)](#build-and-install)
-[![Firefox 140+](https://img.shields.io/badge/Firefox-140%2B-FF7139?logo=firefoxbrowser&logoColor=white)](#build-and-install)
 
 Browser extensions for Chromium and Firefox.
 HTTP/HTTPS CONNECT, SOCKS5 and experimental MASQUE (Firefox 146+), multiple profiles, authentication, knock hosts, domain exclusions,
@@ -21,6 +22,8 @@ Safari and browsers without extension proxy APIs are not supported.
 ## Build and install
 
 **Chrome:** [Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
+
+**Firefox:** [Install MegaProxy from the Mozilla Add-Ons](https://addons.mozilla.org/ru/firefox/addon/megaproxy/).
 
 For a local development build:
 
