@@ -281,7 +281,11 @@ async function openSettings(scenario = '') {
       ...(scenario ? { url: `${url}#${scenario}` } : {})
     })
   } else {
-    await api.tabs.create({ url: scenario ? `${url}#${scenario}` : url })
+    const tab = await api.tabs.create({ url: scenario ? `${url}#${scenario}` : url, active: true })
+    await api.tabs.update(tab.id, { active: true })
+  }
+  if (api.tabs.getCurrent && !(await api.tabs.getCurrent())) {
+    window.close()
   }
 }
 

@@ -39,6 +39,7 @@ test.beforeEach(async ({ page, browserName, context }) => {
       permissions: { request: async () => true },
       tabs: {
         query: async () => [],
+        update: async () => {},
         create: async ({ url }) => {
           location.href = url
           return { id: 1 }
@@ -2254,6 +2255,42 @@ test('popup import scenario opens the existing URL import dialog', async ({ page
 
 for (const mobile of [false, true]) {
   for (const scenario of ['add-profile', 'import-config', 'open-settings']) {
+    test(`popup activates new settings for ${scenario}${mobile ? ' without the windows API' : ''}`, async ({
+      page
+    }) => {
+      await page.addInitScript(mobile => {
+        if (mobile) {
+          delete chrome.windows
+          chrome.runtime.getPlatformInfo = async () => ({ os: 'android' })
+        }
+        globalThis.tabCalls = []
+        chrome.tabs.getCurrent = async () => undefined
+        chrome.tabs.create = async options => {
+          globalThis.tabCalls.push(['create', options])
+          return { id: 42, active: false }
+        }
+        chrome.tabs.update = async (id, options) => {
+          globalThis.tabCalls.push(['update', id, options])
+        }
+        window.close = () => globalThis.tabCalls.push(['close'])
+      }, mobile)
+      await page.goto('http://127.0.0.1:8765/popup.html')
+      await page.locator(`#${scenario}`).click()
+      await expect
+        .poll(() => page.evaluate(() => globalThis.tabCalls))
+        .toEqual([
+          [
+            'create',
+            {
+              url: `http://127.0.0.1:8765/options.html${scenario === 'open-settings' ? '' : `#${scenario}`}`,
+              active: true
+            }
+          ],
+          ['update', 42, { active: true }],
+          ['close']
+        ])
+    })
+
     test(`popup reuses settings in the current window for ${scenario}${mobile ? ' without the windows API' : ''}`, async ({
       page
     }) => {
@@ -2279,6 +2316,8 @@ for (const mobile of [false, true]) {
         chrome.tabs.create = async options => {
           globalThis.tabCalls.push(['create', options])
         }
+        chrome.tabs.getCurrent = async () => undefined
+        window.close = () => globalThis.tabCalls.push(['close'])
       }, mobile)
       await page.goto('http://127.0.0.1:8765/popup.html')
       await page.locator(`#${scenario}`).click()
@@ -2295,7 +2334,8 @@ for (const mobile of [false, true]) {
                 ? {}
                 : { url: `http://127.0.0.1:8765/options.html#${scenario}` })
             }
-          ]
+          ],
+          ['close']
         ])
     })
   }
