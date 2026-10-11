@@ -353,7 +353,6 @@
       </dialog>
       <dialog id="url-import" aria-labelledby="url-import-title">
         <h2 id="url-import-title" data-i18n="importURL">Import configuration from URL</h2>
-        <p class="dialog-error error" role="status" aria-live="polite"></p>
         <form id="import-url-form">
           <label
             ><span data-i18n="configURL">Configuration URL</span
@@ -378,6 +377,7 @@
             ></label
           >
           <p class="hint" data-i18n="importURLHint"></p>
+          <p class="dialog-error" role="status" aria-live="polite" aria-atomic="true"></p>
           <div class="actions">
             <button id="cancel-url-import" type="button" class="secondary" data-i18n="cancel">
               Cancel</button
@@ -385,27 +385,58 @@
           </div>
         </form>
       </dialog>
-      <section id="config-subscription" hidden>
-        <h2 data-i18n="configSubscription">Configuration subscription</h2>
-        <label class="checkbox"
-          ><input id="config-subscription-enabled" type="checkbox" /><span data-i18n="configFollow"
-            >Automatic updates</span
-          ></label
-        >
-        <label
-          ><span data-i18n="configSubscriptionInterval">Check interval (minutes)</span
-          ><input id="config-subscription-interval" type="number" min="1" max="10080" required
-        /></label>
-        <p id="config-subscription-status" class="hint" role="status" aria-live="polite"></p>
-        <button
-          id="update-config-subscription"
-          type="button"
-          class="secondary"
-          data-i18n="updateConfigSubscription"
-        >
-          Update configuration now
-        </button>
-      </section>
+      <details id="config-subscription" hidden>
+        <summary data-i18n="configSubscription">Configuration subscription</summary>
+        <form id="config-subscription-form">
+          <label
+            ><span data-i18n="configURL">Configuration URL</span
+            ><input id="config-subscription-url" type="url" required autocomplete="off"
+          /></label>
+          <label
+            ><span data-i18n="configSubscriptionFallbackUrls"
+              >Fallback configuration URLs (one per line)</span
+            ><textarea id="config-subscription-fallbacks" rows="3" autocomplete="off"></textarea>
+          </label>
+          <label
+            ><span data-i18n="subscriptionUsername">Basic Auth username (optional)</span
+            ><input id="config-subscription-username" type="text" autocomplete="off"
+          /></label>
+          <label
+            ><span data-i18n="subscriptionPassword">Basic Auth password (optional)</span
+            ><input id="config-subscription-password" type="password" autocomplete="off"
+          /></label>
+          <label class="checkbox"
+            ><input id="config-subscription-enabled" type="checkbox" /><span
+              data-i18n="configSubscriptionAutomatic"
+              >Automatic updates</span
+            ></label
+          >
+          <label
+            ><span data-i18n="configSubscriptionInterval">Check interval (minutes)</span
+            ><input id="config-subscription-interval" type="number" min="1" max="10080" required
+          /></label>
+          <p id="config-subscription-status" class="hint" role="status" aria-live="polite"></p>
+          <div class="actions">
+            <button
+              id="cancel-config-subscription"
+              type="button"
+              class="danger"
+              data-i18n="cancelConfigSubscription"
+            >
+              Unsubscribe
+            </button>
+            <button
+              id="update-config-subscription"
+              type="button"
+              class="secondary"
+              data-i18n="updateConfigSubscription"
+            >
+              Update configuration now
+            </button>
+            <button type="submit" data-i18n="saveConfigSubscription">Save subscription</button>
+          </div>
+        </form>
+      </details>
       <label class="checkbox"
         ><input id="connection-notifications" type="checkbox" /><span
           data-i18n="connectionNotifications"

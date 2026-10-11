@@ -5,6 +5,44 @@ import '../extension/errors.js'
 
 const { details, context, format } = globalThis.MegaErrors
 
+test('camouflage hints retain the transport error and exclude HTTP, DNS, certificate and configured-knock failures', async () => {
+  const profile = { type: 'https', knockHost: '' }
+  for (const original of [
+    new Error('net::ERR_TUNNEL_CONNECTION_FAILED'),
+    new Error('errorCheckTimeout'),
+    new Error('errorConfigDownload', { cause: new DOMException('', 'TimeoutError') })
+  ]) {
+    const error = globalThis.MegaErrors.proxyFailure(original, profile, 'check')
+    assert.equal(details(error).code, details(original).code)
+    assert.equal(details(error).hint, 'errorKnockMayBeRequired')
+    const transferred = {
+      error: error.message,
+      errorDetails: JSON.parse(JSON.stringify(details(error)))
+    }
+    for (const locale of ['ru', 'en']) {
+      const catalog = JSON.parse(
+        await readFile(`extension/_locales/${locale}/messages.json`, 'utf8')
+      )
+      assert.ok(
+        format(transferred, 'check', key => catalog[key]?.message || key).includes(
+          catalog.errorKnockMayBeRequired.message
+        )
+      )
+    }
+  }
+  for (const [error, p] of [
+    [new Error('net::ERR_TUNNEL_CONNECTION_FAILED'), null],
+    [new Error('net::ERR_TUNNEL_CONNECTION_FAILED'), { ...profile, knockHost: 'knock.example' }],
+    [new Error('errorCheckTimeout'), { type: 'socks5' }],
+    [new Error('net::ERR_NAME_NOT_RESOLVED'), profile],
+    [new Error('net::ERR_CERT_AUTHORITY_INVALID'), profile],
+    [Object.assign(new Error('errorHTTP'), { status: 403 }), profile]
+  ]) {
+    assert.equal(details(globalThis.MegaErrors.proxyFailure(error, p)).hint, undefined)
+  }
+  assert.equal(details({ message: 'errorNetwork', hint: 'private-secret' }).hint, undefined)
+})
+
 test('errors retain operation, safe browser cause, HTTP status and resource across serialization', async () => {
   const error = context(
     Object.assign(new Error('errorIcon', { cause: new TypeError('Failed to fetch') }), {

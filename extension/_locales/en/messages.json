@@ -293,6 +293,9 @@
   "errorKnockDisabled": {
     "message": "Knock is not needed for SOCKS5, MASQUE or Firefox profiles with saved credentials."
   },
+  "errorKnockMayBeRequired": {
+    "message": "The proxy may be using camouflage. Chrome needs a knock host to authenticate with such a proxy. Set it in the profile settings and reconnect. Ask the proxy administrator for the knock host address."
+  },
   "errorCheckInactive": {
     "message": "Connect a profile before testing"
   },
@@ -1189,5 +1192,26 @@
   },
   "networkDomainsHint": {
     "message": "Up to 200 recent requests per tab and 50 tabs. Domains only, without URL paths, query strings or request contents. Navigation or background restart clears the data. System mode cannot identify an external proxy. Selected domains can be added to the manual domain list."
+  },
+  "configSubscriptionFallbackUrls": {
+    "message": "Fallback configuration URLs (one per line)"
+  },
+  "configSubscriptionAutomatic": {
+    "message": "Automatic updates"
+  },
+  "cancelConfigSubscription": {
+    "message": "Unsubscribe"
+  },
+  "saveConfigSubscription": {
+    "message": "Save subscription"
+  },
+  "configSubscriptionCancelled": {
+    "message": "Subscription cancelled. Imported profiles are kept."
+  },
+  "configDownloadChecked": {
+    "message": "Configuration downloaded and validated. Review the changes and click Apply import."
+  },
+  "configDownloadWithoutProxyConfirm": {
+    "message": "Could not download the configuration through the proxy. A knock host may be required for authentication. Download the configuration directly, without the proxy?"
   }
 }

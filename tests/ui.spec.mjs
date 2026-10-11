@@ -113,11 +113,20 @@ test.beforeEach(async ({ page, browserName, context }) => {
           }
 
           if (message.command === 'configSubscription') {
-            if (message.enabled !== undefined) {
-              state.subscription.enabled = message.enabled
-            }
-            if (message.intervalMinutes !== undefined) {
-              state.subscription.intervalMinutes = message.intervalMinutes
+            try {
+              state.subscription =
+                message.subscription === null
+                  ? null
+                  : M.subscription({
+                      ...state.subscription,
+                      ...(message.subscription || {}),
+                      ...(message.enabled !== undefined ? { enabled: message.enabled } : {}),
+                      ...(message.intervalMinutes !== undefined
+                        ? { intervalMinutes: message.intervalMinutes }
+                        : {})
+                    })
+            } catch (error) {
+              return { ok: false, error: error.message }
             }
           }
           if (message.command === 'dismissConnectionUpdate') {
@@ -2092,6 +2101,32 @@ test('routing sections have one title and network actions follow the selected mo
   }
 })
 
+test('UI shows and highlights the possible camouflage hint alongside the original error', async ({
+  page
+}) => {
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await expect(page.locator('body')).toBeVisible()
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage = async () => ({
+      ok: false,
+      error: 'errorCheckTimeout',
+      errorDetails: {
+        operation: 'check',
+        code: 'errorCheckTimeout',
+        hint: 'errorKnockMayBeRequired'
+      }
+    })
+  })
+  await page.locator('#check').click()
+  await expect(page.locator('#check-result')).toContainText('Истекло время проверки подключения')
+  await expect(page.locator('#check-result')).toContainText(
+    'Возможно, прокси работает в режиме маскировки'
+  )
+  await expect(page.locator('#check-result')).toContainText('Укажите его в настройках профиля')
+  await expect(page.locator('#check-result')).toHaveClass('error needs-attention')
+  await expect(page.locator('#notice')).toBeEmpty()
+})
+
 test('UI explains transport failures and transferred background errors with their operation', async ({
   page
 }) => {
@@ -2535,6 +2570,7 @@ test('saving indicates progress, reports errors inside the editor and preserves 
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
   await page.evaluate(() => globalThis.finishSave())
   await expect(page.locator('#editor .dialog-error')).toContainText('без схемы')
+  await expect(page.locator('#editor')).toHaveClass(/needs-attention/)
   await expect(page.locator('#notice')).toBeEmpty()
 })
 
@@ -2591,12 +2627,15 @@ for (const format of ['MegaProxy', 'ProxyList']) {
     await page.locator('#import-url-form button[type=submit]').click()
     await expect(page.locator('#import-review')).toBeVisible()
     await expect(page.locator('#config-password')).toHaveValue('')
+    await expect(page.locator('#import-review')).toHaveClass(/needs-attention/)
     await page.locator('#apply-import').click()
     await expect(page.locator('#config-subscription')).toBeVisible()
+    await expect(page.locator('#config-subscription')).not.toHaveAttribute('open', '')
+    await page.locator('#config-subscription > summary').click()
     await expect(page.locator('#config-subscription-enabled')).toBeChecked()
     await expect(page.locator('#config-subscription-interval')).toHaveValue('60')
     await page.locator('#config-subscription-interval').fill('30')
-    await page.locator('#config-subscription-interval').blur()
+    await page.locator('#config-subscription-form button[type=submit]').click()
     await expect(page.locator('#config-subscription-interval')).toHaveValue('30')
     const subscription = await page.evaluate(
       () => JSON.parse(localStorage.getItem('testState')).subscription
@@ -2610,6 +2649,7 @@ for (const format of ['MegaProxy', 'ProxyList']) {
     await page.locator('#update-config-subscription').click()
     expect(await page.evaluate(() => globalThis.testCommands)).toContain('updateConfigSubscription')
     await page.locator('#config-subscription-enabled').uncheck()
+    await page.locator('#config-subscription-form button[type=submit]').click()
     await expect(page.locator('#update-config-subscription')).toBeEnabled()
     await page.locator('#update-config-subscription').click()
   })
@@ -2661,4 +2701,320 @@ test('system notifications request optional permission and respect refusal', asy
   await expect(page.locator('#connection-notifications')).toBeChecked()
   await page.locator('#connection-notifications').uncheck()
   await expect(page.locator('#connection-notifications')).not.toBeChecked()
+})
+
+test('subscription edits sources and credentials, preserves drafts and cancels without deleting profiles', async ({
+  page
+}) => {
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('testState'))
+    state.subscription = {
+      url: 'https://config.example/feed',
+      username: 'reader',
+      password: 'old-secret',
+      enabled: false,
+      intervalMinutes: 60
+    }
+    state.profiles = [
+      {
+        id: 'remote',
+        name: 'Remote',
+        host: 'proxy.example',
+        port: 443,
+        type: 'https',
+        color: 0,
+        bypass: []
+      }
+    ]
+    localStorage.setItem('testState', JSON.stringify(state))
+  })
+  await page.reload()
+  await page.setViewportSize({ width: 320, height: 700 })
+  await page.locator('#config-subscription > summary').click()
+  await expect(page.locator('#config-subscription-password')).toHaveAttribute('type', 'password')
+  await page.locator('#config-subscription-url').fill('https://new.example/feed')
+  await page
+    .locator('#config-subscription-fallbacks')
+    .fill('https://backup.example/feed\nhttps://backup2.example/feed')
+  await page.locator('#config-subscription-username').fill('new-reader')
+  await page.locator('#config-subscription-password').fill('new-secret')
+  await page.evaluate(() => render())
+  await expect(page.locator('#config-subscription-url')).toHaveValue('https://new.example/feed')
+  expect(
+    await page.locator('#config-subscription-form').evaluate(form => {
+      const labels = [...form.querySelectorAll('label')]
+      return (
+        labels.every(label => {
+          const text = label.querySelector('span').getBoundingClientRect()
+          const control = label.querySelector('input, textarea').getBoundingClientRect()
+          return label.classList.contains('checkbox')
+            ? text.left - control.right >= 8
+            : control.top - text.bottom >= 4
+        }) && form.scrollWidth <= form.clientWidth
+      )
+    })
+  ).toBe(true)
+  await page.locator('#config-subscription-form button[type=submit]').click()
+  await expect(page.locator('#config-subscription #notice')).toHaveText('Сохранено')
+  await page.reload()
+  await page.locator('#config-subscription > summary').click()
+  await expect(page.locator('#config-subscription-url')).toHaveValue('https://new.example/feed')
+  await expect(page.locator('#config-subscription-password')).toHaveValue('new-secret')
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('testState')).subscription)
+  ).toMatchObject({
+    url: 'https://new.example/feed',
+    fallbackUrls: ['https://backup.example/feed', 'https://backup2.example/feed'],
+    username: 'new-reader',
+    password: 'new-secret'
+  })
+  await page.locator('#config-subscription-fallbacks').fill('http://insecure.example/feed')
+  await page.locator('#config-subscription-form button[type=submit]').click()
+  await expect(page.locator('#config-subscription #notice')).toHaveClass('error')
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem('testState')).subscription.fallbackUrls
+    )
+  ).toEqual(['https://backup.example/feed', 'https://backup2.example/feed'])
+  await page.locator('#config-subscription-password').fill('')
+  await page.locator('#config-subscription-username').fill('')
+  await page.locator('#config-subscription-fallbacks').fill('')
+  await page.locator('#config-subscription-form button[type=submit]').click()
+  await expect(page.locator('#config-subscription #notice')).toHaveText('Сохранено')
+  expect(
+    await page.evaluate(() => JSON.parse(localStorage.getItem('testState')).subscription.password)
+  ).toBe('')
+  await page.locator('#cancel-config-subscription').click()
+  await expect(page.locator('#config-subscription')).toBeHidden()
+  await expect(page.locator('.profile')).toHaveCount(1)
+  await expect(page.locator('#open-url-import')).toBeFocused()
+  await page.reload()
+  await expect(page.locator('#config-subscription')).toBeHidden()
+  await expect(page.locator('.profile')).toHaveCount(1)
+})
+
+test('URL import shows loading only on the button and reports HTTP, timeout and validation results', async ({
+  page
+}) => {
+  await page.locator('#open-url-import').click()
+  await page.locator('#config-url').fill('https://config.example/feed')
+  await page.locator('#config-username').fill('reader')
+  await page.locator('#config-password').fill('secret')
+  await page.evaluate(() => {
+    const send = chrome.runtime.sendMessage
+    chrome.runtime.sendMessage = async message => {
+      if (message.command === 'fetchConfig') {
+        return new Promise(resolve => {
+          globalThis.finishConfigDownload = resolve
+        })
+      }
+      return send(message)
+    }
+  })
+  const button = page.locator('#import-url-form button[type=submit]')
+  const status = page.locator('#url-import .dialog-error')
+  await page.locator('#config-password').press('Enter')
+  await expect(button).toBeDisabled()
+  await expect(button).toHaveText('Загрузка…')
+  await expect(status).toBeEmpty()
+  await page.evaluate(() =>
+    globalThis.finishConfigDownload({
+      ok: false,
+      error: 'errorConfigDownload',
+      errorDetails: {
+        operation: 'fetchConfig',
+        code: 'errorConfigDownload',
+        reason: 'errorHTTP',
+        status: 403
+      }
+    })
+  )
+  await expect(status).toHaveClass('dialog-error error')
+  await expect(status).toContainText('HTTP 403')
+  await expect(status).not.toContainText('время ожидания')
+  await expect(status).toHaveCSS('color', /rgb\((242, 184, 181|179, 38, 30)\)/)
+  await expect(button).toBeEnabled()
+  await expect(page.locator('#config-password')).toHaveValue('secret')
+  await button.click()
+  await expect(status).toBeEmpty()
+  await expect(button).toHaveText('Загрузка…')
+  await page.evaluate(() =>
+    globalThis.finishConfigDownload({
+      ok: false,
+      error: 'errorConfigDownload',
+      errorDetails: {
+        operation: 'fetchConfig',
+        code: 'errorConfigDownload',
+        reason: 'TimeoutError'
+      }
+    })
+  )
+  await expect(status).toContainText('Превышено время ожидания')
+  await expect(status).not.toContainText('HTTP 403')
+  await button.click()
+  await page.evaluate(() => globalThis.finishConfigDownload({ ok: true, data: 'invalid config' }))
+  await expect(status).toHaveClass('dialog-error error')
+  await expect(button).toBeEnabled()
+  await button.click()
+  await page.evaluate(() =>
+    globalThis.finishConfigDownload({
+      ok: true,
+      data: JSON.stringify({
+        schema: 'net.megaproxy487.config',
+        version: 8,
+        profiles: [{ id: 'remote', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }]
+      })
+    })
+  )
+  await expect(page.locator('#url-import')).toBeHidden()
+  await expect(page.locator('#import-summary')).toContainText('Конфигурация скачана и проверена.')
+  await expect(page.locator('#import-summary')).toContainText('Применить импорт')
+  await expect(page.locator('#apply-import')).toBeFocused()
+  await expect(page.locator('.profile')).toHaveCount(0)
+})
+
+for (const outcome of ['accept', 'cancel', '403', 'direct-fails']) {
+  test(`URL download offers an explicit direct retry after proxy failure: ${outcome}`, async ({
+    page
+  }) => {
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('testState'))
+      state.profiles = [
+        { id: 'one', host: 'proxy.example', port: 443, type: 'https', color: 0, bypass: [] }
+      ]
+      state.activeId = 'one'
+      state.connectionMode = 'proxy'
+      localStorage.setItem('testState', JSON.stringify(state))
+    })
+    await page.reload()
+    await page.evaluate(outcome => {
+      const send = chrome.runtime.sendMessage
+      globalThis.configRequests = []
+      chrome.runtime.sendMessage = async message => {
+        if (message.command !== 'fetchConfig') {
+          return send(message)
+        }
+        globalThis.configRequests.push(message)
+        if (!message.withoutProxy || outcome === 'direct-fails') {
+          return {
+            ok: false,
+            error: 'errorConfigDownload',
+            errorDetails: {
+              operation: 'fetchConfig',
+              code: 'errorConfigDownload',
+              reason: outcome === '403' ? 'errorHTTP' : 'TimeoutError',
+              ...(outcome === '403' ? { status: 403 } : {})
+            }
+          }
+        }
+        return {
+          ok: true,
+          data: JSON.stringify({
+            profiles: [{ proxy: { type: 'HTTPS', host: 'new.example', port: 443 } }]
+          })
+        }
+      }
+    }, outcome)
+    let prompts = 0
+    page.removeAllListeners('dialog')
+    page.on('dialog', async dialog => {
+      prompts++
+      expect(dialog.message()).toContain('без прокси')
+      if (outcome === 'cancel') {
+        await dialog.dismiss()
+      } else {
+        await dialog.accept()
+      }
+    })
+    await page.locator('#open-url-import').click()
+    await page.locator('#config-url').fill('https://config.example/feed')
+    await page.locator('#config-username').fill('reader')
+    await page.locator('#config-password').fill('secret')
+    await page.locator('#import-url-form button[type=submit]').click()
+    if (outcome === 'accept') {
+      await expect(page.locator('#import-review')).toBeVisible()
+    } else {
+      await expect(page.locator('#url-import .dialog-error')).toContainText(
+        outcome === '403' ? 'HTTP 403' : 'Превышено время ожидания'
+      )
+    }
+    expect(prompts).toBe(outcome === '403' ? 0 : 1)
+    const requests = await page.evaluate(() => globalThis.configRequests)
+    expect(requests).toHaveLength(['accept', 'direct-fails'].includes(outcome) ? 2 : 1)
+    expect(requests[0].withoutProxy).toBeUndefined()
+    if (requests.length === 2) {
+      expect(requests[1]).toMatchObject({
+        withoutProxy: true,
+        url: requests[0].url,
+        auth: { username: 'reader', password: 'secret' }
+      })
+    }
+  })
+}
+
+for (const reducedMotion of ['no-preference', 'reduce']) {
+  test(`import confirmation highlights the required block and respects ${reducedMotion} motion`, async ({
+    page
+  }) => {
+    await page.emulateMedia({ reducedMotion })
+    await page.evaluate(() => {
+      globalThis.attentionStarts = 0
+      document
+        .querySelector('#import-review')
+        .addEventListener('animationstart', () => globalThis.attentionStarts++)
+    })
+    const file = {
+      name: 'config.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(
+        JSON.stringify({
+          profiles: [{ proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }]
+        })
+      )
+    }
+    const review = page.locator('#import-review')
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      await page.locator('#import').setInputFiles(file)
+      await expect(review).toBeVisible()
+      await expect(review).toHaveClass(/needs-attention/)
+      await expect(review).toHaveCSS('outline-width', '2px')
+      await expect(review).toHaveCSS(
+        'animation-name',
+        reducedMotion === 'reduce' ? 'none' : 'attention-pulse'
+      )
+      await expect(page.locator('#apply-import')).toBeFocused()
+      if (reducedMotion === 'no-preference') {
+        await expect.poll(() => page.evaluate(() => globalThis.attentionStarts)).toBe(attempt)
+      }
+      await page.locator('#cancel-import').click()
+      await expect(review).toBeHidden()
+    }
+  })
+}
+
+test('connection change highlights the acknowledgement block once and keeps it stable during refresh', async ({
+  page
+}) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('testState'))
+    state.connectionUpdate = { message: 'connectionUpdatedChromium', updatedAt: 1 }
+    const newValue = JSON.stringify(state)
+    localStorage.setItem('testState', newValue)
+    globalThis.connectionAttentionStarts = 0
+    document
+      .querySelector('#connection-update')
+      .addEventListener('animationstart', () => globalThis.connectionAttentionStarts++)
+    window.dispatchEvent(new StorageEvent('storage', { key: 'testState', newValue }))
+  })
+  await expect(page.locator('#connection-update')).toBeVisible()
+  await expect(page.locator('#connection-update')).toHaveClass(/needs-attention/)
+  await expect.poll(() => page.evaluate(() => globalThis.connectionAttentionStarts)).toBe(1)
+  await page.evaluate(() => {
+    render()
+    render()
+  })
+  expect(await page.evaluate(() => globalThis.connectionAttentionStarts)).toBe(1)
+  await page.locator('#dismiss-connection-update').click()
+  await expect(page.locator('#connection-update')).toBeHidden()
 })

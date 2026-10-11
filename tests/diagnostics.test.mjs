@@ -141,8 +141,44 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
   // runtime listeners have three arguments, unlike network event callbacks.
   const command = message =>
     new Promise(resolve => [...listeners.get('message')][0](message, { id: 'test' }, resolve))
-  return { command, urls, removed, native, api, session }
+  return {
+    command,
+    urls,
+    removed,
+    native,
+    api,
+    session,
+    emit,
+    flush: () => vm.runInContext('queue', context)
+  }
 }
+
+test('a failed routed tunnel without knock reports a hint, while direct and excluded requests do not', async () => {
+  for (const [mode, url, expected] of [
+    ['proxy', 'https://selected.example/', true],
+    ['proxy', 'https://excluded.example/', false],
+    ['direct', 'https://selected.example/', false],
+    ['system', 'https://selected.example/', false]
+  ]) {
+    const h = harness([], false, 'chromium', mode)
+    await h.command({ command: 'get' })
+    h.emit('error', {
+      tabId: 9,
+      requestId: 'tunnel',
+      type: 'main_frame',
+      url,
+      error: 'net::ERR_TUNNEL_CONNECTION_FAILED'
+    })
+    await h.flush()
+    const result = await h.command({ command: 'get' })
+    assert.equal(Boolean(result.connectionCheck?.errorDetails?.hint), expected)
+    if (expected) {
+      assert.equal(result.connectionCheck.errorDetails.code, 'net::ERR_TUNNEL_CONNECTION_FAILED')
+      assert.equal(result.connectionCheck.profileId, 'proxy')
+      assert.equal(h.session.connectionCheck.errorDetails.hint, 'errorKnockMayBeRequired')
+    }
+  }
+})
 
 test('connection check falls back on transport and invalid IP responses, treats country as optional and closes its tab', async () => {
   const h = harness()

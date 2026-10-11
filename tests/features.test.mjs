@@ -2262,3 +2262,204 @@ test('post-commit failures warn without replacing a successful subscription sour
     }
   }
 })
+
+test('subscription settings validate edited sources and credentials and cancellation retains profiles', async () => {
+  const alarms = new Map()
+  const h = harness('firefox', {}, undefined, {
+    alarms: {
+      create: async (name, options) => alarms.set(name, options),
+      clear: async name => alarms.delete(name),
+      get: async name => alarms.get(name),
+      onAlarm: { addListener() {} }
+    }
+  })
+  await h.send({
+    command: 'import',
+    data: {
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      profiles: [{ id: 'remote', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }],
+      subscription: { url: 'https://config.example/feed', enabled: false }
+    }
+  })
+  const subscription = {
+    url: 'https://new.example/feed',
+    fallbackUrls: ['https://backup.example/feed'],
+    username: 'reader',
+    password: 'secret',
+    intervalMinutes: 30,
+    enabled: true
+  }
+  assert.equal((await h.send({ command: 'configSubscription', subscription })).ok, true)
+  assert.equal(alarms.get('configSubscription').periodInMinutes, 30)
+  assert.equal(
+    (
+      await h.send({
+        command: 'configSubscription',
+        subscription: { ...subscription, fallbackUrls: ['http://insecure.example/feed'] }
+      })
+    ).ok,
+    false
+  )
+  let state = (await h.send({ command: 'get' })).state
+  assert.equal(state.subscription.url, subscription.url)
+  assert.equal(state.subscription.password, 'secret')
+  assert.deepEqual(Array.from(state.subscription.fallbackUrls), subscription.fallbackUrls)
+  assert.equal((await h.send({ command: 'configSubscription', subscription: null })).ok, true)
+  state = (await h.send({ command: 'get' })).state
+  assert.equal(state.subscription, null)
+  assert.equal(state.configSubscriptionState, undefined)
+  assert.deepEqual(
+    Array.from(state.profiles, p => p.id),
+    ['remote']
+  )
+  assert.equal(alarms.has('configSubscription'), false)
+  assert.equal((await h.send({ command: 'updateConfigSubscription' })).ok, true)
+  assert.deepEqual(
+    Array.from((await h.send({ command: 'get' })).state.profiles, p => p.id),
+    ['remote']
+  )
+})
+
+test('explicit direct config downloads bypass only the config host and always restore proxy routing', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    for (const fail of [false, true]) {
+      const h = harness(
+        target,
+        {},
+        async (url, options) => {
+          assert.equal(url, 'https://config.example/feed')
+          assert.equal(options.headers.Authorization, 'Basic cmVhZGVyOnNlY3JldA==')
+          const routing = vm.runInContext('downloadRouting', h.context)
+          assert.equal(routing.throughProxy, false)
+          assert.deepEqual(Array.from(routing.hosts), ['config.example'])
+          const state = vm.runInContext('state', h.context)
+          assert.equal(
+            h.context.MegaProxy.routed(url, { ...state, downloadRouting: routing }),
+            false
+          )
+          assert.equal(
+            h.context.MegaProxy.routed('https://other.example/', {
+              ...state,
+              downloadRouting: routing
+            }),
+            true
+          )
+          if (fail) {
+            throw new DOMException('Timed out', 'TimeoutError')
+          }
+          return new Response(
+            JSON.stringify({
+              profiles: [{ proxy: { type: 'HTTPS', host: 'new.example', port: 443 } }]
+            })
+          )
+        },
+        {
+          state: {
+            profiles: [{ id: 'one', host: 'proxy.example', port: 443, type: 'https' }],
+            activeId: 'one',
+            connectionMode: 'proxy'
+          }
+        }
+      )
+      await h.flush()
+      const response = await h.send({
+        command: 'fetchConfig',
+        url: 'https://config.example/feed',
+        auth: { username: 'reader', password: 'secret' },
+        withoutProxy: true
+      })
+      assert.equal(response.ok, !fail)
+      assert.equal(vm.runInContext('downloadRouting', h.context), undefined)
+      assert.equal((await h.send({ command: 'get' })).state.connectionMode, 'proxy')
+      if (target === 'chromium') {
+        const configs = h.calls
+          .filter(([kind]) => kind === 'proxy')
+          .map(([, config]) => config.value)
+        assert.ok(configs.some(config => config.mode === 'pac_script'))
+        assert.equal(configs.at(-1).mode, 'fixed_servers')
+        assert.equal(vm.runInContext('state.activeId', h.context), 'one')
+      }
+    }
+  }
+})
+
+test('import and subscription refresh replace configuration sources while retaining local auth and update preferences', async () => {
+  const requests = []
+  let failPrimary = false
+  const remote = {
+    schema: 'net.megaproxy487.config',
+    version: 8,
+    profiles: [{ id: 'one', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }],
+    subscription: {
+      url: 'https://new.example/feed',
+      fallbackUrls: ['https://new-backup.example/feed'],
+      username: 'remote-user',
+      password: 'remote-secret',
+      intervalMinutes: 5,
+      enabled: true
+    }
+  }
+  const h = harness('firefox', {}, async (url, options) => {
+    requests.push(url)
+    assert.equal(options.headers.Authorization, 'Basic cmVhZGVyOnNlY3JldA==')
+    if (failPrimary && url === 'https://new.example/feed') {
+      return new Response('', { status: 403 })
+    }
+    return new Response(JSON.stringify(remote))
+  })
+  const local = {
+    url: 'https://old.example/feed',
+    fallbackUrls: ['https://old-backup.example/feed'],
+    username: 'reader',
+    password: 'secret',
+    intervalMinutes: 30,
+    enabled: false
+  }
+  assert.equal((await h.send({ command: 'import', data: remote, subscription: local })).ok, true)
+  let state = (await h.send({ command: 'get' })).state
+  assert.equal(state.subscription.url, 'https://new.example/feed')
+  assert.deepEqual(Array.from(state.subscription.fallbackUrls), ['https://new-backup.example/feed'])
+  assert.equal(state.subscription.username, local.username)
+  assert.equal(state.subscription.password, local.password)
+  assert.equal(state.subscription.enabled, false)
+  assert.equal(state.subscription.intervalMinutes, 30)
+  failPrimary = true
+  remote.subscription = {
+    url: 'https://latest.example/feed',
+    fallbackUrls: ['https://latest-backup.example/feed']
+  }
+  await h.send({ command: 'updateConfigSubscription' })
+  state = (await h.send({ command: 'get' })).state
+  assert.deepEqual(requests, ['https://new.example/feed', 'https://new-backup.example/feed'])
+  assert.equal(state.subscription.url, 'https://latest.example/feed')
+  assert.deepEqual(Array.from(state.subscription.fallbackUrls), [
+    'https://latest-backup.example/feed'
+  ])
+  assert.equal(state.subscription.password, local.password)
+  assert.equal(state.subscription.enabled, false)
+  assert.equal(state.subscription.intervalMinutes, 30)
+  requests.length = 0
+  delete remote.subscription
+  await h.send({ command: 'updateConfigSubscription' })
+  state = (await h.send({ command: 'get' })).state
+  assert.deepEqual(requests, ['https://latest.example/feed'])
+  assert.equal(state.subscription.url, 'https://latest.example/feed')
+  assert.deepEqual(Array.from(state.subscription.fallbackUrls), [
+    'https://latest-backup.example/feed'
+  ])
+  remote.subscription = { url: 'https://last.example/feed' }
+  await h.send({ command: 'updateConfigSubscription' })
+  state = (await h.send({ command: 'get' })).state
+  assert.equal(state.subscription.url, 'https://last.example/feed')
+  assert.deepEqual(Array.from(state.subscription.fallbackUrls), [])
+  remote.subscription = { url: 'http://invalid.example/feed' }
+  await h.send({ command: 'updateConfigSubscription' })
+  state = (await h.send({ command: 'get' })).state
+  assert.equal(state.subscription.url, 'https://last.example/feed')
+  assert.deepEqual(Array.from(state.subscription.fallbackUrls), [])
+  assert.ok(state.configSubscriptionState.error)
+  delete remote.subscription
+  assert.equal((await h.send({ command: 'import', data: remote, subscription: null })).ok, true)
+  assert.equal((await h.send({ command: 'get' })).state.subscription, null)
+})

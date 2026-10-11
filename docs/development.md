@@ -13,16 +13,30 @@ npm start             # Chrome by default
 npm start --chrome    # Chrome
 npm start --firefox   # Firefox
 npm start -- --watch  # Chrome with automatic rebuilds
+npm start -- --clear  # Chrome with a clean development profile
+npm start -- --light  # Chrome with a light browser theme
+npm start -- --dark   # Chrome with a dark browser theme
+npm start -- --firefox --dark # Firefox with a dark browser theme
+npm start -- --firefox --clear # Firefox with a clean development profile
 npm start -- --firefox --watch # Firefox with automatic rebuilds
 ```
 
 Some npm versions warn about unknown flags. The portable argument syntax is
 `npm start -- --chrome` and `npm start -- --firefox`.
 
+`--clear` deletes the selected development browser profile before launching, including
+extension settings, cookies, and browsing history. Close the browser using that profile
+first. The other browser profile is kept. Combine it with `--watch` to rebuild automatically.
+
 `--watch` monitors `extension/` and `scripts/build.mjs`: changes rebuild and reload
 the extension without restarting the browser. Settings are preserved.
 Chrome also refreshes open extension tabs; Firefox extension pages may need to be
 reopened. Build errors appear in the terminal; watching continues until the next change.
+
+`--light` and `--dark` set the browser theme independently of the operating system.
+Choose one; they work with either browser and combine with `--clear` and `--watch`.
+The selected theme is saved in the development profile. Without either flag, the
+launcher keeps the existing theme. MegaProxy's own theme is controlled in its settings.
 
 Every launch rebuilds the extension and loads it automatically.
 Persistent, separate browser profiles live in `.browser-profiles/chrome` and

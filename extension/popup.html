@@ -84,7 +84,15 @@
           <h2 id="statistics-title" data-i18n="statisticsTitle">Proxy requests</h2>
           <p id="statistics-result"></p>
         </section>
-        <section class="connection-check">
+        <section
+          id="config-subscription"
+          class="connection-check"
+          hidden
+          aria-labelledby="config-subscription-title"
+        >
+          <h2 id="config-subscription-title" data-i18n="configSubscription">
+            Configuration subscription
+          </h2>
           <button
             id="update-config-subscription"
             type="button"
@@ -101,6 +109,8 @@
             aria-live="polite"
             hidden
           ></p>
+        </section>
+        <section class="connection-check">
           <p id="check-result" role="status" aria-live="polite"></p>
           <button id="check" type="button" class="secondary" data-i18n="checkConnection">
             Check connection
