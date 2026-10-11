@@ -1,13 +1,16 @@
-MegaProxy helps you choose when your browser uses your own HTTP, HTTPS or SOCKS5 proxy. Save several profiles and select one from the toolbar, or switch to Direct or the browser’s system proxy settings.
+Manage your own HTTP, HTTPS and SOCKS5 proxies with configuration subscriptions, backup URLs, Podkop domain lists and selective routing. For HTTPS proxies that hide authentication behind camouflage, configure a knock host to start authentication before opening other sites.
 
+Switch profiles from the toolbar or choose a direct connection or the browser’s system proxy settings.
+
+• Configuration subscriptions with backup URLs and optional Basic Auth over HTTPS. Edit source URLs, credentials and the interval in one panel; pause automatic checks, refresh from settings or the toolbar popup, or unsubscribe while keeping profiles. Failed updates preserve the last working configuration. The source can update subscription URLs while local credentials and update preferences are retained.
+• Knock hosts for authenticating with camouflage proxies in Chromium. A configured host opens on connection and browser startup, in the background when credentials are saved. Tunnel failures or timeouts without a knock host show a possible-camouflage hint alongside the original error.
+• Automatic domain lists from the sources used by Podkop, with optional updates through your proxy. Unneeded lists are not downloaded.
+• Proxy all sites or use a manual domain list with wildcard support. Local networks are bypassed by default; this can be disabled.
 • HTTP and HTTPS CONNECT proxies, including username/password authentication and an optional knock host.
 • SOCKS5 with proxy-side DNS. Chromium does not support SOCKS5 username/password authentication.
 • One selected profile with names, colors and country flags. Reorder profiles by dragging, including on touch screens.
-• Proxy all sites or use a manual domain list with wildcard support. Local networks are bypassed by default; this can be disabled.
-• Automatic domain lists from the sources used by Podkop, with optional updates through your proxy. Unneeded lists are not downloaded.
-• Test routing rules and check the connection: exit IP, country, protocol and HTTPS load time.
+• Test routing rules and check the connection: exit IP, country and HTTPS load time.
 • Import MegaProxy, FoxyProxy, ZeroOmega, ProxyList and SuperProxy from a file or URL. Export MegaProxy configurations: HTTP profiles and HTTPS proxies with IPv6 addresses cannot be exported; SOCKS5 needs a compatible client.
-• Configuration subscriptions with backup URLs, optional Basic Auth over HTTPS and an adjustable interval. Pause automatic checks or use Update now in settings or the popup. Failed updates preserve the last working configuration.
 • Notices when active proxy settings or routing rules change, including Podkop lists. System notifications are optional and require separate permission.
 • Optional WebRTC restrictions, page context menus, English and Russian interfaces, and light and dark themes.
 • Settings sync through your browser. Sync and password sync are enabled by default and can be disabled independently.

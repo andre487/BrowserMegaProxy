@@ -1,6 +1,6 @@
 # MegaProxy privacy policy
 
-Last updated: 10 October 2026.
+Last updated: 11 October 2026.
 
 MegaProxy is an open-source browser extension that manages user-provided proxy settings. It has no developer-operated analytics, advertising, account service or telemetry endpoint. The developer does not receive your browsing history, proxy credentials, request counters or diagnostic logs from the extension.
 
@@ -32,6 +32,18 @@ When you run a connection check, the extension contacts example.com and public I
 Automatic list features fetch catalog metadata and selected domain lists from GitHub (api.github.com and raw.githubusercontent.com, including itdoginfo/allow-domains). If selected lists exceed the rule limit, a public popularity ranking may be fetched from the wangmm001/tranco-top1m-cache GitHub mirror or tranco-list.eu to prioritize domains. These providers receive ordinary request metadata, including the source IP. The extension does not send your browsing history to rank domains. Updates can be sent through the active proxy. Unused lists are not downloaded in other routing modes; opening routing settings can refresh stale catalog metadata.
 
 Importing a configuration from a URL contacts that user-provided address. A configuration subscription repeats these requests at the saved interval until automatic checks are paused in Settings. Manual refresh remains available while paused. Backup URLs are tried in order when an earlier source fails; each configured source may receive the same Basic Auth credentials, so only use servers you trust. Subscription downloads reject redirects. The subscription URLs and optional Basic Auth credentials are stored locally and included in exports; passwords follow the password export preference. Subscription settings are not browser-synchronized. The server receives normal request metadata, X-MegaProxy-Client and X-MegaProxy-Version headers identifying the browser client implementation and extension version, and, when configured, the subscription credentials over HTTPS. The imported configuration may contain proxy credentials and change proxy settings; use a trusted source. Failed updates preserve the last working configuration.
+
+Subscription source URLs may be replaced by URLs supplied in a downloaded configuration;
+locally configured credentials and update preferences are retained. You can edit source
+URLs and credentials or cancel the subscription in Settings. Cancellation stops future
+subscription refreshes and keeps the imported proxy profiles.
+
+If a manual configuration download through the proxy fails, MegaProxy may ask whether
+to retry without the proxy. Accepting sends the download directly to the configuration
+server, using the same configured Basic Auth credentials when applicable. That server
+receives the direct connection's source IP. Only the configuration host temporarily
+bypasses the proxy, and normal routing is restored after the attempt. Cancelling leaves
+the download failed; automatic subscription updates do not make this direct retry.
 
 ## Control and contact
 

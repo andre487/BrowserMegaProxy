@@ -547,8 +547,11 @@ for (const authentication of ['saved', 'native']) {
         expect(knockPage.isClosed()).toBe(false)
         await browser.command({ command: 'get' })
         await browser.context.setHTTPCredentials({ username: 'new-user', password: 'new-secret' })
-        // Success closes this page before Playwright can return the navigation response.
-        await knockPage.reload().catch(() => {})
+        // Chromium can detach Playwright's page target while committing the authentication error page.
+        await browser.context.serviceWorkers()[0].evaluate(async () => {
+          const [tab] = await chrome.tabs.query({ url: 'https://knock.invalid/*' })
+          await chrome.tabs.reload(tab.id)
+        })
         await expect.poll(() => knockPage.isClosed()).toBe(true)
         expect(proxyAttempts).toContain(false)
         expect(proxyAttempts).toContain(true)

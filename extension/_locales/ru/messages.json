@@ -3,7 +3,7 @@
     "message": "MegaProxy"
   },
   "extensionDescription": {
-    "message": "Профили HTTP/HTTPS- и SOCKS5-прокси с авторизацией и knock host."
+    "message": "Прокси с авторизацией и knock host, подписки на конфиги с резервными URL, списки Podkop и выборочная маршрутизация."
   },
   "tagline": {
     "message": "Ваш маршрут в интернет"

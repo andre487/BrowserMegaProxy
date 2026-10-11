@@ -8,9 +8,9 @@ const copy = {
   en: [
     ['Your proxy. Your choice.', 'Switch profiles from the toolbar.', 'Profiles and quick actions'],
     [
-      'A clear view of your connection.',
-      'Check your exit IP, country and HTTPS load time.',
-      'Connection and profiles'
+      'Keep your proxy settings up to date.',
+      'Configuration subscriptions with backup URLs and authentication.',
+      'Configuration subscription'
     ],
     ['Choose what uses your proxy.', 'Match domains and their subdomains.', 'Routing rules'],
     [
@@ -31,9 +31,9 @@ const copy = {
       'Профили и быстрые действия'
     ],
     [
-      'Подключение под контролем.',
-      'Проверяйте внешний IP, страну и время загрузки HTTPS.',
-      'Подключение и профили'
+      'Настройки, которые обновляются.',
+      'Подписка на конфигурацию с резервными URL и авторизацией.',
+      'Подписка на конфигурацию'
     ],
     [
       'Выбирайте, что идёт через прокси.',
@@ -54,7 +54,7 @@ const copy = {
 }
 
 // Render the existing UI with isolated demo data; never use a real browser profile.
-async function demo(page, target, language, theme, strategy) {
+async function demo(page, target, language, theme, strategy, subscribed) {
   await page.route('**/*', async route => {
     const url = new URL(route.request().url())
     assert.equal(
@@ -82,7 +82,7 @@ async function demo(page, target, language, theme, strategy) {
     })
   })
   await page.addInitScript(
-    ({ language, theme, strategy }) => {
+    ({ language, theme, strategy, subscribed }) => {
       let state
       const stats = { completed: 1248, failed: 3 }
       const api = {
@@ -101,6 +101,14 @@ async function demo(page, target, language, theme, strategy) {
               language,
               theme,
               activeId: 'work',
+              subscription: subscribed
+                ? M.subscription({
+                    url: 'https://config.example/settings.json',
+                    fallbackUrls: ['https://backup.example/settings.json'],
+                    username: 'demo-reader',
+                    intervalMinutes: 60
+                  })
+                : null,
               profiles: [
                 M.profile({
                   id: 'work',
@@ -195,7 +203,7 @@ async function demo(page, target, language, theme, strategy) {
         globalThis.browser = api
       }
     },
-    { language, theme, strategy }
+    { language, theme, strategy, subscribed }
   )
 }
 
@@ -367,13 +375,25 @@ try {
                 : i === 0 || i === 1
                   ? 'all'
                   : 'manual'
-          await demo(page, target, language, [1, 4].includes(i) ? 'light' : 'dark', strategy)
+          await demo(
+            page,
+            target,
+            language,
+            [1, 4].includes(i) ? 'light' : 'dark',
+            strategy,
+            i === 1
+          )
           const errors = []
           page.on('pageerror', error => errors.push(error.message))
           await page.goto(`http://megaproxy.local/${i === 0 ? 'popup' : 'options'}.html`)
           await page.locator('body:not([hidden])').waitFor()
           if (i === 1) {
-            await page.locator('#check').click()
+            await page.locator('#config-subscription > summary').click()
+            await page
+              .locator('#config-subscription')
+              .evaluate(element =>
+                window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 24)
+              )
           }
           if (i === 2 || i === 3) {
             await page.locator('#routing-settings > summary').click()
