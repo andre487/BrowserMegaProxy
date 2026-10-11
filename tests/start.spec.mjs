@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { expect, firefox, test } from '@playwright/test'
-import { build, launchBrowser, selectBrowser } from '../scripts/start.mjs'
+import { build, launchBrowser, selectBrowser, selectTheme } from '../scripts/start.mjs'
 
 test('development launcher installs and reloads the Firefox extension on a persistent profile', async ({
   browserName
@@ -285,5 +285,184 @@ test('development Chrome exports logs across restarts with retained download his
   } finally {
     await session?.close()
     await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('development Chrome leaves native confirmations open for the user', async ({
+  browserName
+}) => {
+  test.skip(browserName !== 'chromium', 'The Chrome launcher is checked once')
+  const profileDir = await mkdtemp(path.join(tmpdir(), 'mega-native-dialog-'))
+  let session
+  try {
+    try {
+      session = await launchBrowser('chrome', { headless: true, profileDir })
+    } catch (error) {
+      test.skip(
+        error.message.startsWith('Install Google Chrome'),
+        'Install Google Chrome to check the development launcher'
+      )
+      throw error
+    }
+    const page = session.context.pages()[0]
+    const cdp = await session.context.newCDPSession(page)
+    await cdp.send('Page.enable')
+    for (const accept of [true, false]) {
+      const opened = new Promise(resolve => cdp.once('Page.javascriptDialogOpening', resolve))
+      const confirmation = page.evaluate(() => window.confirm('Download without proxy?'))
+      expect((await opened).type).toBe('confirm')
+      // A CDP observer does not suppress Playwright's default dialog dismissal.
+      expect(
+        await Promise.race([
+          confirmation.then(() => false),
+          new Promise(resolve => setTimeout(() => resolve(true), 250))
+        ])
+      ).toBe(true)
+      await cdp.send('Page.handleJavaScriptDialog', { accept })
+      expect(await confirmation).toBe(accept)
+    }
+    await cdp.detach()
+  } finally {
+    await session?.close()
+    await rm(profileDir, { recursive: true, force: true })
+  }
+})
+
+test('development launcher clear resets its profile and refuses to clear a running browser', async ({
+  browserName
+}) => {
+  test.setTimeout(60000)
+  const browser = browserName === 'chromium' ? 'chrome' : 'firefox'
+  expect(selectBrowser(['--clear', '--watch'], {})).toBe('chrome')
+  expect(selectBrowser(['--firefox', '--clear'], {})).toBe('firefox')
+  expect(() => selectBrowser(['--unknown'], {})).toThrow('[--clear]')
+  const directory = await mkdtemp(path.join(tmpdir(), 'mega-clear-profile-'))
+  const profileDir = path.join(directory, 'profile')
+  const otherProfile = path.join(directory, 'other-profile')
+  await mkdir(otherProfile)
+  await writeFile(path.join(otherProfile, 'keep'), 'untouched')
+  const options = {
+    headless: true,
+    profileDir,
+    ...(browser === 'firefox' ? { executablePath: firefox.executablePath() } : {})
+  }
+  let session
+  try {
+    try {
+      session = await launchBrowser(browser, options)
+    } catch (error) {
+      test.skip(
+        error.code === 'ENOENT' || error.message.startsWith('Install '),
+        'Install the browser to check the development launcher'
+      )
+      throw error
+    }
+    const marker = path.join(profileDir, 'clear-marker')
+    await writeFile(marker, 'old profile')
+    if (browser === 'chrome') {
+      await session.context
+        .pages()[0]
+        .evaluate(() => globalThis.chrome.storage.local.set({ clearMarker: 'old settings' }))
+    }
+    await expect(launchBrowser(browser, { ...options, clear: true })).rejects.toThrow(
+      'Close the browser'
+    )
+    expect(await readFile(marker, 'utf8')).toBe('old profile')
+    await session.close()
+    session = await launchBrowser(browser, options)
+    expect(await readFile(marker, 'utf8')).toBe('old profile')
+    if (browser === 'chrome') {
+      expect(
+        await session.context
+          .pages()[0]
+          .evaluate(
+            async () => (await globalThis.chrome.storage.local.get('clearMarker')).clearMarker
+          )
+      ).toBe('old settings')
+    }
+    await session.close()
+    session = await launchBrowser(browser, { ...options, clear: true })
+    await expect(readFile(marker, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+    if (browser === 'chrome') {
+      expect(
+        await session.context
+          .pages()[0]
+          .evaluate(
+            async () => (await globalThis.chrome.storage.local.get('clearMarker')).clearMarker
+          )
+      ).toBeUndefined()
+    }
+    expect(await readFile(path.join(otherProfile, 'keep'), 'utf8')).toBe('untouched')
+  } finally {
+    await session?.close()
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
+test('development launcher forces light and dark browser themes on the same profile', async ({
+  browserName
+}) => {
+  test.setTimeout(60000)
+  expect(selectBrowser(['--light', '--clear', '--watch'], {})).toBe('chrome')
+  expect(selectTheme(['--dark'], {})).toBe('dark')
+  expect(selectTheme([], { npm_config_light: 'true' })).toBe('light')
+  expect(selectTheme([], {})).toBeUndefined()
+  expect(() => selectTheme(['--light', '--dark'], {})).toThrow('Choose one theme')
+  expect(() => selectTheme(['--dark'], { npm_config_light: 'true' })).toThrow('Choose one theme')
+  const browser = browserName === 'chromium' ? 'chrome' : 'firefox'
+  const profileDir = await mkdtemp(path.join(tmpdir(), 'mega-theme-profile-'))
+  const options = {
+    headless: true,
+    profileDir,
+    ...(browser === 'firefox' ? { executablePath: firefox.executablePath() } : {})
+  }
+  let session
+  try {
+    await expect(launchBrowser(browser, { ...options, theme: 'invalid' })).rejects.toThrow(
+      'Unknown theme'
+    )
+    for (const theme of ['dark', 'light']) {
+      try {
+        session = await launchBrowser(browser, { ...options, theme })
+      } catch (error) {
+        test.skip(
+          error.code === 'ENOENT' || error.message.startsWith('Install '),
+          'Install the browser to check themes'
+        )
+        throw error
+      }
+      await expect(launchBrowser(browser, { ...options, theme })).rejects.toThrow(
+        'Close the browser'
+      )
+      if (browser === 'chrome') {
+        const page = await session.context.newPage()
+        await page.goto('chrome://settings/appearance')
+        await expect
+          .poll(() => page.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches))
+          .toBe(theme === 'dark')
+      }
+      await session.close()
+      session = undefined
+      if (browser === 'chrome') {
+        const preferences = JSON.parse(
+          await readFile(path.join(profileDir, 'Default', 'Preferences'), 'utf8')
+        )
+        expect(preferences.browser.theme.color_scheme2).toBe(theme === 'dark' ? 2 : 1)
+      } else {
+        const preferences = await readFile(path.join(profileDir, 'prefs.js'), 'utf8')
+        expect(preferences).toContain(
+          `user_pref("extensions.activeThemeID", "firefox-compact-${theme}@mozilla.org");`
+        )
+        expect(preferences).toContain(
+          `user_pref("browser.theme.toolbar-theme", ${theme === 'dark' ? 0 : 1});`
+        )
+        expect(preferences).toContain(
+          `user_pref("layout.css.prefers-color-scheme.content-override", ${theme === 'dark' ? 0 : 1});`
+        )
+      }
+    }
+  } finally {
+    await session?.close()
+    await rm(profileDir, { recursive: true, force: true })
   }
 })

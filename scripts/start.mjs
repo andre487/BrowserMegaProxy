@@ -1,17 +1,22 @@
 import { watch } from 'node:fs'
-import { spawn } from 'node:child_process'
-import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { execFile, spawn } from 'node:child_process'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { chromium } from '@playwright/test'
 import { installFirefoxAddon, quitFirefox } from './firefox-addon.mjs'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 
 export function selectBrowser(args = process.argv.slice(2), env = process.env) {
-  if (args.some(arg => !['--chrome', '--firefox', '--watch'].includes(arg))) {
-    throw new Error('Use npm start -- [--chrome|--firefox] [--watch]')
+  if (
+    args.some(
+      arg => !['--chrome', '--firefox', '--watch', '--clear', '--light', '--dark'].includes(arg)
+    )
+  ) {
+    throw new Error('Use npm start -- [--chrome|--firefox] [--watch] [--clear] [--light|--dark]')
   }
 
   const chrome = args.includes('--chrome') || env.npm_config_chrome === 'true'
@@ -21,6 +26,16 @@ export function selectBrowser(args = process.argv.slice(2), env = process.env) {
   }
 
   return firefox ? 'firefox' : 'chrome'
+}
+
+export function selectTheme(args = process.argv.slice(2), env = process.env) {
+  const light = args.includes('--light') || env.npm_config_light === 'true'
+  const dark = args.includes('--dark') || env.npm_config_dark === 'true'
+  if (light && dark) {
+    throw new Error('Choose one theme: --light or --dark')
+  }
+
+  return light ? 'light' : dark ? 'dark' : undefined
 }
 
 async function browserExecutable(browser) {
@@ -94,6 +109,8 @@ async function launchChrome(profileDir, headless, executablePath) {
     clearTimeout(timer)
     // Leave native downloads alone: overriding them crashes Chrome with retained download history (crbug.com/556160935).
     browser = await chromium.connectOverCDP(endpoint, { noDefaults: true })
+    // Keep native dialogs open for the user instead of Playwright's automatic dismissal.
+    browser.contexts()[0].on('dialog', () => {})
     let closing
     const close = () =>
       (closing ||= (async () => {
@@ -125,7 +142,9 @@ export async function launchBrowser(
   {
     headless = false,
     profileDir = path.join(root, '.browser-profiles', browser),
-    executablePath
+    executablePath,
+    clear = false,
+    theme
   } = {}
 ) {
   if (!['darwin', 'linux', 'win32'].includes(process.platform)) {
@@ -136,10 +155,58 @@ export async function launchBrowser(
     throw new Error('Unknown browser')
   }
 
+  if (theme !== undefined && !['light', 'dark'].includes(theme)) {
+    throw new Error('Unknown theme: choose light or dark')
+  }
+
+  profileDir = path.resolve(profileDir)
+  if (clear || theme) {
+    // ponytail: assumes sequential launches; add a launcher lock if concurrent starts matter.
+    const { stdout } = await promisify(execFile)(
+      process.platform === 'win32' ? 'powershell.exe' : 'ps',
+      process.platform === 'win32'
+        ? [
+            '-NoProfile',
+            '-Command',
+            'Get-CimInstance Win32_Process | Select-Object -ExpandProperty CommandLine'
+          ]
+        : ['-ax', '-o', 'command=']
+    )
+    const profileArgument = browser === 'chrome' ? '--user-data-dir=' : '-profile'
+    if (
+      stdout
+        .split(/\r?\n/)
+        .some(command => command.includes(profileArgument) && command.includes(profileDir))
+    ) {
+      throw new Error(
+        'Close the browser using this profile before starting with --clear or a theme override'
+      )
+    }
+  }
+  if (clear) {
+    await rm(profileDir, { recursive: true, force: true })
+  }
+
   const extension = path.join(root, 'dist', browser === 'chrome' ? 'chromium' : 'firefox')
   await mkdir(profileDir, { recursive: true })
 
   if (browser === 'chrome') {
+    if (theme) {
+      const preferencesFile = path.join(profileDir, 'Default', 'Preferences')
+      let preferences = {}
+      try {
+        preferences = JSON.parse(await readFile(preferencesFile, 'utf8'))
+      } catch (error) {
+        if (error.code !== 'ENOENT') {
+          throw error
+        }
+      }
+      preferences.browser ||= {}
+      preferences.browser.theme ||= {}
+      preferences.browser.theme.color_scheme2 = theme === 'light' ? 1 : 2
+      await mkdir(path.dirname(preferencesFile), { recursive: true })
+      await writeFile(preferencesFile, JSON.stringify(preferences))
+    }
     const session = await launchChrome(profileDir, headless, executablePath)
     const { context } = session
 
@@ -204,7 +271,13 @@ export async function launchBrowser(
       'user_pref("devtools.chrome.enabled", true);',
       'user_pref("devtools.debugger.remote-enabled", true);',
       'user_pref("devtools.debugger.prompt-connection", false);',
-      'user_pref("devtools.debugger.force-local", true);'
+      'user_pref("devtools.debugger.force-local", true);',
+      ...(theme
+        ? [
+            `user_pref("ui.systemUsesDarkTheme", ${theme === 'dark' ? 1 : 0});`,
+            `user_pref("layout.css.prefers-color-scheme.content-override", ${theme === 'dark' ? 0 : 1});`
+          ]
+        : [])
     ].join('\n') + '\n'
   )
 
@@ -247,7 +320,7 @@ export async function launchBrowser(
 
   try {
     await Promise.race([
-      installFirefoxAddon(port, extension),
+      installFirefoxAddon(port, extension, { theme }),
       closed.then(({ code, signal }) => {
         throw new Error(
           `Firefox exited before the extension was installed (${signal ? `signal ${signal}` : `code ${code}`})`
@@ -349,7 +422,12 @@ export async function build() {
   })
 }
 
-export async function start({ browser = selectBrowser(), ...launchOptions } = {}) {
+export async function start({
+  browser = selectBrowser(),
+  clear = process.argv.includes('--clear') || process.env.npm_config_clear === 'true',
+  theme = selectTheme(),
+  ...launchOptions
+} = {}) {
   let session
   let stopWatching
   let stopping = false
@@ -374,7 +452,7 @@ export async function start({ browser = selectBrowser(), ...launchOptions } = {}
     console.log(
       `Starting ${browser}; profile: ${launchOptions.profileDir || path.join(root, '.browser-profiles', browser)}`
     )
-    session = await launchBrowser(browser, launchOptions)
+    session = await launchBrowser(browser, { ...launchOptions, clear, theme })
     if (stopping) {
       return
     }

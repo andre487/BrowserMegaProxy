@@ -385,8 +385,10 @@ and fields produce warnings; a source with no usable profiles fails the update.
 A failed download or invalid configuration preserves the last working snapshot.
 Use stable IDs in MegaProxy and stable names in ZeroOmega. Formats without stable
 IDs match uniquely named profiles, then unique proxy type/host/port endpoints;
-ambiguous or entirely changed profiles get new IDs. A downloaded configuration need not repeat
-its subscription settings: the URL and credentials configured locally remain in use.
+ambiguous or entirely changed profiles get new IDs. A downloaded configuration can
+replace the main subscription URL and fallback URLs. If it omits subscription settings,
+the current URLs are kept. Locally configured credentials, update interval, and
+automatic-update preference remain in use.
 
 Subscription settings and status stay on this device; browser sync does not start
 subscriptions on another device. Export includes the subscription settings, with

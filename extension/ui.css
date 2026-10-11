@@ -238,7 +238,9 @@ footer span {
   font-size: 13px;
   overflow-wrap: anywhere;
 }
-#notice.error {
+#notice.error,
+.dialog-error.error,
+#config-subscription-status.error {
   color: var(--danger);
 }
 @media (max-width: 450px) {
@@ -259,7 +261,23 @@ footer span {
     gap: 10px;
   }
 }
+.needs-attention {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+@keyframes attention-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+}
 @media (prefers-reduced-motion: no-preference) {
+  .needs-attention {
+    animation: attention-pulse 0.8s ease-in-out 2;
+  }
   button {
     transition: background-color 0.15s;
   }
@@ -958,4 +976,14 @@ dialog h2 {
     font-size: 13px;
     padding: 10px;
   }
+}
+
+#config-subscription-form .hint {
+  margin: 0;
+}
+#config-subscription-form .actions {
+  gap: 10px;
+}
+.options > main > .checkbox {
+  margin-top: 16px;
 }

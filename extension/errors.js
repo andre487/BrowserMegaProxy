@@ -206,7 +206,36 @@
     if (resources.has(resource)) {
       result.resource = resource
     }
+    if ((supplied?.hint || cause?.hint) === 'errorKnockMayBeRequired') {
+      result.hint = 'errorKnockMayBeRequired'
+    }
     return result
+  }
+
+  function proxyFailure(error, profile, operation = 'request') {
+    const info = details(error, operation)
+    // ponytail: transport errors only suggest camouflage; a definite diagnosis needs a server signal.
+    if (
+      ['http', 'https'].includes(profile?.type) &&
+      !profile.knockHost &&
+      !info.status &&
+      [info.code, info.reason].some(code =>
+        [
+          'errorCheckTimeout',
+          'TimeoutError',
+          'net::ERR_TUNNEL_CONNECTION_FAILED',
+          'net::ERR_TIMED_OUT',
+          'net::ERR_CONNECTION_TIMED_OUT',
+          'NS_ERROR_PROXY_BAD_GATEWAY',
+          'NS_ERROR_NET_TIMEOUT'
+        ].includes(code)
+      )
+    ) {
+      info.hint = 'errorKnockMayBeRequired'
+    }
+    const wrapped = context(error, operation)
+    wrapped.errorDetails = info
+    return wrapped
   }
 
   function context(error, operation) {
@@ -231,8 +260,8 @@
     ]
       .filter(Boolean)
       .join('; ')
-    return `${t(label)}${info.resource ? ` (${info.resource})` : ''}: ${reason}`
+    return `${t(label)}${info.resource ? ` (${info.resource})` : ''}: ${reason}${info.hint ? `\n${t(info.hint)}` : ''}`
   }
 
-  root.MegaErrors = { details, context, format, httpError, responseText }
+  root.MegaErrors = { details, context, format, httpError, responseText, proxyFailure }
 })(globalThis)

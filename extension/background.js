@@ -526,15 +526,16 @@ async function checkConnection() {
     await storeConnectionCheck()
     return result
   } catch (error) {
+    const failure = MegaErrors.proxyFailure(error, M.active(state), 'check')
     connectionCheck = {
       stage: 'failed',
       mode: connectionCheck.mode,
       profileId: connectionCheck.profileId,
-      error: MegaErrors.details(error, 'check').code,
-      errorDetails: MegaErrors.details(error, 'check')
+      error: MegaErrors.details(failure, 'check').code,
+      errorDetails: MegaErrors.details(failure, 'check')
     }
     await storeConnectionCheck()
-    throw error
+    throw failure
   }
 }
 
@@ -924,7 +925,10 @@ async function handle(message) {
   }
 
   if (message.command === 'fetchConfig') {
-    return { ok: true, data: await fetchConfig(message.url, message.auth) }
+    return {
+      ok: true,
+      data: await fetchConfig(message.url, message.auth, message.withoutProxy === true)
+    }
   }
 
   if (message.command === 'testRule') {
@@ -1091,17 +1095,30 @@ async function handle(message) {
     if (!next.subscription) {
       throw new Error('errorConfigURL')
     }
-    next.subscription = M.subscription({
-      ...next.subscription,
-      ...(Object.hasOwn(message, 'enabled') ? { enabled: message.enabled } : {}),
-      ...(Object.hasOwn(message, 'intervalMinutes')
-        ? { intervalMinutes: message.intervalMinutes }
-        : {})
-    })
+    next.subscription =
+      message.subscription === null
+        ? null
+        : M.subscription({
+            ...next.subscription,
+            ...(message.subscription || {}),
+            ...(Object.hasOwn(message, 'enabled') ? { enabled: message.enabled } : {}),
+            ...(Object.hasOwn(message, 'intervalMinutes')
+              ? { intervalMinutes: message.intervalMinutes }
+              : {})
+          })
+    if (!next.subscription) {
+      delete next.configSubscriptionState
+    }
   } else if (message.command === 'dismissConnectionUpdate') {
     delete next.connectionUpdate
   } else if (message.command === 'import') {
     const result = M.importProfiles(message.data, MEGA_TARGET, state.masqueEnabled === true)
+    const subscriptionSources = result.config?.subscription
+      ? {
+          url: result.config.subscription.url,
+          fallbackUrls: result.config.subscription.fallbackUrls || []
+        }
+      : {}
     const subscriptionUpdate = message.subscriptionUpdate
     if (subscriptionUpdate) {
       if (!result.profiles.length) {
@@ -1147,7 +1164,7 @@ async function handle(message) {
         )
       : message.removeIds || []
     if (subscriptionUpdate && result.config) {
-      result.config.subscription = state.subscription
+      result.config.subscription = { ...state.subscription, ...subscriptionSources }
     }
     next = M.mergeImport(next, result, removeIds)
     if (subscriptionUpdate && state.activeId && !next.activeId) {
@@ -1158,7 +1175,10 @@ async function handle(message) {
         null
     }
     if (Object.hasOwn(message, 'subscription')) {
-      next.subscription = M.subscription(message.subscription)
+      next.subscription =
+        message.subscription === null
+          ? null
+          : M.subscription({ ...message.subscription, ...subscriptionSources })
     }
     if (
       subscriptionUpdate ||
@@ -1836,6 +1856,23 @@ api.webRequest.onErrorOccurred.addListener(
           }
           await finishKnockRefresh(details, true)
           await updateKnockTab(details.tabId, { failed: true })
+          const p = await requestProfile(details)
+          const error = MegaErrors.proxyFailure(new Error(details.error), p)
+          if (
+            error.errorDetails.hint &&
+            !forcedTabs.has(details.tabId) &&
+            (!details.proxyInfo || details.proxyInfo.type !== 'direct') &&
+            (!connectionCheck || ['failed', 'complete'].includes(connectionCheck.stage))
+          ) {
+            connectionCheck = {
+              stage: 'failed',
+              mode: 'proxy',
+              profileId: p.id,
+              error: error.message,
+              errorDetails: error.errorDetails
+            }
+            await storeConnectionCheck()
+          }
         })
         .catch(() => {})
     }
@@ -2029,7 +2066,7 @@ async function applyWebRTC(value) {
   }
 }
 
-async function fetchConfig(value, auth) {
+async function fetchConfig(value, auth, withoutProxy = false) {
   let url
   try {
     url = new URL(value)
@@ -2043,6 +2080,16 @@ async function fetchConfig(value, auth) {
 
   if (auth) {
     M.subscription({ url: url.href, username: auth.username, password: auth.password })
+  }
+  if (withoutProxy) {
+    downloadRouting = { hosts: [M.host(url.hostname)], throughProxy: false }
+    try {
+      await platform.applyTransient({ ...state, downloadRouting })
+      return await fetchConfig(value, auth)
+    } finally {
+      downloadRouting = undefined
+      await platform.applyTransient(state)
+    }
   }
   const authorization =
     auth && (auth.username !== undefined || auth.password !== undefined)
@@ -2078,7 +2125,13 @@ async function fetchConfig(value, auth) {
       await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt))
     }
   } catch (error) {
-    throw new Error('errorConfigDownload', { cause: error })
+    throw MegaErrors.proxyFailure(
+      new Error('errorConfigDownload', { cause: error }),
+      downloadRouting?.throughProxy === false || !M.routed(url.href, state)
+        ? null
+        : M.routeProfile(url.href, state),
+      'fetchConfig'
+    )
   }
 
   if (!response.ok) {

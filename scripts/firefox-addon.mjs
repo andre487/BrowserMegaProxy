@@ -82,8 +82,25 @@ async function withFirefoxDebugger(port, action) {
   }
 }
 
-export async function installFirefoxAddon(port, addonPath, { wake = false } = {}) {
-  return withFirefoxDebugger(port, async request => {
+export async function installFirefoxAddon(port, addonPath, { wake = false, theme } = {}) {
+  return withFirefoxDebugger(port, async (request, receive) => {
+    if (theme) {
+      if (!['light', 'dark'].includes(theme)) {
+        throw new Error('Unknown theme: choose light or dark')
+      }
+      const { processDescriptor } = await request('root', 'getProcess', { id: 0 })
+      const { process } = await request(processDescriptor.actor, 'getTarget')
+      await request(process.consoleActor, 'evaluateJSAsync', {
+        text: `ChromeUtils.importESModule("resource:///modules/BuiltInThemes.sys.mjs").BuiltInThemes.ensureBuiltInThemes().then(() => ChromeUtils.importESModule("resource://gre/modules/AddonManager.sys.mjs").AddonManager.getAddonByID("firefox-compact-${theme}@mozilla.org")).then(addon => addon.enable())`,
+        mapped: { await: true }
+      })
+      const result = await receive(process.consoleActor, 'evaluationResult')
+      if (result.exception || result.topLevelAwaitRejected) {
+        throw new Error(
+          `Firefox theme failed: ${result.exceptionMessage || 'could not enable theme'}`
+        )
+      }
+    }
     const root = await request('root', 'getRoot')
     const installed = await request(root.addonsActor, 'installTemporaryAddon', { addonPath })
     if (wake) {

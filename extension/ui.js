@@ -26,6 +26,7 @@ let routingSaves = Promise.resolve()
 let routingSaving = false
 let renderedRoutingConfig
 let privateAccess
+let renderedSubscription
 
 function renderPrivateAccess() {
   $('#private-access-status').textContent = t(
@@ -157,6 +158,12 @@ function placeNotice(source) {
   return $('#notice')
 }
 
+function highlightAttention(element) {
+  element.classList.remove('needs-attention')
+  void element.offsetWidth
+  element.classList.add('needs-attention')
+}
+
 async function action(fn, operation = 'interface', source = document.activeElement) {
   if (busy) {
     return
@@ -164,6 +171,8 @@ async function action(fn, operation = 'interface', source = document.activeEleme
 
   busy = true
   const notice = placeNotice(source)
+  const attentionBlock = notice.closest('dialog, details, section') || notice
+  attentionBlock.classList.remove('needs-attention')
   const focusedProfile = captureProfileFocus(source)
   const trigger = source?.closest('button')
   const wasDisabled = trigger?.disabled
@@ -186,7 +195,8 @@ async function action(fn, operation = 'interface', source = document.activeEleme
   $('#notice').textContent = ''
   $('#notice').className = ''
   notice.classList.remove('error')
-  const showProgress = isOptions && source?.closest('form') && source.id !== 'check'
+  const showProgress =
+    isOptions && source?.closest('form') && source.id !== 'check' && working !== 'loading'
   if (showProgress) {
     notice.textContent = t(working)
   }
@@ -202,6 +212,7 @@ async function action(fn, operation = 'interface', source = document.activeEleme
   } catch (error) {
     notice.textContent = MegaErrors.format(error, operation, t)
     notice.classList.add('error')
+    highlightAttention(attentionBlock)
   } finally {
     busy = false
     source?.removeAttribute('aria-busy')
@@ -351,11 +362,17 @@ function render() {
   }
 
   MegaI18n.apply(state.language || 'auto')
-  $('#connection-update').hidden = !state.connectionUpdate
+  const connectionNotice = $('#connection-update')
+  const newConnectionNotice = connectionNotice.hidden && state.connectionUpdate
+  connectionNotice.hidden = !state.connectionUpdate
+  if (newConnectionNotice) {
+    highlightAttention(connectionNotice)
+  }
   $('#connection-update-message').textContent = state.connectionUpdate
     ? t(state.connectionUpdate.message)
     : ''
   $('#update-config-subscription').hidden = !state.subscription
+  $('#config-subscription').hidden = !state.subscription
   renderConfigSubscriptionStatus()
   renderStatistics()
   if ($('#connection-mode')) {
@@ -368,11 +385,16 @@ function render() {
 
   if (isOptions) {
     renderPrivateAccess()
-    $('#config-subscription').hidden = !state.subscription
-    if (state.subscription) {
+    const subscriptionKey = JSON.stringify(state.subscription)
+    if (state.subscription && subscriptionKey !== renderedSubscription) {
+      $('#config-subscription-url').value = state.subscription.url
+      $('#config-subscription-fallbacks').value = (state.subscription.fallbackUrls || []).join('\n')
+      $('#config-subscription-username').value = state.subscription.username || ''
+      $('#config-subscription-password').value = state.subscription.password || ''
       $('#config-subscription-enabled').checked = state.subscription.enabled
       $('#config-subscription-interval').value = state.subscription.intervalMinutes
     }
+    renderedSubscription = subscriptionKey
     $('#webrtc').value = state.webRTC || 'browser'
 
     $('#sync-enabled').checked = syncOptions.enabled
@@ -649,6 +671,7 @@ function renderRoutingMode() {
 
 function saveRouting() {
   const notice = placeNotice($('#routing-form'))
+  notice.closest('details, section')?.classList.remove('needs-attention')
   notice.textContent = t('saving')
   notice.classList.remove('error')
   const strategy = $('#routing-mode').value
@@ -683,6 +706,7 @@ function saveRouting() {
     } catch (error) {
       notice.textContent = MegaErrors.format(error, 'interface', t)
       notice.className = 'error'
+      highlightAttention(notice.closest('details, section') || notice)
     } finally {
       routingSaving = false
     }
@@ -703,6 +727,7 @@ function savePreference(command, message) {
     .catch(error => {
       notice.textContent = MegaErrors.format(error, 'interface', t)
       notice.className = 'error'
+      highlightAttention(notice.closest('details, section') || notice)
     })
   return routingSaves
 }
@@ -756,7 +781,9 @@ async function reviewImport(data, subscription) {
   }
 
   $('#import-review').hidden = false
+  highlightAttention($('#import-review'))
   $('#apply-import').focus()
+  $('#import-review').scrollIntoView({ block: 'start' })
 }
 
 function renderSubscriptions(mode) {
@@ -1002,6 +1029,14 @@ function renderCheck() {
     const index = text.lastIndexOf(flag.textContent)
     result.replaceChildren(text.slice(0, index), flag, text.slice(index + flag.textContent.length))
   }
+  const result = $('#check-result')
+  const attention = check?.errorDetails?.hint ? `${check.profileId}:${check.errorDetails.hint}` : ''
+  if (attention && result.dataset.attention !== attention) {
+    highlightAttention(result)
+  } else if (!attention) {
+    result.classList.remove('needs-attention')
+  }
+  result.dataset.attention = attention
 }
 
 $('#check').onclick = async () => {
@@ -1156,30 +1191,74 @@ if (isOptions) {
   }
   $('#import-url-form').onsubmit = event => {
     event.preventDefault()
-    action(async () => {
-      const url = $('#config-url').value
-      const username = $('#config-username').value
-      const password = $('#config-password').value
-      const auth = username || password ? { username, password } : undefined
-      const subscription = $('#config-follow').checked
-        ? MegaProxy.subscription({ url, ...auth })
-        : undefined
-      const data = (await send('fetchConfig', { url, auth: subscription || auth })).data
-      await reviewImport(data, subscription)
-      $('#config-password').value = ''
-      $('#url-import').close()
-      $('#apply-import').focus()
-      $('#import-review').scrollIntoView({ block: 'start' })
-    })
-  }
-  $('#config-subscription-enabled').onchange = () =>
-    action(() => send('configSubscription', { enabled: $('#config-subscription-enabled').checked }))
-  $('#config-subscription-interval').onchange = () =>
-    action(() =>
-      send('configSubscription', {
-        intervalMinutes: Number($('#config-subscription-interval').value)
-      })
+    action(
+      async () => {
+        const url = $('#config-url').value
+        const username = $('#config-username').value
+        const password = $('#config-password').value
+        const auth = username || password ? { username, password } : undefined
+        const subscription = $('#config-follow').checked
+          ? MegaProxy.subscription({ url, ...auth })
+          : undefined
+        let download
+        try {
+          download = await send('fetchConfig', { url, auth: subscription || auth })
+        } catch (error) {
+          const info = MegaErrors.details(error, 'fetchConfig')
+          if (
+            info.status ||
+            !['TimeoutError', 'AbortError', 'errorNetwork'].includes(info.reason) ||
+            !MegaProxy.routed(url, state) ||
+            !window.confirm(t('configDownloadWithoutProxyConfirm'))
+          ) {
+            throw error
+          }
+          download = await send('fetchConfig', {
+            url,
+            auth: subscription || auth,
+            withoutProxy: true
+          })
+        }
+        const data = download.data
+        await reviewImport(data, subscription)
+        $('#import-summary').textContent =
+          t('configDownloadChecked') + ' ' + $('#import-summary').textContent
+        $('#config-password').value = ''
+        $('#url-import').close()
+        $('#apply-import').focus()
+        $('#import-review').scrollIntoView({ block: 'start' })
+      },
+      'fetchConfig',
+      event.submitter || event.target
     )
+  }
+  $('#config-subscription-form').onsubmit = event => {
+    event.preventDefault()
+    action(
+      async () => {
+        const subscription = MegaProxy.subscription({
+          ...state.subscription,
+          url: $('#config-subscription-url').value,
+          fallbackUrls: $('#config-subscription-fallbacks').value.split(/\s+/).filter(Boolean),
+          username: $('#config-subscription-username').value,
+          password: $('#config-subscription-password').value,
+          enabled: $('#config-subscription-enabled').checked,
+          intervalMinutes: Number($('#config-subscription-interval').value)
+        })
+        await send('configSubscription', { subscription })
+        $('#notice').textContent = t('saved')
+      },
+      'configSubscription',
+      event.submitter || event.target
+    )
+  }
+  $('#cancel-config-subscription').onclick = () =>
+    action(async () => {
+      await send('configSubscription', { subscription: null })
+      $('#config-subscription').open = false
+      placeNotice($('#open-url-import')).textContent = t('configSubscriptionCancelled')
+      $('#open-url-import').focus()
+    }, 'configSubscription')
   $('#connection-notifications').onchange = () =>
     action(async () => {
       if ($('#connection-notifications').checked) {
