@@ -42,19 +42,10 @@ test('Opera dry run authenticates and checks metadata without any write requests
   assert.ok(!mock.calls[0].url.includes(env.OPERA_SESSION_ID))
 })
 
-test('Opera chunks the archive, retries delayed validation and preserves localized summaries before submission', async () => {
+test('Opera chunks the archive, retries delayed validation and submits without updating materials', async () => {
   const chunkSize = 1024 * 1024
   const archive = Buffer.alloc(chunkSize + 3, 1)
-  const mock = api([
-    addon,
-    null,
-    null,
-    { httpError: 404 },
-    { version: '0.1.1' },
-    details,
-    {},
-    submitted
-  ])
+  const mock = api([addon, null, null, { httpError: 404 }, { version: '0.1.1' }, submitted])
   let waits = 0
   assert.match(
     await submitOperaAddon('v0.1.1', archive, {
@@ -83,10 +74,10 @@ test('Opera chunks the archive, retries delayed validation and preserves localiz
   const validated = JSON.parse(mock.calls[4].body)
   assert.equal(validated.metadata_from, '0.1.0')
   assert.equal(validated.file_id, uploads[0].body.get('flowIdentifier'))
-  assert.deepEqual(JSON.parse(mock.calls[6].body), details)
-  assert.equal(mock.calls[6].method, 'PATCH')
-  assert.match(mock.calls[7].url, /123-0\.1\.1\/submit_for_moderation\/$/)
-  assert.equal(mock.calls[7].method, 'POST')
+  assert.ok(mock.calls.every(call => call.method !== 'PATCH'))
+  assert.equal(mock.calls.length, 6)
+  assert.match(mock.calls[5].url, /123-0\.1\.1\/submit_for_moderation\/$/)
+  assert.equal(mock.calls[5].method, 'POST')
 })
 
 test('Opera recovery reuses existing versions and skips a completed submission', async () => {
@@ -99,11 +90,11 @@ test('Opera recovery reuses existing versions and skips a completed submission',
           ...addon.versions
         ]
       },
-      ...(alreadySubmitted ? [] : [details, {}, submitted])
+      ...(alreadySubmitted ? [] : [submitted])
     ])
     await submitOperaAddon('v0.1.1', Buffer.from('zip'), { env, request: mock.request })
     assert.ok(!mock.calls.some(call => call.url.includes('file-upload')))
-    assert.equal(mock.calls.length, alreadySubmitted ? 1 : 4)
+    assert.equal(mock.calls.length, alreadySubmitted ? 1 : 2)
   }
 })
 
@@ -113,8 +104,6 @@ test('Opera retries version creation with exponential backoff and a fresh timeou
     null,
     ...Array.from({ length: 5 }, () => ({ httpError: 500 })),
     { version: '0.1.1' },
-    details,
-    {},
     submitted
   ])
   const waits = []
@@ -166,268 +155,10 @@ test('Opera rejects invalid settings and fails before submission on authenticati
     addon,
     null,
     { version: '0.1.1' },
-    details,
-    {},
     { version: '0.1.1', submitted_for_moderation: false }
   ])
   await assert.rejects(
     submitOperaAddon('v0.1.1', Buffer.from('zip'), { env, request: mock.request }),
     /did not confirm/
   )
-})
-
-test('Opera updates each material independently and still submits after individual or total failures', async () => {
-  const listing = {
-    summary: 'New summary',
-    description: 'New description',
-    homepage: 'https://example.org',
-    support: 'https://example.org/issues'
-  }
-  const targets = [
-    'en short_description',
-    'en long_description',
-    'ru short_description',
-    'ru long_description',
-    'support',
-    'source_url',
-    'privacy_policy',
-    'icon',
-    'dev_promotional_image',
-    'read screenshots',
-    '01.png',
-    '02.png',
-    '03.png',
-    'all',
-    'missing archive',
-    null
-  ]
-  for (const failure of targets) {
-    let screenshots = [{ id: 42 }]
-    let nextImageId = 43
-    const calls = []
-    const warnings = []
-    const reads = []
-    const result = await submitOperaAddon('v0.1.1', Buffer.from('zip'), {
-      env,
-      retryWait: async () => {},
-      warn: message => warnings.push(message),
-      readMaterial: file => {
-        reads.push(file)
-        if (failure === 'missing archive') {
-          throw new Error(`Missing archive ${env.OPERA_SESSION_ID}`)
-        }
-        return Buffer.from(file.includes('/listings/') ? JSON.stringify(listing) : 'png')
-      },
-      request: async (url, options) => {
-        calls.push({ url, ...options })
-        let body = {}
-        let target
-        if (options.method === 'GET' && url.endsWith('/packages/123/')) {
-          body = addon
-        } else if (url.endsWith('?package_id=123')) {
-          body = { version: '0.1.1' }
-        } else if (url.includes('submit_for_moderation')) {
-          body = submitted
-        } else if (options.method === 'GET' && url.endsWith('/123-0.1.0/')) {
-          body = details
-        } else if (options.method === 'GET') {
-          body = { screenshots: [...screenshots] }
-          target = 'read screenshots'
-        } else if (options.body instanceof FormData) {
-          const filename = options.body.get('file').name
-          if (filename.endsWith('.png')) {
-            target = filename
-          }
-        } else if (options.method === 'PATCH') {
-          const data = JSON.parse(options.body)
-          target = Object.keys(data)[0]
-          if (data.translations) {
-            const locale = Object.keys(data.translations)[0]
-            target = `${locale} ${Object.keys(data.translations[locale])[0]}`
-          }
-        }
-        const failed = !!target && (failure === target || failure === 'all')
-        if (!failed && options.method === 'PATCH') {
-          const image = JSON.parse(options.body).screenshots
-          if (image?.image_id) {
-            screenshots = screenshots.filter(item => item.id !== image.image_id)
-          }
-          if (image?.file_id) {
-            screenshots.push({ id: nextImageId++ })
-          }
-          assert.ok(screenshots.length <= 3)
-        }
-        return { ok: !failed, status: failed ? 400 : 200, json: async () => body }
-      }
-    })
-    assert.match(result, /submitted for moderation/)
-    assert.ok(calls.at(-1).url.includes('submit_for_moderation'))
-    assert.equal(reads.filter(file => file.includes('/listings/')).length, 6)
-    assert.ok(reads.includes('store/assets/shared/icon-64.png'))
-    assert.ok(reads.includes('store/assets/shared/promo-opera.png'))
-    for (let i = 1; i <= 3; i++) {
-      assert.ok(reads.includes(`store/assets/opera/en/0${i}.png`))
-    }
-    assert.equal(warnings.length > 0, failure !== null)
-    assert.ok(
-      warnings.every(
-        message => message.startsWith('::warning') && !message.includes(env.OPERA_SESSION_ID)
-      )
-    )
-    const deletes = calls.filter(
-      call => call.method === 'PATCH' && JSON.parse(call.body).screenshots?.image_id
-    )
-    assert.equal(
-      deletes.length,
-      ['01.png', '02.png', '03.png', 'all', 'missing archive', 'read screenshots'].includes(failure)
-        ? 0
-        : 1
-    )
-    if (failure === null) {
-      const icon = calls.find(
-        call => call.body instanceof FormData && call.body.get('file').name === 'icon-64.png'
-      )
-      const attached = calls.find(call => call.method === 'PATCH' && JSON.parse(call.body).icon)
-      assert.equal(JSON.parse(attached.body).icon.file_id, icon.body.get('flowIdentifier'))
-    }
-  }
-})
-
-test('Opera screenshot recovery stays within three slots across excess images, partial failures and reruns', async () => {
-  for (const [initialCount, asMap] of [
-    [0, false],
-    [3, false],
-    [7, false],
-    [0, true],
-    [3, true],
-    [7, true]
-  ]) {
-    let screenshots = Array.from({ length: initialCount }, (_, id) => ({ id: id + 1 }))
-    let nextId = initialCount + 1
-    let attached = 0
-    let failAttachment = true
-    const warnings = []
-    const options = {
-      env,
-      retryWait: async () => {},
-      warn: message => warnings.push(message),
-      readMaterial: file =>
-        Buffer.from(
-          file.includes('/listings/')
-            ? JSON.stringify({
-                summary: 'Proxy',
-                description: 'Proxy manager',
-                homepage: 'https://example.org',
-                support: 'https://example.org/support'
-              })
-            : 'image'
-        ),
-      request: async (url, options) => {
-        let body = {}
-        if (url.endsWith('/packages/123/') && options.method === 'GET') {
-          body = { ...addon, versions: [{ version: '0.1.1' }, ...addon.versions] }
-        } else if (url.endsWith('/123-0.1.0/')) {
-          body = details
-        } else if (url.endsWith('/submit_for_moderation/')) {
-          assert.ok(screenshots.length <= 3)
-          body = submitted
-        } else if (url.endsWith('/123-0.1.1/')) {
-          if (options.method === 'GET') {
-            body = {
-              screenshots: asMap
-                ? Object.fromEntries(screenshots.map(image => [image.id, image]))
-                : [...screenshots]
-            }
-          } else {
-            const image = JSON.parse(options.body).screenshots
-            if (image?.image_id) {
-              screenshots = screenshots.filter(item => item.id !== image.image_id)
-            }
-            if (image?.file_id) {
-              assert.ok(screenshots.length < 3, 'Must confirm room before attachment')
-              screenshots.push({ id: nextId++ })
-              attached++
-              if (failAttachment && attached === 2) {
-                failAttachment = false
-                return new Response('Failure after saving the screenshot', { status: 500 })
-              }
-            }
-          }
-        }
-        return new Response(JSON.stringify(body))
-      }
-    }
-    assert.match(await submitOperaAddon('v0.1.1', Buffer.from('zip'), options), /submitted/)
-    assert.equal(screenshots.length, 3)
-    assert.equal(attached, 3, 'An ambiguous attachment must not be retried')
-    assert.equal(warnings.length, 1)
-    const previousIds = screenshots.map(image => image.id)
-    assert.match(await submitOperaAddon('v0.1.1', Buffer.from('zip'), options), /submitted/)
-    assert.equal(screenshots.length, 3)
-    assert.equal(attached, 6)
-    assert.ok(screenshots.every(image => !previousIds.includes(image.id)))
-  }
-})
-
-test('Opera material retries survive a server-requested pause longer than the old deadline', async () => {
-  const timeout = AbortSignal.timeout
-  const timers = []
-  let now = 0
-  let attempts = 0
-  const waits = []
-  const warnings = []
-  AbortSignal.timeout = duration => {
-    const controller = new AbortController()
-    timers.push({ deadline: now + duration, controller })
-    return controller.signal
-  }
-  try {
-    const result = await submitOperaAddon('v0.1.1', Buffer.from('zip'), {
-      env,
-      warn: message => warnings.push(message),
-      retryWait: async duration => {
-        waits.push(duration)
-        now += duration
-        for (const timer of timers) {
-          if (timer.deadline <= now) {
-            timer.controller.abort(new DOMException('Deadline reached', 'TimeoutError'))
-          }
-        }
-      },
-      readMaterial: file =>
-        Buffer.from(
-          file.includes('/listings/')
-            ? JSON.stringify({
-                summary: 'New summary',
-                description: 'Description',
-                homepage: 'https://example.org',
-                support: 'https://example.org/support'
-              })
-            : 'image'
-        ),
-      request: async (url, options) => {
-        options.signal.throwIfAborted()
-        const payload = options.method === 'PATCH' ? JSON.parse(options.body) : {}
-        if (payload.translations?.en?.short_description === 'New summary' && ++attempts === 1) {
-          return new Response('Throttled', { status: 429, headers: { 'Retry-After': '1800' } })
-        }
-        const body = url.endsWith('/packages/123/')
-          ? { ...addon, versions: [{ version: '0.1.1' }, ...addon.versions] }
-          : url.endsWith('/123-0.1.0/')
-            ? details
-            : url.endsWith('/submit_for_moderation/')
-              ? submitted
-              : url.endsWith('/123-0.1.1/') && options.method === 'GET'
-                ? { screenshots: {} }
-                : {}
-        return new Response(JSON.stringify(body))
-      }
-    })
-    assert.match(result, /submitted for moderation/)
-    assert.equal(attempts, 2)
-    assert.deepEqual(waits, [1800000])
-    assert.deepEqual(warnings, [])
-  } finally {
-    AbortSignal.timeout = timeout
-  }
 })

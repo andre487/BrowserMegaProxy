@@ -261,16 +261,14 @@ variable `OPERA_PACKAGE_ID`. The listing and its first version must already exis
 in Opera's dashboard. Opera submission is enabled by default after normal releases;
 set `OPERA_PUBLISH_ENABLED=false` to disable it explicitly.
 
-The job uploads the ZIP in chunks and copies existing metadata and localized
-summaries. It then independently updates EN/RU descriptions, support/source links,
-privacy policy, icon, promotional image and the default English screenshot gallery
-from the released store-materials ZIP before submitting for moderation. Each material
-failure emits a warning and does not stop later materials or package submission.
-Material attempts have separate deadlines; see `scripts/opera-addons.mjs`. Existing
-screenshots are removed only after all replacements are accepted. It resumes a version already created in Opera after a failed attempt
-and skips a version already submitted. A successful submission does not mean Opera
-has approved or published it. Sessions can expire and dashboard API changes can
-require updating the integration. No account password is stored by this workflow.
+The job uploads the ZIP in chunks, creates the version using the previous version's
+metadata (`metadata_from`), and submits it for moderation. It does not download or
+update store materials. Synchronize descriptions, links, privacy policy, icons and
+screenshots separately using [the agent runbook](store/AGENTS.md).
+It resumes a version already created after a failed attempt and skips a version
+already submitted. A successful submission does not mean Opera has approved or
+published it. Sessions can expire and dashboard API changes can require updating
+the integration. No account password is stored by this workflow.
 
 For a read-only check, run **Actions → Opera Add-ons → Run workflow**, select a
 GitHub release tag and keep **dry_run** enabled (the default). It validates archive
