@@ -55,7 +55,7 @@ Android signing and store credentials are not needed for GitHub releases.
    another model identifier available to your project.
 4. Wait for completion. The workflow generates the EN/RU changelog, updates
    `package.json` and `package-lock.json`, creates `release/vX.Y.Z` and a PR,
-   waits for all six checks, merges the PR, and tags the merge commit.
+   waits for all six checks, squash-merges the PR, and tags the resulting commit on `main`.
    It does not bypass checks with `--admin`.
 5. The same run continues through **Verify CI, merge and tag** and **Publish release**.
    Publication checks out the exact tag and publishes archives with the committed EN/RU changelog.
@@ -64,7 +64,7 @@ Android signing and store credentials are not needed for GitHub releases.
 
 If `main` changes during checks and the PR falls behind, use **Update branch**,
 wait for CI, and merge the PR manually. The workflow verifies the original PR
-commit and will not merge an updated branch automatically; tag the merge commit
+commit and will not merge an updated branch automatically; tag the resulting commit on `main`
 using the recovery instructions below. If preparation fails after creating the PR,
 inspect that PR rather than preparing the same version again over an existing branch.
 
@@ -340,7 +340,7 @@ select **Re-run failed jobs**. Existing assets for that tag are replaced; no dup
 release is created. Code changes require a new version.
 
 If preparation fails after merging the PR but before tagging, manually tag that
-PR's merge commit (replace the placeholders):
+PR's resulting squash commit on `main` (replace the placeholders):
 
 ```sh
 git fetch origin main
