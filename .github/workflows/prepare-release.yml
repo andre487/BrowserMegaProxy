@@ -101,7 +101,7 @@ jobs:
           done
           test "$registered" = true || { echo 'Required CI checks did not start'; exit 1; }
           gh pr checks "$RELEASE_PR" --required --watch --fail-fast --interval 10
-          gh pr merge "$RELEASE_PR" --merge --match-head-commit "$RELEASE_HEAD" --delete-branch
+          gh pr merge "$RELEASE_PR" --squash --match-head-commit "$RELEASE_HEAD" --delete-branch
           commit="$(gh pr view "$RELEASE_PR" --json mergeCommit --jq .mergeCommit.oid)"
           test -n "$commit" && test "$commit" != null
           git fetch origin main
