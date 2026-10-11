@@ -207,7 +207,7 @@
     }
 
     isSubscriptionDownload(details, routing) {
-      return Boolean(routing?.hosts.includes(new URL(details.url).hostname))
+      return Boolean(routing?.hosts.includes(this.core.host(new URL(details.url).hostname)))
     }
 
     restoreKnockRefresh(data, current) {
@@ -303,7 +303,7 @@
 
     isSubscriptionDownload(details, routing) {
       return Boolean(
-        routing?.hosts.includes(new URL(details.url).hostname) &&
+        routing?.hosts.includes(this.core.host(new URL(details.url).hostname)) &&
         details.tabId === -1 &&
         (!details.originUrl || details.originUrl.startsWith(this.api.runtime.getURL('')))
       )

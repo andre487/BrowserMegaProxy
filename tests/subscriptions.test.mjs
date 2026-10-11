@@ -191,6 +191,7 @@ function harness(target, initial, fetcher) {
     btoa,
     structuredClone,
     AbortSignal,
+    AbortController,
     DecompressionStream,
     fetch: fetcher
   })

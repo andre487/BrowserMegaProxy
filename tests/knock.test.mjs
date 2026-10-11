@@ -80,6 +80,8 @@ function harness(target, credentials) {
     browser: api,
     MEGA_TARGET: target,
     crypto,
+    AbortController,
+    AbortSignal,
     URL,
     TextEncoder,
     btoa,

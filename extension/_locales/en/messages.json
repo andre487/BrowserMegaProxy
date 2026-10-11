@@ -866,6 +866,9 @@
   "errorIcon": {
     "message": "Could not load or decode the toolbar icon"
   },
+  "errorOperationCancelled": {
+    "message": "Operation cancelled because the connection mode changed"
+  },
   "reasonAbortError": {
     "message": "Operation was cancelled"
   },

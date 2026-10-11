@@ -80,6 +80,7 @@ function harness(target = 'firefox', shared = {}, fetch = globalThis.fetch, init
       get: async () => ({ url: 'https://sub.example.com/' }),
       reload: async () => {},
       create: async () => ({ id: 2 }),
+      remove: async id => calls.push(['removeTab', id]),
       onRemoved: listener('removed'),
       onUpdated: listener('updated')
     },
@@ -129,7 +130,9 @@ function harness(target = 'firefox', shared = {}, fetch = globalThis.fetch, init
     structuredClone,
     fetch,
     setTimeout: callback => setTimeout(callback, 0),
-    AbortSignal
+    AbortSignal,
+    AbortController,
+    clearTimeout
   })
   vm.runInContext(source, context)
   const send = message => new Promise(resolve => events.message(message, { id: 'test' }, resolve))
@@ -2507,4 +2510,241 @@ test('import and subscription refresh replace configuration sources while retain
   delete remote.subscription
   assert.equal((await h.send({ command: 'import', data: remote, subscription: null })).ok, true)
   assert.equal((await h.send({ command: 'get' })).state.subscription, null)
+})
+
+test('Firefox direct download of an IPv6 URL must bypass the proxy', async () => {
+  let observed
+  const h = harness(
+    'firefox',
+    {},
+    async url => {
+      observed = await h.events.proxy({
+        url,
+        tabId: -1,
+        type: 'xmlhttprequest',
+        originUrl: 'moz-extension://test/background.js'
+      })
+      return new Response(JSON.stringify(config([entry('new', 'new.example')])))
+    },
+    {
+      state: {
+        profiles: [{ id: 'one', type: 'https', host: 'proxy.example', port: 443 }],
+        activeId: 'one',
+        connectionMode: 'proxy',
+        bypassLocalNetworks: false
+      }
+    }
+  )
+  await h.flush()
+  const result = await h.send({
+    command: 'fetchConfig',
+    url: 'https://[2001:db8::1234]/config',
+    withoutProxy: true
+  })
+  assert.equal(result.ok, true)
+  assert.equal(observed.type, 'direct', `Actual routing: ${JSON.stringify(observed)}`)
+})
+
+test('concurrent sync snapshots must not leave unreachable credential chunks', async () => {
+  const shared = {}
+  const a = harness('firefox', shared)
+  const b = harness('firefox', shared)
+  await a.flush()
+  await b.flush()
+  let release, written
+  const blocked = new Promise(resolve => {
+    release = resolve
+  })
+  const chunksWritten = new Promise(resolve => {
+    written = resolve
+  })
+  b.api.storage.sync.set = async value => {
+    if (value.megaConfig) {
+      await blocked
+    }
+    Object.assign(shared, structuredClone(value))
+    if (!value.megaConfig) {
+      written()
+    }
+  }
+  const pending = b.send({ command: 'save', profile: { id: 'b', host: 'b.example', port: 443 } })
+  await chunksWritten
+  await a.send({
+    command: 'save',
+    profile: { id: 'a', host: 'a.example', port: 443, username: 'u', password: 'old-secret' }
+  })
+  const oldRevision = shared.megaConfig.revision
+  release()
+  await pending
+  await a.send({ command: 'sync', enabled: true, includePasswords: false })
+  assert.equal(
+    Object.keys(shared).some(key => key.startsWith(`mega:${oldRevision}:`)),
+    false,
+    'An unreachable snapshot containing the old password survives opt-out'
+  )
+})
+
+test('skipping all profiles must preserve subscription ownership', async () => {
+  const remote = config([entry('one', 'one.example')], {
+    subscription: { url: 'https://config.example/feed', enabled: false }
+  })
+  const h = harness('firefox', {}, async () => new Response(JSON.stringify(remote)))
+  const subscription = { url: 'https://config.example/feed', enabled: false }
+  assert.equal(
+    (
+      await h.send({
+        command: 'import',
+        data: config([entry('one', 'one.example'), entry('gone', 'gone.example')], { subscription })
+      })
+    ).ok,
+    true
+  )
+  const skipped = await h.send({
+    command: 'import',
+    data: config([{ id: 'ssh', proxy: { type: 'SSH', host: 'ssh.example', port: 22 } }], {
+      subscription
+    })
+  })
+  assert.equal(skipped.ok, true)
+  await h.send({ command: 'updateConfigSubscription' })
+  const current = await h.send({ command: 'get' })
+  assert.equal(
+    current.state.profiles.some(p => p.id === 'gone'),
+    false,
+    'Skipped import reset owned IDs; removed subscription profile survives the next refresh'
+  )
+})
+
+test('connection changes cancel downloads, stop fallback URLs and restore temporary routing', async () => {
+  for (const command of [
+    'fetchConfig',
+    'updateConfigSubscription',
+    'updateSubscriptions',
+    'contextMenu'
+  ]) {
+    const config = {
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      profiles: [{ id: 'one', proxy: { type: 'HTTPS', host: 'proxy.example', port: 443 } }],
+      subscription: {
+        url: 'https://config.example/first',
+        fallbackUrls: ['https://config.example/second'],
+        enabled: false
+      }
+    }
+    let started
+    const downloading = new Promise(resolve => {
+      started = resolve
+    })
+    let requests = 0
+    const h = harness(
+      'chromium',
+      {},
+      (_url, { signal }) =>
+        new Promise((resolve, reject) => {
+          requests++
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+          if (signal.aborted) {
+            reject(signal.reason)
+          }
+          started()
+        })
+    )
+    assert.equal((await h.send({ command: 'import', data: config })).ok, true)
+    await h.send({ command: 'activate', id: 'one' })
+    const pending = h.send({
+      command: command === 'contextMenu' ? 'fetchConfig' : command,
+      url: 'https://config.example/first',
+      withoutProxy: true
+    })
+    await downloading
+    if (command === 'contextMenu') {
+      h.events.menu({ menuItemId: 'direct' })
+      await h.flush()
+    }
+    const disconnected = await h.send({
+      command: command === 'contextMenu' ? 'get' : 'connectionMode',
+      mode: 'direct'
+    })
+    assert.equal(disconnected.ok, true)
+    assert.equal(disconnected.state.connectionMode, 'direct')
+    const cancelled = await pending
+    assert.equal(cancelled.ok, false)
+    assert.ok(
+      [cancelled.errorDetails.code, cancelled.errorDetails.reason].includes(
+        'errorOperationCancelled'
+      )
+    )
+    assert.equal(requests, 1, 'Cancellation must not try alternate URLs')
+    assert.equal(vm.runInContext('downloadRouting', h.context), undefined)
+    assert.equal(vm.runInContext('networkController.signal.aborted', h.context), false)
+    assert.equal(h.calls.filter(call => call[0] === 'proxy').at(-1)[1].value.mode, 'direct')
+  }
+})
+
+function config(profiles, extra = {}) {
+  return { schema: 'net.megaproxy487.config', version: 8, profiles, ...extra }
+}
+function entry(id, host, username = 'user') {
+  return { id, proxy: { type: 'HTTPS', host, port: 443, username } }
+}
+
+test('background restart closes unfinished diagnostic tabs and marks the check interrupted', async () => {
+  for (const stage of ['https', 'ip', 'country']) {
+    const initial = {
+      session: {
+        connectionCheck: { stage, mode: 'proxy', profileId: 'one', tabId: 17 },
+        transientProxyLease: true
+      }
+    }
+    const h = harness('chromium', {}, globalThis.fetch, initial)
+    await h.flush()
+    const { connectionCheck } = await h.send({ command: 'get' })
+    assert.equal(connectionCheck.stage, 'failed')
+    assert.equal(connectionCheck.errorDetails.reason, 'AbortError')
+    assert.equal(connectionCheck.tabId, undefined)
+    assert.ok(h.calls.some(call => call[0] === 'removeTab' && call[1] === 17))
+    assert.equal(initial.session.transientProxyLease, false)
+  }
+})
+
+test('worker restart expires unconfirmed authentication without persisting candidate credentials', async () => {
+  const initial = {
+    state: {
+      profiles: [
+        { id: 'one', host: 'proxy.example', port: 443, username: 'old', password: 'saved' }
+      ],
+      activeId: 'one'
+    }
+  }
+  const h = harness('chromium', {}, globalThis.fetch, initial)
+  await h.flush()
+  await vm.runInContext("showAuth({requestId:'r',tabId:4}, () => {}, M.active(state))", h.context)
+  const token = new URL(h.calls.find(call => call[0] === 'authWindow')[1].url).searchParams.get(
+    'id'
+  )
+  const send = (target, message) =>
+    new Promise(resolve =>
+      target.events.message(
+        { ...message, token },
+        { id: 'test', url: `moz-extension://test/auth.html?id=${token}` },
+        resolve
+      )
+    )
+  assert.equal(
+    (
+      await send(h, {
+        command: 'authSubmit',
+        username: 'candidate',
+        password: 'unconfirmed-secret'
+      })
+    ).ok,
+    true
+  )
+  const restarted = harness('chromium', {}, globalThis.fetch, initial)
+  await restarted.flush()
+  assert.equal((await send(restarted, { command: 'authGet' })).error, 'errorAuthExpired')
+  const state = (await restarted.send({ command: 'get' })).state
+  assert.equal(state.profiles[0].password, 'saved')
+  assert.equal(JSON.stringify(h.stored() || {}).includes('unconfirmed-secret'), false)
 })

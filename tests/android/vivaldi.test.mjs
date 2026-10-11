@@ -1,4 +1,4 @@
-/* global chrome, handle */
+/* global chrome */
 import assert from 'node:assert/strict'
 import { after, afterEach, before, describe, it } from 'node:test'
 import { execFile } from 'node:child_process'
@@ -95,25 +95,27 @@ const poll = async (condition, description) => {
   throw new Error(`Timed out: ${description}`)
 }
 const command = async message => {
-  const result = await worker.evaluate(async message => {
-    if (message.command === 'testVisit') {
-      const tab = globalThis.testTabId
-        ? await chrome.tabs.update(globalThis.testTabId, { url: message.url })
-        : await chrome.tabs.create({ url: message.url })
-      globalThis.testTabId = tab.id
-      return { ok: true, tab }
-    }
-    if (message.command === 'testCompleted') {
-      return { ok: true, completed: globalThis.testCompleted }
-    }
-    return handle(message)
-  }, message)
+  const result = !message.command.startsWith('test')
+    ? await commandPage.evaluate(message => chrome.runtime.sendMessage(message), message)
+    : await worker.evaluate(async message => {
+        if (message.command === 'testVisit') {
+          const tab = globalThis.testTabId
+            ? await chrome.tabs.update(globalThis.testTabId, { url: message.url })
+            : await chrome.tabs.create({ url: message.url })
+          globalThis.testTabId = tab.id
+          return { ok: true, tab }
+        }
+        if (message.command === 'testCompleted') {
+          return { ok: true, completed: globalThis.testCompleted }
+        }
+        throw new Error('Unknown test command')
+      }, message)
   assert.equal(result.ok, true, result.error)
   return result
 }
 
 let directPort
-let context, extensionId, knockStatus
+let context, extensionId, knockStatus, commandPage, configPort
 
 const visit = async url => {
   await command({ command: 'testVisit', url })
@@ -299,6 +301,43 @@ describe('Vivaldi Android', { concurrency: false }, () => {
           cert: await readFile(`${output}/test-cert.pem`)
         },
         (req, res) => {
+          if (req.url === '/config') {
+            if (
+              req.headers.authorization !==
+              `Basic ${Buffer.from('reader:subscription-secret').toString('base64')}`
+            ) {
+              res.writeHead(403).end('Forbidden')
+              return
+            }
+            res.setHeader('Content-Type', 'application/json')
+            res.end(
+              JSON.stringify({
+                schema: 'net.megaproxy487.config',
+                version: 8,
+                profiles: [
+                  {
+                    id: 'downloaded',
+                    name: 'Downloaded',
+                    proxy: { type: 'HTTPS', host: 'downloaded.example', port: 443 },
+                    dns: { provider: 'FUTURE_DNS_PROVIDER' }
+                  }
+                ]
+              })
+            )
+            return
+          }
+          if (req.headers.host !== 'knock.megaproxy.test') {
+            res
+              .writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' })
+              .end(
+                req.headers.host === 'example.com'
+                  ? 'Diagnostic OK'
+                  : req.headers.host === 'ifconfig.me'
+                    ? '203.0.113.7'
+                    : 'US'
+              )
+            return
+          }
           requests.push({ route: 'knock', url: req.url, statusCode: knockStatus })
           // The next scenario changes this same URL from success to failure.
           res.writeHead(knockStatus, { 'Cache-Control': 'no-store' }).end('Knock response')
@@ -306,6 +345,9 @@ describe('Vivaldi Android', { concurrency: false }, () => {
       )
       servers.push(tlsOrigin)
       await new Promise(resolve => tlsOrigin.listen(0, '127.0.0.1', resolve))
+      configPort = tlsOrigin.address().port
+      ports.push(configPort)
+      await adb('reverse', `tcp:${configPort}`, `tcp:${configPort}`)
       const proxyPort = await listen((req, res) => {
         const authenticated =
           req.headers['proxy-authorization'] ===
@@ -341,7 +383,14 @@ describe('Vivaldi Android', { concurrency: false }, () => {
           )
           return
         }
-        if (req.url !== 'knock.megaproxy.test:443') {
+        if (
+          ![
+            'knock.megaproxy.test:443',
+            'example.com:443',
+            'ifconfig.me:443',
+            'ifconfig.co:443'
+          ].includes(req.url)
+        ) {
           socket.end('HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
           return
         }
@@ -361,6 +410,8 @@ describe('Vivaldi Android', { concurrency: false }, () => {
           })
         }
       })
+      commandPage = await context.newPage()
+      await commandPage.goto(`chrome-extension://${extensionId}/options.html`)
       await command({ command: 'sync', enabled: false, includePasswords: false })
       await command({
         command: 'save',
@@ -571,6 +622,34 @@ describe('Vivaldi Android', { concurrency: false }, () => {
       await page.screenshot({ path: `${output}/${name}.png` })
     })
   }
+
+  it('URL import, subscription and connection diagnostics work through the Android options UI', async () => {
+    const page = commandPage
+    await command({ command: 'activate', id: 'mobile-test' })
+    await command({ command: 'routing', routing: { enabled: false } })
+    await page.reload()
+    await page.locator('#open-url-import').click()
+    await page.locator('#config-url').fill(`https://127.0.0.1:${configPort}/config`)
+    await page.locator('#config-username').fill('reader')
+    await page.locator('#config-password').fill('subscription-secret')
+    await page.locator('#config-follow').check()
+    await page.locator('#import-url-form button[type=submit]').click()
+    await page.locator('#import-review').waitFor({ state: 'visible' })
+    await page.locator('#apply-import').click()
+    await page.locator('#config-subscription').waitFor({ state: 'visible' })
+    const { state } = await command({ command: 'get' })
+    assert.ok(state.profiles.some(profile => profile.id === 'downloaded'))
+    assert.equal(state.subscription.url, `https://127.0.0.1:${configPort}/config`)
+    await page.locator('#check').click()
+    await poll(
+      async () => (await command({ command: 'get' })).connectionCheck?.stage === 'complete',
+      'Android connection check completes'
+    )
+    await poll(
+      async () => (await page.locator('#check-result').innerText()).includes('203.0.113.7'),
+      'Android options UI displays the completed connection check'
+    )
+  })
 
   after(async () => {
     await writeFile(

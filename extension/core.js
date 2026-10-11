@@ -791,9 +791,6 @@ function FindProxyForURL(url, host) {
     }
 
     const portable = data?.schema === SCHEMA || data?.schema === 'dev.megaproxy.config'
-    if (portable && data.version === 8 && root.MegaValidate && !root.MegaValidate(data)) {
-      throw new Error('errorProfileFields', { cause: new Error('errorConfigSchema') })
-    }
 
     if (data?.schema && !portable) {
       throw new Error('errorImport')
@@ -997,6 +994,17 @@ function FindProxyForURL(url, host) {
       }
 
       profiles.push(result)
+    }
+
+    // Validate only data this browser will apply; unsupported entries and fields are discarded.
+    if (
+      portable &&
+      data.version === 8 &&
+      profiles.length &&
+      root.MegaValidate &&
+      !root.MegaValidate({ ...data, profiles: profiles.map(p => p.portable) })
+    ) {
+      throw new Error('errorProfileFields', { cause: new Error('errorConfigSchema') })
     }
 
     if (!profiles.length && !skipped.length) {
@@ -1337,7 +1345,11 @@ function FindProxyForURL(url, host) {
         }
 
         if (old && result.missingPasswords.includes(p.id)) {
-          next.password = next.username ? old.password : ''
+          next.password =
+            next.username &&
+            ['type', 'host', 'port', 'username'].every(key => next[key] === old[key])
+              ? old.password
+              : ''
         }
 
         return [p.id, profile(next)]

@@ -76,22 +76,36 @@
 
   function responseText(value, secrets = []) {
     let text = String(value || '')
-    for (const secret of secrets.filter(value => typeof value === 'string' && value)) {
-      for (const encoded of new Set([
-        secret,
-        encodeURIComponent(secret),
-        JSON.stringify(secret).slice(1, -1)
-      ])) {
-        text = text.split(encoded).join('[redacted]')
-        // A bounded read can end partway through an echoed credential.
-        for (let length = Math.min(encoded.length - 1, text.length); length >= 4; length--) {
-          if (text.endsWith(encoded.slice(0, length))) {
-            text = text.slice(0, -length) + '[redacted]'
-            break
-          }
+    const encodedSecrets = new Set(
+      secrets
+        .filter(value => typeof value === 'string' && value)
+        .flatMap(secret => [
+          secret,
+          encodeURIComponent(secret),
+          JSON.stringify(secret).slice(1, -1)
+        ])
+    )
+    // Mark the original text: credentials may overlap or contain the replacement marker itself.
+    const hidden = new Uint8Array(text.length)
+    for (const secret of encodedSecrets) {
+      for (
+        let start = text.indexOf(secret);
+        start !== -1;
+        start = text.indexOf(secret, start + 1)
+      ) {
+        hidden.fill(1, start, start + secret.length)
+      }
+      // A bounded read can end partway through an echoed credential.
+      for (let length = Math.min(secret.length - 1, text.length); length >= 4; length--) {
+        if (text.endsWith(secret.slice(0, length))) {
+          hidden.fill(1, text.length - length)
+          break
         }
       }
     }
+    text = Array.from(text.split(''), (character, index) =>
+      hidden[index] ? (hidden[index - 1] ? '' : '[redacted]') : character
+    ).join('')
     const safe = text
       .replace(/https?:\/\/[^\s"'<>]+/gi, '[URL redacted]')
       .replace(/\b(?:Bearer|Basic|JWT)\s+[A-Za-z0-9._~+/=-]+/gi, '[authorization redacted]')

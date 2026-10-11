@@ -210,3 +210,15 @@ test('5xx response diagnostics read bounded JSON/HTML, redact credentials and su
     /private-sess/
   )
 })
+
+test('response redaction covers overlapping, encoded and truncated credentials without rewriting markers', () => {
+  for (const [body, secrets, expected] of [
+    ['aliceSuperSecretPassword', ['alice', 'aliceSuperSecretPassword'], '[redacted]'],
+    ['abcdefghi', ['abcdef', 'defghi'], '[redacted]'],
+    ['abcd%20efgh', ['abcd', 'abcd efgh'], '[redacted]'],
+    ['trace: aliceSuperSecret', ['alice', 'aliceSuperSecretPassword'], 'trace: [redacted]'],
+    ['redacted secret', ['secret', 'redacted'], '[redacted] [redacted]']
+  ]) {
+    assert.equal(globalThis.MegaErrors.responseText(body, secrets), expected)
+  }
+})

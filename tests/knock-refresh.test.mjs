@@ -106,7 +106,8 @@ function harness(target = 'chromium', session = {}, opened = new Map(), savedCre
     TextEncoder,
     btoa,
     structuredClone,
-    AbortSignal
+    AbortSignal,
+    AbortController
   })
   vm.runInContext(source, context)
   const send = message => new Promise(resolve => events.message(message, { id: 'test' }, resolve))
