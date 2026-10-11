@@ -69,7 +69,7 @@ test('SOCKS5 imports and exports preserve the protocol and report unsupported au
   assert.equal(exported.profiles[0].proxy.type, 'SOCKS5')
   assert.equal(exported.profiles[0].proxy.password, 'secret')
   assert.equal(M.exportConfig(state).profiles[0].proxy.password, undefined)
-  assert.throws(() => M.importProfiles(config, 'chromium'), /errorSocksAuthUnsupported/)
+  assert.deepEqual(M.importProfiles(config, 'chromium').profiles, [])
   delete config.profiles[0].proxy.username
   delete config.profiles[0].proxy.password
   assert.equal(M.importProfiles(config, 'chromium').profiles[0].type, 'socks5')
@@ -80,9 +80,66 @@ test('SOCKS5 imports and exports preserve the protocol and report unsupported au
       .type,
     'socks5'
   )
-  assert.throws(
-    () => M.importProfiles('socks5://u:p@proxy.example', 'chromium'),
-    /errorSocksAuthUnsupported/
+  assert.deepEqual(M.importProfiles('socks5://u:p@proxy.example', 'chromium').profiles, [])
+})
+
+test('mixed imports skip browser-incompatible profiles and unknown fields without losing compatible profiles', () => {
+  const config = structuredClone(portable)
+  config.profiles.push(
+    { id: 'masque', name: 'MASQUE', proxy: { type: 'MASQUE', host: 'masque.example', port: 443 } },
+    {
+      id: 'socks',
+      name: 'SOCKS auth',
+      proxy: { type: 'SOCKS5', host: 'socks.example', port: 1080, username: 'u', password: 'p' }
+    },
+    { id: 'ssh', name: 'SSH', proxy: { type: 'SSH', host: 'ssh.example', port: 22 } }
+  )
+  config.profiles[0].browser.futureOption = true
+  config.activeProfileId = 'masque'
+  assert.ok(validate(config), JSON.stringify(validate.errors))
+  const result = M.importProfiles(config, 'chromium')
+  assert.deepEqual(
+    result.profiles.map(p => p.id),
+    ['server']
+  )
+  assert.deepEqual(result.skipped, ['MASQUE', 'SOCKS auth', 'SSH'])
+  assert.equal(result.unknownFields, true)
+  assert.equal(result.profiles[0].portable.browser.futureOption, undefined)
+  assert.equal(M.mergeImport(M.defaults(), result).profiles.length, 1)
+  const urls = M.importProfiles(
+    'masque://masque.example\nsocks5://u:p@socks.example\nhttps://u:p@proxy.example',
+    'chromium'
+  )
+  assert.equal(urls.profiles.length, 1)
+  assert.deepEqual(urls.skipped, ['masque.example', 'socks.example'])
+  const allSkipped = M.importProfiles({ profiles: config.profiles.slice(1) }, 'chromium')
+  const existing = M.mergeImport(M.defaults(), result)
+  assert.deepEqual(M.mergeImport(existing, allSkipped), existing)
+  const omega = M.importProfiles(
+    {
+      schemaVersion: 2,
+      '+Working': {
+        profileType: 'FixedProfile',
+        fallbackProxy: { scheme: 'https', host: 'proxy.example', port: 443 }
+      },
+      '+SOCKS auth': {
+        profileType: 'FixedProfile',
+        fallbackProxy: { scheme: 'socks5', host: 'socks.example', port: 1080 },
+        auth: { all: { username: 'u', password: 'p' } }
+      }
+    },
+    'chromium'
+  )
+  assert.deepEqual(
+    omega.profiles.map(p => p.name),
+    ['Working']
+  )
+  assert.deepEqual(omega.skipped, ['SOCKS auth'])
+  assert.throws(() =>
+    M.importProfiles(
+      { profiles: [{ type: 'https', host: 'https://invalid.example', port: 443 }] },
+      'chromium'
+    )
   )
 })
 
@@ -151,7 +208,7 @@ test('import rejects knock conflicts introduced by preserving omitted local bypa
   assert.equal(state.profiles[0].knockHost, 'knock.example')
 })
 
-test('all Android input formats preserve encoded credentials, metadata and reject unsupported transports', () => {
+test('all Android input formats preserve encoded credentials, metadata and skip unsupported transports', () => {
   for (const prefix of ['', '# superproxy:proxylist:v1\n']) {
     const result = M.importProfiles(
       prefix +
@@ -184,7 +241,7 @@ test('all Android input formats preserve encoded credentials, metadata and rejec
   const chain = structuredClone(portable)
   chain.profiles[0].proxy.type = 'HTTPS_JUMP'
   chain.profiles[0].proxy.jump = { host: 'jump.example', port: 443 }
-  assert.throws(() => M.importProfiles(chain), /errorImportCompatible/)
+  assert.deepEqual(M.importProfiles(chain).profiles, [])
 })
 
 test('imports without colors choose random distinct palette colors and preserve supplied colors', t => {
@@ -265,6 +322,16 @@ test('standalone browser validator rejects invalid optional fields at import', a
     M.mergeImport(M.defaults(), M.importProfiles(portable))
   )
   assert.ok(context.MegaValidate(config))
+  const mixed = structuredClone(config)
+  mixed.profiles.push({
+    id: 'masque',
+    name: 'MASQUE',
+    proxy: { type: 'MASQUE', host: 'masque.example', port: 443 }
+  })
+  assert.equal(context.MegaProxy.importProfiles(mixed, 'chromium').profiles.length, 1)
+  assert.deepEqual(Array.from(context.MegaProxy.importProfiles(mixed, 'chromium').skipped), [
+    'MASQUE'
+  ])
   const future = structuredClone(config)
   future.subscription = { url: 'https://configs.example/', futureSetting: { secret: 'hidden' } }
   future.profiles[0].routing = { bypassLocalNetworks: false }
@@ -434,7 +501,7 @@ test('Chromium downgrades obsolete profile assignments and inactive tab settings
   assert.equal(imported.unsupportedSplitProxy, true)
 })
 
-test('MASQUE import and export preserve the Firefox template and reject Chromium', () => {
+test('MASQUE import and export preserve the Firefox template and skip Chromium', () => {
   const config = structuredClone(portable)
   config.profiles[0].proxy.type = 'MASQUE'
   config.profiles[0].proxy.username = ''
@@ -456,7 +523,7 @@ test('MASQUE import and export preserve the Firefox template and reject Chromium
     M.importProfiles(M.exportConfig(state, false), 'firefox', true).missingPasswords,
     []
   )
-  assert.throws(() => M.importProfiles(config, 'chromium'), /errorMasqueUnsupported/)
+  assert.deepEqual(M.importProfiles(config, 'chromium').profiles, [])
 })
 
 test('disabled MASQUE imports skip profiles with a warning, including MASQUE-only files', () => {

@@ -2101,31 +2101,36 @@ test('routing sections have one title and network actions follow the selected mo
   }
 })
 
-test('UI shows and highlights the possible camouflage hint alongside the original error', async ({
-  page
-}) => {
-  await page.goto('http://127.0.0.1:8765/popup.html')
-  await expect(page.locator('body')).toBeVisible()
-  await page.evaluate(() => {
-    chrome.runtime.sendMessage = async () => ({
-      ok: false,
-      error: 'errorCheckTimeout',
-      errorDetails: {
-        operation: 'check',
-        code: 'errorCheckTimeout',
-        hint: 'errorKnockMayBeRequired'
-      }
+for (const surface of ['popup', 'options']) {
+  test(`UI shows and highlights the possible camouflage hint alongside the original error (${surface})`, async ({
+    page
+  }) => {
+    await page.goto(`http://127.0.0.1:8765/${surface}.html`)
+    await expect(page.locator('body')).toBeVisible()
+    await page.evaluate(() => {
+      chrome.runtime.sendMessage = async () => ({
+        ok: false,
+        error: 'errorCheckTimeout',
+        errorDetails: {
+          operation: 'check',
+          code: 'errorCheckTimeout',
+          hint: 'errorKnockMayBeRequired'
+        }
+      })
     })
+    await page.locator('#check').click()
+    await expect(page.locator('#check-result')).toContainText('Истекло время проверки подключения')
+    await expect(page.locator('#check-result')).toContainText(
+      'Возможно, прокси работает в режиме маскировки'
+    )
+    await expect(page.locator('#check-result')).toContainText('Укажите его в настройках профиля')
+    await expect(page.locator('#check-result')).toContainText(
+      'в браузерах на базе Chromium нужен knock host'
+    )
+    await expect(page.locator('#check-result')).toHaveClass('error needs-attention')
+    await expect(page.locator('#notice')).toBeEmpty()
   })
-  await page.locator('#check').click()
-  await expect(page.locator('#check-result')).toContainText('Истекло время проверки подключения')
-  await expect(page.locator('#check-result')).toContainText(
-    'Возможно, прокси работает в режиме маскировки'
-  )
-  await expect(page.locator('#check-result')).toContainText('Укажите его в настройках профиля')
-  await expect(page.locator('#check-result')).toHaveClass('error needs-attention')
-  await expect(page.locator('#notice')).toBeEmpty()
-})
+}
 
 test('UI explains transport failures and transferred background errors with their operation', async ({
   page
@@ -2307,6 +2312,46 @@ test('MASQUE editor is Firefox-only and preserves its path template', async ({
   await form.locator('[name=type]').selectOption('https')
   await expect(page.locator('#masque-template-field')).toBeHidden()
   await expect(form.locator('[name=knockHost]')).toBeEnabled()
+})
+
+test('Chromium imports compatible profiles from a file while warning about unsupported profiles and fields', async ({
+  page,
+  browserName
+}) => {
+  test.skip(browserName !== 'chromium')
+  await page.locator('#import').setInputFiles({
+    name: 'mixed.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(
+      JSON.stringify({
+        profiles: [
+          {
+            name: 'Working',
+            proxy: { type: 'HTTPS', host: 'proxy.example', port: 443, futureOption: true }
+          },
+          { name: 'MASQUE', proxy: { type: 'MASQUE', host: 'masque.example', port: 443 } },
+          {
+            name: 'SOCKS auth',
+            proxy: {
+              type: 'SOCKS5',
+              host: 'socks.example',
+              port: 1080,
+              username: 'u',
+              password: 'p'
+            }
+          },
+          { name: 'SSH', proxy: { type: 'SSH' } }
+        ]
+      })
+    )
+  })
+  await expect(page.locator('#import-warnings')).toContainText('MASQUE, SOCKS auth, SSH')
+  await expect(page.locator('#import-warnings')).toContainText(
+    'Конфигурация содержит неизвестные поля'
+  )
+  await page.locator('#apply-import').click()
+  await expect(page.locator('.profile')).toHaveCount(1)
+  await expect(page.locator('.profile')).toContainText('Working')
 })
 
 test('Firefox warns when disabled MASQUE profiles are imported from a file', async ({

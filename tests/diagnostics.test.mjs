@@ -149,6 +149,7 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
     api,
     session,
     emit,
+    testPage: (tabId, url, signal) => context.testPage(tabId, url, signal),
     flush: () => vm.runInContext('queue', context)
   }
 }
@@ -178,6 +179,41 @@ test('a failed routed tunnel without knock reports a hint, while direct and excl
       assert.equal(h.session.connectionCheck.errorDetails.hint, 'errorKnockMayBeRequired')
     }
   }
+})
+
+test('Firefox diagnostic navigation waits past provisional cancellation but retains cancellation on abort', async () => {
+  for (const code of ['NS_BINDING_ABORTED', 'NS_ERROR_DOCUMENT_LOAD_LISTENER_NO_PARENT_CHANNEL']) {
+    for (const replaced of [false, true]) {
+      const h = harness()
+      await h.command({ command: 'get' })
+      const update = h.api.tabs.update
+      const controller = new AbortController()
+      h.api.tabs.update = async (id, changes) => {
+        h.emit('error', { tabId: id, type: 'main_frame', url: changes.url, error: code })
+        if (replaced) {
+          await update(id, changes)
+        } else {
+          controller.abort()
+        }
+      }
+      const page = h.testPage(7, 'https://example.com/', controller.signal)
+      if (replaced) {
+        await page
+      } else {
+        await assert.rejects(page, error => {
+          assert.equal(error.message, 'errorCheckNetwork')
+          assert.equal(error.cause.message, code)
+          return true
+        })
+      }
+    }
+  }
+  const h = harness([], false, 'chromium')
+  await h.command({ command: 'get' })
+  h.api.tabs.update = async id => {
+    h.emit('error', { tabId: id, type: 'main_frame', error: 'net::ERR_ABORTED' })
+  }
+  await assert.rejects(h.testPage(7, 'https://example.com/', new AbortController().signal))
 })
 
 test('connection check falls back on transport and invalid IP responses, treats country as optional and closes its tab', async () => {

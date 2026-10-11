@@ -5,10 +5,41 @@ import '../extension/errors.js'
 
 const { details, context, format } = globalThis.MegaErrors
 
+test('Firefox cancellation, stream and NSPR errors survive check serialization and localization', async () => {
+  for (const code of [
+    'NS_BINDING_ABORTED',
+    'NS_BINDING_FAILED',
+    'NS_BASE_STREAM_CLOSED',
+    'PR_CONNECT_RESET_ERROR',
+    'PR_END_OF_FILE_ERROR'
+  ]) {
+    const error = new Error('errorCheckNetwork', { cause: new Error(code) })
+    const info = JSON.parse(JSON.stringify(details(error, 'check')))
+    assert.equal(info.code, 'errorCheckNetwork')
+    assert.equal(info.reason, code)
+    for (const locale of ['en', 'ru']) {
+      const catalog = JSON.parse(
+        await readFile(`extension/_locales/${locale}/messages.json`, 'utf8')
+      )
+      const text = format({ errorDetails: info }, 'check', key => catalog[key]?.message || key)
+      assert.ok(text.includes(code))
+      assert.ok(!text.includes(catalog.errorUnexpected.message))
+    }
+  }
+  assert.equal(
+    details(new Error('PR_SECRET=https://user:password@example.com/')).code,
+    'errorUnexpected'
+  )
+})
+
 test('camouflage hints retain the transport error and exclude HTTP, DNS, certificate and configured-knock failures', async () => {
   const profile = { type: 'https', knockHost: '' }
   for (const original of [
     new Error('net::ERR_TUNNEL_CONNECTION_FAILED'),
+    new Error('net::ERR_TIMED_OUT'),
+    new Error('net::ERR_CONNECTION_TIMED_OUT'),
+    new Error('NS_ERROR_PROXY_BAD_GATEWAY'),
+    new Error('NS_ERROR_NET_TIMEOUT'),
     new Error('errorCheckTimeout'),
     new Error('errorConfigDownload', { cause: new DOMException('', 'TimeoutError') })
   ]) {
@@ -36,6 +67,9 @@ test('camouflage hints retain the transport error and exclude HTTP, DNS, certifi
     [new Error('errorCheckTimeout'), { type: 'socks5' }],
     [new Error('net::ERR_NAME_NOT_RESOLVED'), profile],
     [new Error('net::ERR_CERT_AUTHORITY_INVALID'), profile],
+    [new Error('NS_ERROR_UNKNOWN_HOST'), profile],
+    [new Error('SEC_ERROR_UNKNOWN_ISSUER'), profile],
+    [new Error('NS_BINDING_ABORTED'), profile],
     [Object.assign(new Error('errorHTTP'), { status: 403 }), profile]
   ]) {
     assert.equal(details(globalThis.MegaErrors.proxyFailure(error, p)).hint, undefined)

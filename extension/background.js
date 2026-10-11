@@ -423,6 +423,7 @@ function testPage(tabId, url, signal) {
     let loaded = false
     let received = false
     let httpFailure
+    let navigationFailure
     const updated = (id, change, tab) => {
       if (
         id === tabId &&
@@ -437,10 +438,11 @@ function testPage(tabId, url, signal) {
       }
     }
 
-    const abort = () => finish(httpFailure || new Error('errorCheckTimeout'))
+    const abort = () => finish(httpFailure || navigationFailure || new Error('errorCheckTimeout'))
 
     const completed = details => {
       if (details.tabId === tabId && details.type === 'main_frame') {
+        navigationFailure = undefined
         if (
           new URL(details.url).hostname !== new URL(url).hostname ||
           details.statusCode < 200 ||
@@ -471,7 +473,13 @@ function testPage(tabId, url, signal) {
 
     const failed = details => {
       if (details.tabId === tabId && details.type === 'main_frame') {
-        finish(new Error('errorCheckNetwork', { cause: new Error(details.error) }))
+        const error = new Error('errorCheckNetwork', { cause: new Error(details.error) })
+        if (MegaErrors.isNavigationCancellation(details.error, platform.id)) {
+          // Firefox Android can cancel a provisional channel while the replacement document still loads.
+          navigationFailure = error
+          return
+        }
+        finish(error)
       }
     }
 
@@ -1848,7 +1856,10 @@ api.webRequest.onErrorOccurred.addListener(
         ...MegaErrors.details(new Error(details.error), 'request')
       })
     }
-    if (details.type === 'main_frame') {
+    if (
+      details.type === 'main_frame' &&
+      !MegaErrors.isNavigationCancellation(details.error, platform.id)
+    ) {
       queue = queue
         .then(async () => {
           if (await retryKnock(details)) {

@@ -1365,6 +1365,40 @@ test('background errors identify downloads, HTTP status, timeout and read-only o
   assert.equal(response.errorDetails.code, 'errorUnexpected')
 })
 
+test('Firefox provisional cancellation preserves a successful knock response until the tab finishes loading', async () => {
+  for (const error of [
+    'NS_BINDING_ABORTED',
+    'NS_ERROR_DOCUMENT_LOAD_LISTENER_NO_PARENT_CHANNEL',
+    'NS_ERROR_CONNECTION_REFUSED'
+  ]) {
+    const h = harness('firefox', {}, undefined, {
+      state: {
+        profiles: [{ id: 'p', host: 'proxy.example', port: 443, knockHost: 'knock.example' }],
+        activeId: 'p'
+      },
+      session: {
+        knockTabs: [
+          { tabId: 2, profileId: 'p', host: 'knock.example', received: false, loaded: false }
+        ]
+      }
+    })
+    h.api.tabs.get = async () => ({ url: 'https://knock.example/', status: 'loading' })
+    h.api.tabs.remove = async id => h.calls.push(['removeTab', id])
+    await h.flush()
+    const details = { tabId: 2, type: 'main_frame', url: 'https://knock.example/' }
+    h.events.onCompleted({ ...details, statusCode: 200 })
+    await h.flush()
+    h.events.onErrorOccurred({ ...details, error })
+    await h.flush()
+    h.events.updated(2, { status: 'complete' }, { url: details.url })
+    await h.flush()
+    assert.equal(
+      h.calls.some(([event]) => event === 'removeTab'),
+      error !== 'NS_ERROR_CONNECTION_REFUSED'
+    )
+  }
+})
+
 test('proxy auth dialog focuses once, retries rejected credentials, and saves only confirmed credentials', async () => {
   for (const target of ['chromium', 'firefox']) {
     const h = harness(target, {}, undefined, {
@@ -1447,8 +1481,15 @@ test('proxy auth dialog focuses once, retries rejected credentials, and saves on
 })
 
 test('cancelling or failing proxy verification never persists candidate credentials or origin credentials', async () => {
-  for (const scenario of ['cancel', 'cancelAfterSubmit', 'network', 'profileChanged', 'storage']) {
-    const h = harness('chromium', {}, undefined, {
+  for (const scenario of [
+    'cancel',
+    'cancelAfterSubmit',
+    'network',
+    'firefoxCancellation',
+    'profileChanged',
+    'storage'
+  ]) {
+    const h = harness(scenario === 'firefoxCancellation' ? 'firefox' : 'chromium', {}, undefined, {
       state: {
         profiles: [
           { id: 'p', host: 'proxy.example', port: 443, username: 'old', password: 'old-secret' }
@@ -1492,14 +1533,18 @@ test('cancelling or failing proxy verification never persists candidate credenti
           throw new DOMException('private-secret', 'QuotaExceededError')
         }
       }
-      if (scenario === 'network') {
-        h.events.onErrorOccurred({ ...details, error: 'net::ERR_CONNECTION_RESET' })
+      if (scenario === 'network' || scenario === 'firefoxCancellation') {
+        h.events.onErrorOccurred({
+          ...details,
+          error:
+            scenario === 'firefoxCancellation' ? 'NS_BINDING_ABORTED' : 'net::ERR_CONNECTION_RESET'
+        })
       } else {
         h.events.onCompleted({ ...details, statusCode: 200 })
       }
     }
     await h.flush()
-    if (scenario === 'network') {
+    if (scenario === 'network' || scenario === 'firefoxCancellation') {
       assert.equal((await send({ command: 'authGet' })).auth.phase, 'failed')
     }
     assert.equal((await h.send({ command: 'get' })).state.profiles[0].password, 'old-secret')
