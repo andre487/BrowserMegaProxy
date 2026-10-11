@@ -2918,7 +2918,7 @@ test('URL import shows loading only on the button and reports HTTP, timeout and 
   await expect(page.locator('.profile')).toHaveCount(0)
 })
 
-for (const outcome of ['accept', 'cancel', '403', 'direct-fails']) {
+for (const outcome of ['accept', 'cancel', '403', 'direct-fails', 'interrupted']) {
   test(`URL download offers an explicit direct retry after proxy failure: ${outcome}`, async ({
     page
   }) => {
@@ -2947,7 +2947,12 @@ for (const outcome of ['accept', 'cancel', '403', 'direct-fails']) {
             errorDetails: {
               operation: 'fetchConfig',
               code: 'errorConfigDownload',
-              reason: outcome === '403' ? 'errorHTTP' : 'TimeoutError',
+              reason:
+                outcome === '403'
+                  ? 'errorHTTP'
+                  : outcome === 'interrupted'
+                    ? 'errorOperationCancelled'
+                    : 'TimeoutError',
               ...(outcome === '403' ? { status: 403 } : {})
             }
           }
@@ -2980,10 +2985,14 @@ for (const outcome of ['accept', 'cancel', '403', 'direct-fails']) {
       await expect(page.locator('#import-review')).toBeVisible()
     } else {
       await expect(page.locator('#url-import .dialog-error')).toContainText(
-        outcome === '403' ? 'HTTP 403' : 'Превышено время ожидания'
+        outcome === '403'
+          ? 'HTTP 403'
+          : outcome === 'interrupted'
+            ? 'Операция отменена'
+            : 'Превышено время ожидания'
       )
     }
-    expect(prompts).toBe(outcome === '403' ? 0 : 1)
+    expect(prompts).toBe(['403', 'interrupted'].includes(outcome) ? 0 : 1)
     const requests = await page.evaluate(() => globalThis.configRequests)
     expect(requests).toHaveLength(['accept', 'direct-fails'].includes(outcome) ? 2 : 1)
     expect(requests[0].withoutProxy).toBeUndefined()
@@ -3062,4 +3071,32 @@ test('connection change highlights the acknowledgement block once and keeps it s
   expect(await page.evaluate(() => globalThis.connectionAttentionStarts)).toBe(1)
   await page.locator('#dismiss-connection-update').click()
   await expect(page.locator('#connection-update')).toBeHidden()
+})
+
+test('expired authentication clears the candidate password and disables revealing it', async ({
+  page
+}) => {
+  await page.addInitScript(() => {
+    chrome.runtime.sendMessage = async () => ({
+      ok: true,
+      auth: {
+        phase: 'waiting',
+        name: 'Proxy',
+        host: 'proxy.example',
+        port: 443,
+        username: 'user',
+        language: 'en',
+        theme: 'system'
+      }
+    })
+  })
+  await page.goto('http://127.0.0.1:8765/auth.html?id=expired')
+  await page.locator('#auth-password').fill('unconfirmed-secret')
+  await page.locator('.password-toggle').click()
+  await page.evaluate(() => {
+    chrome.runtime.sendMessage = async () => ({ ok: false, error: 'errorAuthExpired' })
+  })
+  await expect(page.locator('#auth-password')).toHaveValue('')
+  await expect(page.locator('.password-toggle')).toBeDisabled()
+  await expect(page.locator('#auth-submit')).toBeDisabled()
 })

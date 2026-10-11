@@ -65,6 +65,8 @@ test('background serializes writes, checks sender, rolls back failed apply and p
     browser: api,
     MEGA_TARGET: 'chromium',
     crypto,
+    AbortController,
+    AbortSignal,
     TextEncoder,
     btoa,
     URL,

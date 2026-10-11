@@ -354,8 +354,18 @@ test('standalone browser validator rejects invalid optional fields at import', a
     assert.equal(exported.profiles[0].routing, undefined)
     assert.ok(context.MegaValidate(exported))
   }
-  future.subscription.intervalMinutes = '60'
+  future.profiles[0].dns = { provider: 'FUTURE_DNS_PROVIDER' }
+  future.profiles[0].tls = { fingerprint: 'FUTURE_TLS' }
+  future.profiles.push({ id: 'future', proxy: { type: 'FUTURE_TRANSPORT', port: 'unused' } })
+  const compatible = context.MegaProxy.importProfiles(future)
+  assert.equal(compatible.profiles.length, 1)
+  assert.equal(compatible.unknownFields, true)
+  assert.deepEqual(Array.from(compatible.skipped), ['future_transport'])
+  future.profiles[0].proxy.port = '443'
   assert.throws(() => context.MegaProxy.importProfiles(future), /errorProfileFields/)
+  future.profiles[0].proxy.port = 443
+  future.subscription.intervalMinutes = '60'
+  assert.throws(() => context.MegaProxy.importProfiles(future), /errorConfigSubscription/)
 })
 
 test('unknown and unsupported fields produce one flag and never survive import or export', () => {
@@ -616,4 +626,26 @@ test('merge rejects duplicate IDs introduced after import without dropping an ex
   assert.throws(() => M.mergeImport(state, imported), /errorDuplicateIds/)
   assert.equal(state.profiles.length, 1)
   assert.equal(state.profiles[0].host, 'proxy.example')
+})
+
+test('omitted passwords survive imports only for the same endpoint and account', () => {
+  const state = M.mergeImport(M.defaults(), M.importProfiles(portable))
+  for (const change of [
+    {},
+    { host: 'new.example' },
+    { port: 8443 },
+    { type: 'SOCKS5' },
+    { username: 'other' }
+  ]) {
+    const config = structuredClone(portable)
+    delete config.profiles[0].proxy.password
+    Object.assign(config.profiles[0].proxy, change)
+    const imported = M.mergeImport(state, M.importProfiles(config, 'firefox'))
+    assert.equal(imported.profiles[0].password, Object.keys(change).length ? '' : 'secret')
+    config.profiles[0].proxy.password = 'explicit'
+    assert.equal(
+      M.mergeImport(state, M.importProfiles(config, 'firefox')).profiles[0].password,
+      'explicit'
+    )
+  }
 })

@@ -71,6 +71,8 @@ const ready = Promise.all([
     })
 ])
 let queue = Promise.resolve()
+let networkController = new AbortController()
+let pendingConnectionChanges = 0
 let recoverTransientProxy = false
 let startupError
 let startupErrorDetails
@@ -438,7 +440,12 @@ function testPage(tabId, url, signal) {
       }
     }
 
-    const abort = () => finish(httpFailure || navigationFailure || new Error('errorCheckTimeout'))
+    const abort = () =>
+      finish(
+        signal.reason?.message === 'errorOperationCancelled'
+          ? signal.reason
+          : httpFailure || navigationFailure || new Error('errorCheckTimeout')
+      )
 
     const completed = details => {
       if (details.tabId === tabId && details.type === 'main_frame') {
@@ -569,7 +576,8 @@ async function runConnectionCheck() {
     }
 
     const started = Date.now()
-    const deadline = AbortSignal.timeout(45000)
+    const deadline = AbortSignal.any([networkController.signal, AbortSignal.timeout(45000)])
+    deadline.throwIfAborted()
     if (p) {
       transient = true
       await platform.applyTransient({
@@ -579,6 +587,8 @@ async function runConnectionCheck() {
     }
     await storeConnectionCheck()
     tab = await api.tabs.create({ url: 'about:blank', active: false })
+    connectionCheck.tabId = tab.id
+    await storeConnectionCheck()
     if (p) {
       forcedTabs.add(tab.id)
     }
@@ -603,9 +613,7 @@ async function runConnectionCheck() {
           }
         }
 
-        if (deadline.aborted) {
-          break
-        }
+        deadline.throwIfAborted()
       }
 
       return ''
@@ -708,6 +716,12 @@ function neededSubscriptions() {
 }
 
 async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
+  const signal = networkController.signal
+  signal.throwIfAborted()
+  const fetcher = (url, options) => {
+    signal.throwIfAborted()
+    return fetch(url, { ...options, signal: AbortSignal.any([signal, options.signal]) })
+  }
   const previous = state
   const original = state.browserRouting
   const config = {
@@ -743,9 +757,10 @@ async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
     await platform.applyTransient({ ...state, downloadRouting })
     const subscriptionCatalog = await MegaSubscriptions.refreshCatalog(
       state.subscriptionCatalog,
-      undefined,
+      fetcher,
       forceCatalog
     )
+    signal.throwIfAborted()
     state = { ...state, subscriptionCatalog }
     if (catalogOnly) {
       await api.storage.local.set({ state })
@@ -754,9 +769,10 @@ async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
     const cache = await MegaSubscriptions.update(
       config,
       state.subscriptionCache,
-      undefined,
+      fetcher,
       MegaSubscriptions.catalog(subscriptionCatalog)
     )
+    signal.throwIfAborted()
     const next = {
       ...state,
       subscriptionCache: {
@@ -770,6 +786,7 @@ async function updateSubscriptions(forceCatalog = false, catalogOnly = false) {
     await api.storage.local.set({ state: next })
     state = next
   } catch (error) {
+    signal.throwIfAborted()
     const code = /^errorList/.test(error.message) ? error.message : 'errorListDownload'
     state = {
       ...state,
@@ -1121,6 +1138,13 @@ async function handle(message) {
     delete next.connectionUpdate
   } else if (message.command === 'import') {
     const result = M.importProfiles(message.data, MEGA_TARGET, state.masqueEnabled === true)
+    if (!result.profiles.length && result.skipped.length && !message.subscriptionUpdate) {
+      return {
+        ...(await handle({ command: 'get' })),
+        skipped: result.skipped,
+        warning: result.skippedMasque ? 'masqueImportDisabled' : undefined
+      }
+    }
     const subscriptionSources = result.config?.subscription
       ? {
           url: result.config.subscription.url,
@@ -1403,7 +1427,7 @@ async function handle(message) {
   }
 }
 
-api.runtime.onMessage.addListener((message, sender, respond) => {
+function onMessage(message, sender, respond) {
   if (
     sender.id !== api.runtime.id ||
     (sender.tab && !sender.url?.startsWith(api.runtime.getURL('')))
@@ -1426,8 +1450,21 @@ api.runtime.onMessage.addListener((message, sender, respond) => {
       .then(respond)
       .catch(error => respond(operationFailure(error, message.command)))
   } else {
+    const connectionChange = ['activate', 'connectionMode'].includes(message.command)
+    if (connectionChange) {
+      pendingConnectionChanges++
+      networkController.abort(new Error('errorOperationCancelled'))
+    }
     queue = queue
-      .then(() => handle(message))
+      .then(async () => {
+        try {
+          return await handle(message)
+        } finally {
+          if (connectionChange && --pendingConnectionChanges === 0) {
+            networkController = new AbortController()
+          }
+        }
+      })
       .catch(error => {
         return operationFailure(error, message.command)
       })
@@ -1435,7 +1472,8 @@ api.runtime.onMessage.addListener((message, sender, respond) => {
   }
 
   return true
-})
+}
+api.runtime.onMessage.addListener(onMessage)
 
 platform.registerRouting({
   ready,
@@ -1958,6 +1996,7 @@ async function scheduleConfigSubscription() {
 
 async function refreshConfigSubscription(onlyDue = false) {
   await ready
+  const signal = networkController.signal
   if (!state.subscription || (onlyDue && !state.subscription.enabled)) {
     return
   }
@@ -1973,7 +2012,8 @@ async function refreshConfigSubscription(onlyDue = false) {
   let failure
   for (const [sourceIndex, url] of urls.entries()) {
     try {
-      const data = await fetchConfig(url, settings)
+      const data = await fetchConfig(url, settings, false, signal)
+      signal.throwIfAborted()
       await handle({
         command: 'import',
         data,
@@ -1983,6 +2023,7 @@ async function refreshConfigSubscription(onlyDue = false) {
       failure = undefined
       break
     } catch (error) {
+      signal.throwIfAborted()
       failure = MegaErrors.details(error, 'updateConfigSubscription')
       diagnosticLog?.write('config_subscription_source_failed', failure)
     }
@@ -2077,7 +2118,8 @@ async function applyWebRTC(value) {
   }
 }
 
-async function fetchConfig(value, auth, withoutProxy = false) {
+async function fetchConfig(value, auth, withoutProxy = false, signal = networkController.signal) {
+  signal.throwIfAborted()
   let url
   try {
     url = new URL(value)
@@ -2096,7 +2138,7 @@ async function fetchConfig(value, auth, withoutProxy = false) {
     downloadRouting = { hosts: [M.host(url.hostname)], throughProxy: false }
     try {
       await platform.applyTransient({ ...state, downloadRouting })
-      return await fetchConfig(value, auth)
+      return await fetchConfig(value, auth, false, signal)
     } finally {
       downloadRouting = undefined
       await platform.applyTransient(state)
@@ -2117,7 +2159,7 @@ async function fetchConfig(value, auth, withoutProxy = false) {
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       response = await fetch(url.href, {
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
         credentials: 'omit',
         cache: 'no-store',
         referrerPolicy: 'no-referrer',
@@ -2133,7 +2175,23 @@ async function fetchConfig(value, auth, withoutProxy = false) {
       }
       const error = await MegaErrors.httpError(response, 'errorHTTP', secrets)
       diagnosticLog?.write('config_download_retried', MegaErrors.details(error, 'fetchConfig'))
-      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt))
+      await new Promise((resolve, reject) => {
+        const abort = () => {
+          clearTimeout(timer)
+          reject(signal.reason)
+        }
+        const timer = setTimeout(
+          () => {
+            signal.removeEventListener('abort', abort)
+            resolve()
+          },
+          1000 * 2 ** attempt
+        )
+        signal.addEventListener('abort', abort, { once: true })
+        if (signal.aborted) {
+          abort()
+        }
+      })
     }
   } catch (error) {
     throw MegaErrors.proxyFailure(
@@ -2239,17 +2297,25 @@ async function publishSync() {
     // Publish a pointer only after every chunk has been stored successfully.
     writtenKeys = Object.keys(chunks)
     await api.storage.sync.set(chunks)
-    await api.storage.sync.set({ megaConfig: { revision, count: parts.length } })
+    await api.storage.sync.set({
+      megaConfig: { revision, count: parts.length },
+      [`megaPublished:${revision}`]: true
+    })
     published = true
     syncRevision = revision
-    // Unpublished chunks may belong to another writer still preparing its pointer.
-    const previousRevision = previous.megaConfig?.revision
+    // Only completed publications are collectible; another device may still be writing chunks.
+    const obsolete = new Set(
+      Object.keys(previous)
+        .filter(key => key.startsWith('megaPublished:'))
+        .map(key => key.slice('megaPublished:'.length))
+    )
+    if (typeof previous.megaConfig?.revision === 'string') {
+      obsolete.add(previous.megaConfig.revision)
+    }
+    obsolete.delete(revision)
     await api.storage.sync.remove(
       Object.keys(previous).filter(
-        key =>
-          typeof previousRevision === 'string' &&
-          key.startsWith(`mega:${previousRevision}:`) &&
-          !Object.hasOwn(chunks, key)
+        key => obsolete.has(key.split(':')[1]) && /^(mega|megaPublished):/.test(key)
       )
     )
     syncError = undefined
@@ -2491,29 +2557,25 @@ async function rebuildMenus() {
 }
 
 api.contextMenus?.onClicked.addListener((info, tab) => {
-  queue = queue
-    .then(async () => {
-      await ready
-      if (['direct', 'system'].includes(info.menuItemId)) {
-        return handle({ command: 'connectionMode', mode: info.menuItemId })
-      }
-
-      if (info.menuItemId === 'settings') {
-        return api.runtime.openOptionsPage()
-      }
-
-      const command = info.menuItemId
-      return handle(
-        command.startsWith('profile:')
-          ? { command: 'activate', id: command.slice(8) }
-          : command === 'disconnect'
-            ? { command: 'activate', id: null }
-            : { command, tab }
+  if (info.menuItemId === 'settings') {
+    api.runtime.openOptionsPage().catch(error => recordStartupError(error))
+    return
+  }
+  const command = info.menuItemId
+  const message = ['direct', 'system'].includes(command)
+    ? { command: 'connectionMode', mode: command }
+    : command.startsWith('profile:')
+      ? { command: 'activate', id: command.slice(8) }
+      : command === 'disconnect'
+        ? { command: 'activate', id: null }
+        : { command, tab }
+  onMessage(message, { id: api.runtime.id }, result => {
+    if (!result.ok) {
+      recordStartupError(
+        Object.assign(new Error(result.error), { errorDetails: result.errorDetails })
       )
-    })
-    .catch(error => {
-      recordStartupError(error)
-    })
+    }
+  })
 })
 
 api.storage.onChanged?.addListener((changes, area) => {
@@ -2540,6 +2602,23 @@ queue = queue
       if (routingMigration) {
         await api.storage.local.set({ state })
       }
+    }
+
+    if (connectionCheck && !['complete', 'failed'].includes(connectionCheck.stage)) {
+      if (Number.isInteger(connectionCheck.tabId)) {
+        await api.tabs.remove(connectionCheck.tabId).catch(() => {})
+      }
+      connectionCheck = {
+        stage: 'failed',
+        mode: connectionCheck.mode,
+        profileId: connectionCheck.profileId,
+        error: 'errorCheckNetwork',
+        errorDetails: MegaErrors.details(
+          new Error('errorCheckNetwork', { cause: AbortSignal.abort().reason }),
+          'check'
+        )
+      }
+      await storeConnectionCheck()
     }
 
     for (const pending of [...knockTabs]) {

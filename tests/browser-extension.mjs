@@ -17,7 +17,7 @@ const stop = server =>
 export async function launchExtension(
   target,
   dir,
-  { grantPrivacy = false, systemProxy, firefoxUserPrefs = {} } = {}
+  { grantPrivacy = false, systemProxy, firefoxUserPrefs = {}, ignoreHTTPSErrors = true } = {}
 ) {
   let extension = path.resolve(`dist/${target}`)
   if (grantPrivacy) {
@@ -36,11 +36,11 @@ export async function launchExtension(
     context = await chromium.launchPersistentContext(userDataDir, {
       channel: 'chromium',
       headless: true,
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors,
       // Worker fetches do not inherit Playwright page certificate exceptions.
       args: [
         ...(systemProxy ? [`--proxy-server=http://${systemProxy.host}:${systemProxy.port}`] : []),
-        '--ignore-certificate-errors',
+        ...(ignoreHTTPSErrors ? ['--ignore-certificate-errors'] : []),
         `--disable-extensions-except=${extension}`,
         `--load-extension=${extension}`
       ]
@@ -72,7 +72,7 @@ export async function launchExtension(
     })
   } else {
     // Playwright cannot instrument moz-extension pages. A test-only sidecar calls the
-    // unmodified production handler; Playwright exercises actual browser requests below.
+    // production dispatcher (including its queue and sender checks); requests use the real browser.
     let waiting, result
     const commands = []
     control = http.createServer(async (req, res) => {
@@ -125,7 +125,7 @@ export async function launchExtension(
         let result
 
         try {
-          result = command.command === 'testWindows' ? {ok: true, windows: await api.windows.getAll({populate: true})} : command.command === 'testTabState' ? { ok: true, tabs: await Promise.all((await api.tabs.query({})).map(async tab => ({ id: tab.id, url: tab.url, badge: await api.action.getBadgeText({tabId: tab.id}), title: await api.action.getTitle({tabId: tab.id}) }))) } : command.command === 'testCapabilities' ? {ok: true, sync: await api.storage.sync.get(null), policy: (await api.privacy.network.webRTCIPHandlingPolicy.get({})).value, peer: (await api.privacy.network.peerConnectionEnabled.get({})).value, menus: await Promise.all(['toggleTab', ...state.profiles.map(p => 'profile:' + p.id)].map(async id => { await api.contextMenus.update(id, {enabled: true}); return {id} }))} : command.command === 'testAuthEvents' ? {ok: true, events: authEvents} : command.command === 'testNetworkErrors' ? {ok: true, networkErrors} : command.command === 'testTabsCreated' ? {ok: true, createdTabs} : await handle(command)
+          result = command.command === 'testWindows' ? {ok: true, windows: await api.windows.getAll({populate: true})} : command.command === 'testTabState' ? { ok: true, tabs: await Promise.all((await api.tabs.query({})).map(async tab => ({ id: tab.id, url: tab.url, badge: await api.action.getBadgeText({tabId: tab.id}), title: await api.action.getTitle({tabId: tab.id}) }))) } : command.command === 'testCapabilities' ? {ok: true, sync: await api.storage.sync.get(null), policy: (await api.privacy.network.webRTCIPHandlingPolicy.get({})).value, peer: (await api.privacy.network.peerConnectionEnabled.get({})).value, menus: await Promise.all(['toggleTab', ...state.profiles.map(p => 'profile:' + p.id)].map(async id => { await api.contextMenus.update(id, {enabled: true}); return {id} }))} : command.command === 'testAuthEvents' ? {ok: true, events: authEvents} : command.command === 'testNetworkErrors' ? {ok: true, networkErrors} : command.command === 'testTabsCreated' ? {ok: true, createdTabs} : await new Promise((resolve, reject) => { if (!onMessage(command, {id: api.runtime.id, url: api.runtime.getURL(['authGet', 'authSubmit', 'authCancel'].includes(command.command) ? 'auth.html?id=' + command.token : 'options.html')}, resolve)) reject(new Error('Rejected test sender')) })
         } catch (error) {
           result = {ok: false, error: error.message}
         }
@@ -151,7 +151,7 @@ export async function launchExtension(
     )
     context = await firefox.launchPersistentContext(userDataDir, {
       headless: true,
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors,
       args: ['--start-debugger-server', String(debugPort), '--new-window', 'about:blank'],
       firefoxUserPrefs: {
         ...(systemProxy

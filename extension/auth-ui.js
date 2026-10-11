@@ -82,6 +82,10 @@ async function refresh() {
   } catch (error) {
     document.body.hidden = false
     username.disabled = password.disabled = submit.disabled = true
+    document.querySelector('.password-toggle').disabled = true
+    if (error.message === 'errorAuthExpired') {
+      password.value = ''
+    }
     showError(error)
   }
 }

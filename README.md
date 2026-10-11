@@ -443,9 +443,10 @@ exported. Limits are 1 MiB per file and 1000 profiles. Imported files may contai
 passwords; do not commit them.
 
 Import review shows new, updated and skipped profiles. Matching IDs update without
-duplicates or changing local order. A missing password preserves the local value;
-an explicit empty string clears it. Local profiles absent from the file remain,
-and can be selected for deletion. Import does not connect the file's active profile.
+duplicates or changing local order. A missing password preserves the local value
+only when the proxy protocol, host, port and username are unchanged; an explicit
+empty string clears it. Local profiles absent from the file remain and can be
+selected for deletion. Import does not connect the file's active profile.
 Changes to an already active profile apply after confirming the import.
 
 Exports use MegaProxy JSON version 8. Passwords are included by default and can

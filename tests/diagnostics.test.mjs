@@ -135,7 +135,8 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
     TextEncoder,
     btoa,
     structuredClone,
-    AbortSignal
+    AbortSignal,
+    AbortController
   })
   scripts.forEach(script => vm.runInContext(script, context))
   // runtime listeners have three arguments, unlike network event callbacks.
@@ -318,4 +319,27 @@ test('connection check preserves 5xx page diagnostics and closes its tab', async
     const saved = await h.command({ command: 'get' })
     assert.equal(saved.connectionCheck.errorDetails.responseBody, result.errorDetails.responseBody)
   }
+})
+
+test('disconnect interrupts a diagnostic navigation and releases its temporary route and tab', async () => {
+  const h = harness([], false, 'chromium')
+  await h.flush()
+  let started
+  const navigating = new Promise(resolve => {
+    started = resolve
+  })
+  h.api.tabs.update = async () => {
+    started()
+  }
+  const pending = h.command({ command: 'check' })
+  await navigating
+  const result = await h.command({ command: 'connectionMode', mode: 'direct' })
+  assert.equal(result.ok, true)
+  const cancelled = await pending
+  assert.equal(cancelled.ok, false)
+  assert.equal(cancelled.errorDetails.code, 'errorOperationCancelled')
+  assert.equal(cancelled.errorDetails.hint, undefined)
+  assert.deepEqual(h.removed, [7])
+  assert.equal(h.session.connectionCheck, null)
+  assert.equal(h.session.transientProxyLease, false)
 })

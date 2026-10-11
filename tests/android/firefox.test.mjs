@@ -38,6 +38,7 @@ const tapText = async (xml, text) => {
 
 const requests = []
 const layouts = []
+const scenarios = []
 const completed = []
 const servers = []
 const ports = []
@@ -298,7 +299,9 @@ describe('Firefox Android', { concurrency: false }, () => {
           body += chunk
         }
         const result = JSON.parse(body)
-        if (req.url === '/layout') {
+        if (req.url === '/scenario') {
+          scenarios.push(result)
+        } else if (req.url === '/layout') {
           layouts.push(result)
         } else {
           pending?.(result)
@@ -308,7 +311,26 @@ describe('Firefox Android', { concurrency: false }, () => {
       })
       directPort = await listen((req, res) => {
         requests.push({ route: 'direct', url: req.url })
-        res.end('MegaProxy Android direct OK')
+        if (req.url === '/config') {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(
+            JSON.stringify({
+              schema: 'net.megaproxy487.config',
+              version: 8,
+              subscription: { url: 'https://config.example/feed', enabled: false },
+              profiles: [
+                {
+                  id: 'downloaded',
+                  name: 'Downloaded',
+                  proxy: { type: 'HTTPS', host: 'downloaded.example', port: 443 },
+                  dns: { provider: 'FUTURE_DNS_PROVIDER' }
+                }
+              ]
+            })
+          )
+        } else {
+          res.end('MegaProxy Android direct OK')
+        }
       })
       const proxyPort = await listen((req, res) => {
         const authenticated =
@@ -351,8 +373,8 @@ describe('Firefox Android', { concurrency: false }, () => {
           try {
             if (message.command === 'testVisit') result = {ok:true,tab:await api.tabs.create({url:message.url})}
             else if (message.command === 'testCompleted') result = {ok:true,completed:testCompleted}
-            else if (message.command === 'testPlatform') result = {ok:true,platform:await api.runtime.getPlatformInfo(),privateAccess:await api.extension.isAllowedIncognitoAccess()}
-            else result = await handle(message)
+            else if (message.command === 'testPlatform') result = {ok:true,base:api.runtime.getURL(''),platform:await api.runtime.getPlatformInfo(),privateAccess:await api.extension.isAllowedIncognitoAccess()}
+            else result = await new Promise(resolve => onMessage(message, {id: api.runtime.id, url: api.runtime.getURL('options.html')}, resolve))
           } catch (error) { result = {ok:false,error:error.message} }
           await fetch('http://127.0.0.1:${controlPort}/', {method:'POST',body:JSON.stringify(result)})
         } catch { await new Promise(resolve => setTimeout(resolve,200)) }
@@ -364,6 +386,23 @@ describe('Firefox Android', { concurrency: false }, () => {
         `${addon}/test-layout.js`,
         `
     ;(async () => {
+      if (location.search === '?scenario=import') {
+        let result
+        try {
+          const wait = async predicate => { for (let i=0;i<300;i++) { if(await predicate()) return; await new Promise(resolve=>setTimeout(resolve,100)) } throw new Error('UI scenario timed out') }
+          await wait(() => !document.body.hidden && document.querySelector('#open-url-import').onclick)
+          document.querySelector('#open-url-import').click()
+          document.querySelector('#config-url').value = 'http://127.0.0.1:${directPort}/config'
+          document.querySelector('#import-url-form').requestSubmit()
+          await wait(() => !document.querySelector('#import-review').hidden)
+          document.querySelector('#apply-import').click()
+          await wait(() => !document.querySelector('#config-subscription').hidden)
+          const response = await browser.runtime.sendMessage({command:'get'})
+          result = {ok:response.ok, imported:response.state.profiles.some(p=>p.id==='downloaded'), subscription:response.state.subscription?.url}
+        } catch(error) { result = {ok:false,error:error.message,notice:document.querySelector('#notice')?.textContent} }
+        await fetch('http://127.0.0.1:${controlPort}/scenario',{method:'POST',body:JSON.stringify(result)})
+        return
+      }
       for(let i=0;i<200 && (!innerWidth || (location.pathname==='/popup.html' && !document.documentElement.dataset.surface));i++) await new Promise(resolve=>setTimeout(resolve,100))
       await new Promise(resolve=>setTimeout(resolve,1000))
       await fetch('http://127.0.0.1:${controlPort}/layout', {method:'POST',body:JSON.stringify({page:location.pathname,width:innerWidth,content:document.documentElement.scrollWidth,settingsRight:document.querySelector('#open-settings')?.getBoundingClientRect().right})})
@@ -513,6 +552,16 @@ describe('Firefox Android', { concurrency: false }, () => {
       await writeFile(`${output}/${page}.png`, (await adb('exec-out', 'screencap', '-p')).stdout)
     })
   }
+
+  it('URL import and subscription use the real Firefox Android message and review flow', async () => {
+    await command({ command: 'testVisit', url: capabilities.base + 'options.html?scenario=import' })
+    await poll(() => scenarios.length > 0, 'Android import UI result')
+    assert.deepEqual(scenarios[0], {
+      ok: true,
+      imported: true,
+      subscription: 'https://config.example/feed'
+    })
+  })
 
   after(async () => {
     await writeFile(
