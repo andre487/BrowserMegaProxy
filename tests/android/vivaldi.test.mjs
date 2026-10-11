@@ -645,7 +645,10 @@ describe('Vivaldi Android', { concurrency: false }, () => {
       async () => (await command({ command: 'get' })).connectionCheck?.stage === 'complete',
       'Android connection check completes'
     )
-    assert.match(await page.locator('#check-result').innerText(), /203\.0\.113\.7/)
+    await poll(
+      async () => (await page.locator('#check-result').innerText()).includes('203.0.113.7'),
+      'Android options UI displays the completed connection check'
+    )
   })
 
   after(async () => {
