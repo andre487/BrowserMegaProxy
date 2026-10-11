@@ -10,6 +10,10 @@ Prepared for Chrome Web Store, Firefox Add-ons (AMO) and Opera Add-ons. English 
 Run `npm run store:check:chrome` to compare the public Chrome listing with the repository without a browser or store credentials. The report and comparison images are saved under `test-results/chrome-store-materials/`; use `npm run store:check:chrome -- --help` for release-archive checks. Text comparison ignores whitespace differences. Image comparison normalizes resolution and color space, lightly smooths compression noise, then uses SSIM across RGB channels for both the whole image and local regions, so compression and resizing can match while a small UI change can still trigger a warning. The comparison is approximate; review differences before replacing materials. Fetch, parsing, image decoding and report errors warn instead of stopping publication.
 
 Edit `name.txt`, `summary.txt`, `description.txt`, `homepage.txt` and `support.txt` directly.
+Keep summaries consistent with `extensionDescription` in the extension locale files:
+Chrome takes its short description from the uploaded package. Lead descriptions with
+configuration subscriptions, authentication and routing capabilities; explain the
+browser-specific limits before making claims about camouflage or MASQUE.
 Descriptions use plain text with `•` bullet markers, not Markdown. Put one screenshot
 caption per line in `screenshot-captions.txt`, in gallery order.
 

@@ -9,6 +9,10 @@ test('store listings and PNGs match supported browsers, locales and upload sizes
       const listing = await readListing(`store/listings/${store}/${locale}`)
       assert.equal(listing.name, 'MegaProxy')
       assert.ok(listing.summary.length <= 132)
+      const messages = JSON.parse(
+        await readFile(`extension/_locales/${locale}/messages.json`, 'utf8')
+      )
+      assert.equal(listing.summary, messages.extensionDescription.message)
       assert.ok(listing.description.length <= 16000)
       assert.equal(listing.screenshotCaptions.length, 5)
       assert.ok(listing.description.includes('407') || store === 'firefox')

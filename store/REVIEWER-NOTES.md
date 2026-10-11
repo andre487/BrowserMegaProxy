@@ -16,7 +16,7 @@ There is no remote executable code. UI scripts and schema validation are package
 2. Open settings. Add an HTTP or HTTPS CONNECT proxy you control. Save and select it. Test Proxy, Direct and System, then run a connection check.
 3. Expand Routing mode. Test manual domains and subdomain wildcards, rule testing and automatic list selection. Firefox additionally exposes By tabs. Chrome and Opera do not offer tab routing.
 4. Test import/export using non-sensitive HTTPS profiles. HTTP profiles and HTTPS proxies with IPv6 addresses cannot be exported under the portable contract. Imports also accept FoxyProxy, ZeroOmega, ProxyList and SuperProxy, with compatibility warnings.
-5. Import a complete configuration from a URL you control and enable a subscription, or import a MegaProxy file containing `subscription`. Set the interval, pause automatic checks, and confirm **Update now** works in settings and popup while paused. Optional Basic Auth requires HTTPS. Use only trusted backup URLs because they receive the same configured credentials.
+5. Import a complete configuration from a URL you control and enable a subscription, or import a MegaProxy file containing `subscription`. Expand the subscription editor; edit source URLs, credentials and the interval. Pause automatic checks and confirm **Update now** works in settings and popup while paused. Cancel the subscription and verify the imported profiles remain. Optional Basic Auth requires HTTPS. Use only trusted backup URLs because they receive the same configured credentials.
 6. Change the active profile's endpoint in the subscription, then remove it in the next snapshot. A surviving local selection stays selected; a removed selection uses the downloaded `activeProfileId` or first supported profile. Direct/System remain unchanged; failed downloads retain the working configuration.
 7. Confirm effective proxy or Podkop-rule changes show a popup/settings notice and toolbar `!`. New requests use the updated settings. Firefox advises reloading existing pages; Chromium recommends a restart for existing connections. Enable **System notifications when connection settings change** in settings to request optional consent; refusal does not block updates. Acknowledge the notice to clear it.
 8. Inspect General preferences: theme, language, WebRTC, synchronization/password synchronization and request monitoring. Disable monitoring and confirm its UI disappears.
@@ -25,6 +25,12 @@ There is no remote executable code. UI scripts and schema validation are package
 Firefox 146+ experimental MASQUE requires trusted TLS and a reachable UDP port, with
 no username/password authentication. CONNECT-TCP scenarios are tested; HTTP/3 over
 CONNECT-UDP is not confirmed. See the [MASQUE limitations](../README.md#experimental-masque-in-firefox).
+
+A manual URL import offers a direct retry only after a proxied transport failure and
+explicit confirmation. HTTP errors such as 403 do not trigger that prompt. Successful
+downloads require a separate import confirmation, highlighted in the settings page.
+Tunnel failures or timeouts without a knock host can show a possible-camouflage hint;
+this does not assert a definite diagnosis or change routing automatically.
 
 No MegaProxy account is required. A Proxy-mode connection test needs a working proxy supplied by the reviewer. Direct and System checks work without a configured profile. Do not treat the illustrative `.example` servers in store screenshots as usable credentials. The repository’s `tests/megaproxy-server` fixtures support real-proxy automated tests; see [test setup and reports](../docs/testing.md).
 

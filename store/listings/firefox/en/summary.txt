@@ -1,1 +1,1 @@
-Manage HTTP, HTTPS and SOCKS5 proxies with profiles, routing rules, config subscriptions and connection checks.
+Proxy authentication and knock hosts, config subscriptions with backup URLs, Podkop lists and selective routing.

@@ -3,7 +3,7 @@
     "message": "MegaProxy"
   },
   "extensionDescription": {
-    "message": "HTTP/HTTPS and SOCKS5 proxy profiles with authentication and knock hosts."
+    "message": "Proxy authentication and knock hosts, config subscriptions with backup URLs, Podkop lists and selective routing."
   },
   "tagline": {
     "message": "Your route to the internet"

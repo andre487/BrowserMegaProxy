@@ -1,13 +1,17 @@
-MegaProxy helps you choose when your browser uses your own HTTP, HTTPS or SOCKS5 proxy. Save several profiles and select one from the toolbar, or switch to Direct or the browser’s system proxy settings.
+Manage your own HTTP, HTTPS and SOCKS5 proxies with configuration subscriptions, backup URLs, Podkop lists and routing by domain, website or individual tab. For HTTPS proxies, Firefox can send saved credentials in the first CONNECT request, including when authentication is hidden by camouflage.
 
+Switch profiles from the toolbar or choose a direct connection or the browser’s system proxy settings. Choose automatic, light or dark appearance.
+
+• Configuration subscriptions with backup URLs and optional Basic Auth over HTTPS. Edit source URLs, credentials and the interval in one panel; pause automatic checks, refresh from settings or the toolbar popup, or unsubscribe while keeping profiles. Failed updates preserve the last working configuration. The source can update subscription URLs while local credentials and update preferences are retained.
+• Firefox routing by request domain, top-level website or individual tab. HTTPS proxies can receive saved credentials preemptively; SOCKS5 supports username/password authentication and proxy-side DNS. Firefox for Android is supported from version 142.
+• Automatic domain lists from the sources used by Podkop, with optional updates through your proxy. Unneeded lists are not downloaded.
+• Proxy all sites or use a manual domain list with wildcard support. Local networks are bypassed by default; this can be disabled.
+• Experimental MASQUE in Firefox 146+: disabled by default, without username/password authentication. CONNECT-TCP scenarios are tested; HTTP/3 over CONNECT-UDP is not confirmed.
 • HTTP and HTTPS CONNECT proxies, including username/password authentication and an optional knock host.
 • SOCKS5 with proxy-side DNS. Username/password authentication is supported in Firefox.
 • One selected profile with names, colors and country flags. Reorder profiles by dragging, including on touch screens.
-• Proxy all sites or use a manual domain list with wildcard support. Local networks are bypassed by default; this can be disabled.
-• Automatic domain lists from the sources used by Podkop, with optional updates through your proxy. Unneeded lists are not downloaded.
-• Test routing rules and check the connection: exit IP, country, protocol and HTTPS load time.
+• Test routing rules and check the connection: exit IP, country and HTTPS load time.
 • Import MegaProxy, FoxyProxy, ZeroOmega, ProxyList and SuperProxy from a file or URL. Export MegaProxy configurations: HTTP profiles and HTTPS proxies with IPv6 addresses cannot be exported; SOCKS5 needs a compatible client.
-• Configuration subscriptions with backup URLs, optional Basic Auth over HTTPS and an adjustable interval. Pause automatic checks or use Update now in settings or the popup. Failed updates preserve the last working configuration.
 • Notices when active proxy settings or routing rules change, including Podkop lists. System notifications are optional and require separate permission.
 • Optional WebRTC restrictions, page context menus, English and Russian interfaces, and light and dark themes.
 • Settings sync through your browser. Sync and password sync are enabled by default and can be disabled independently.
@@ -15,6 +19,6 @@ MegaProxy helps you choose when your browser uses your own HTTP, HTTPS or SOCKS5
 
 MegaProxy is a proxy manager, not a proxy service. You need your own compatible proxy; no proxy servers, VPN subscription or account are included. Unsupported configuration fields are reported during import. SOCKS4, proxy chains, custom PAC scripts and automatic proxy failover are not supported.
 
-Firefox also supports routing by the top-level website or individual tabs. With saved credentials, Firefox supplies preemptive authentication where its proxy API supports it, and the knock action is disabled. The knock host remains editable for connections without saved credentials. Without saved credentials, a configured knock host opens for the browser’s authentication prompt. Firefox requires private-window access for its proxy settings API.
+With saved credentials, Firefox supplies preemptive authentication where its proxy API supports it, and the knock action is disabled. The knock host remains editable for connections without saved credentials. Without saved credentials, a configured knock host opens for the browser’s authentication prompt. Firefox requires private-window access for its proxy settings API.
 
-Firefox uses updated settings for subsequent requests; existing connections may need a page reload. If a subscription removes the selected profile, it chooses a replacement while preserving Direct/System mode. Firefox Android requires version 142 or later. Experimental MASQUE requires Firefox 146+, is disabled by default and does not support username/password authentication; CONNECT-TCP scenarios are tested, but HTTP/3 over CONNECT-UDP is not confirmed.
+Firefox uses updated settings for subsequent requests; existing connections may need a page reload. If a subscription removes the selected profile, it chooses a replacement while preserving Direct/System mode.
