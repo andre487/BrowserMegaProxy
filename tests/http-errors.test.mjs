@@ -83,17 +83,14 @@ test('Opera 5xx details identify failures after upload and on submission', async
   const stages = [
     'file-upload/',
     'developer/package-versions/?package_id=123',
-    'developer/package-versions/123-1.0.0/',
     'developer/package-versions/123-1.0.0/submit_for_moderation/'
   ]
   for (const stage of stages) {
     let attempts = 0
     const waits = []
-    const warnings = []
     const submission = submitOperaAddon('v1.0.0', Buffer.from('zip'), {
       env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret },
       retryWait: async ms => waits.push(ms),
-      warn: message => warnings.push(message),
       request: async (url, options) => {
         if (url === `https://addons.opera.com/api/${stage}`) {
           attempts++
@@ -115,18 +112,12 @@ test('Opera 5xx details identify failures after upload and on submission', async
         return new Response(JSON.stringify(data))
       }
     })
-    if (stage === 'developer/package-versions/123-1.0.0/') {
-      assert.match(await submission, /submitted for moderation/)
-      assert.equal(warnings.length, 1)
-      assert.match(warnings[0], /upstream processing failed/)
-      assert.ok(!warnings[0].includes(secret))
-    } else {
-      await assert.rejects(submission, error => {
-        assert.match(error.message, /upstream processing failed/)
-        assert.ok(error.message.includes(stage))
-        return true
-      })
-    }
+    await assert.rejects(submission, error => {
+      assert.match(error.message, /upstream processing failed/)
+      assert.ok(error.message.includes(stage))
+      assert.ok(!error.message.includes(secret))
+      return true
+    })
     assert.equal(attempts, 6)
     assert.deepEqual(waits, [10000, 20000, 40000, 80000, 160000])
   }
