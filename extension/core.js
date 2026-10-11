@@ -661,6 +661,22 @@ function FindProxyForURL(url, host) {
     return palette[Math.floor(Math.random() * palette.length)]
   }
 
+  function importProfile(input, target) {
+    try {
+      return profile(input, target)
+    } catch (error) {
+      if (
+        ![
+          'errorMasqueUnsupported',
+          'errorMasqueAuthUnsupported',
+          'errorSocksAuthUnsupported'
+        ].includes(error.message)
+      ) {
+        throw error
+      }
+    }
+  }
+
   function importProfiles(input, target = root.MEGA_TARGET, masqueEnabled = false) {
     const client = root.MegaPlatform.create(target)
     let skippedMasque = false
@@ -724,30 +740,33 @@ function FindProxyForURL(url, host) {
             unknownFields = true
           }
 
-          profiles.push(
-            profile(
-              {
-                name: url.searchParams.get('title'),
-                countryCode: url.searchParams.get('cc'),
-                type: url.protocol.slice(0, -1),
-                host: url.hostname,
-                port:
-                  url.port ||
-                  (url.protocol === 'socks5:'
-                    ? 1080
-                    : ['https:', 'masque:'].includes(url.protocol)
-                      ? 443
-                      : 80),
-                username,
-                password,
-                color: randomImportColor(profiles)
-              },
-              target
-            )
+          const imported = importProfile(
+            {
+              name: url.searchParams.get('title'),
+              countryCode: url.searchParams.get('cc'),
+              type: url.protocol.slice(0, -1),
+              host: url.hostname,
+              port:
+                url.port ||
+                (url.protocol === 'socks5:'
+                  ? 1080
+                  : ['https:', 'masque:'].includes(url.protocol)
+                    ? 443
+                    : 80),
+              username,
+              password,
+              color: randomImportColor(profiles)
+            },
+            target
           )
+          if (imported) {
+            profiles.push(imported)
+          } else {
+            skipped.push(url.searchParams.get('title') || url.hostname)
+          }
         }
 
-        if (!profiles.length && !skippedMasque) {
+        if (!profiles.length && !skipped.length) {
           throw new Error('errorImportCompatible')
         }
 
@@ -945,7 +964,7 @@ function FindProxyForURL(url, host) {
           ? paletteIndex
           : profiles.length
         : (entry.color ?? (portable ? profiles.length : randomImportColor(profiles)))
-      const result = profile(
+      const result = importProfile(
         {
           ...p,
           id: portable ? entry.id || `import-${profiles.length}` : undefined,
@@ -964,6 +983,10 @@ function FindProxyForURL(url, host) {
         },
         target
       )
+      if (!result) {
+        skipped.push(entry.name || entry.title || p.host || type)
+        continue
+      }
       if (ids.has(result.id)) {
         throw new Error('errorDuplicateIds')
       }
@@ -976,7 +999,7 @@ function FindProxyForURL(url, host) {
       profiles.push(result)
     }
 
-    if (!profiles.length && !skippedMasque) {
+    if (!profiles.length && !skipped.length) {
       throw new Error('errorImportCompatible')
     }
 
@@ -1083,7 +1106,7 @@ function FindProxyForURL(url, host) {
         }
       }
 
-      const p = profile(
+      const p = importProfile(
         {
           id: `zero:${name}`,
           name,
@@ -1097,11 +1120,15 @@ function FindProxyForURL(url, host) {
         },
         target
       )
+      if (!p) {
+        skipped.push(name)
+        continue
+      }
       profiles.push(p)
       byName.set(name, p.id)
     }
 
-    if (!profiles.length) {
+    if (!profiles.length && !skipped.length) {
       throw new Error('errorImportCompatible')
     }
 
@@ -1290,7 +1317,7 @@ function FindProxyForURL(url, host) {
   }
 
   function mergeImport(state, result, removeIds = []) {
-    if (!result.profiles.length && result.skippedMasque) {
+    if (!result.profiles.length && result.skipped.length) {
       return state
     }
     if (new Set(result.profiles.map(p => p.id)).size !== result.profiles.length) {

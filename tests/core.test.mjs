@@ -140,7 +140,7 @@ test('imports server Android and FoxyProxy formats without retaining unsupported
     }).profiles[0].host,
     p.host
   )
-  assert.throws(() => M.importProfiles({ profiles: [{ proxy: { type: 'SSH' } }] }))
+  assert.deepEqual(M.importProfiles({ profiles: [{ proxy: { type: 'SSH' } }] }).profiles, [])
 })
 
 test('MASQUE maps its template to Firefox and rejects Chromium', async () => {

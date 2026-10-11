@@ -59,15 +59,15 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
 
       browser = await launchExtension(target, `${server.dir}/good`)
       const { command, context } = browser
-      if (target === 'chromium') {
-        expect(
-          (await command({ command: 'previewImport', data: server.selfSignedExport })).error
-        ).toBe('errorImportCompatible')
-      } else {
-        await expect(
-          command({ command: 'previewImport', data: server.selfSignedExport })
-        ).rejects.toThrow('errorImportCompatible')
-      }
+      const skipped = await command({ command: 'previewImport', data: server.selfSignedExport })
+      expect(skipped).toMatchObject({ ok: true, added: 0, updated: 0, absent: [] })
+      expect(skipped.skipped).toHaveLength(JSON.parse(server.selfSignedExport).profiles.length)
+      const beforeImport = (await command({ command: 'get' })).state
+      const skippedImport = await command({ command: 'import', data: server.selfSignedExport })
+      expect(skippedImport.ok).toBe(true)
+      expect(skippedImport.skipped).toEqual(skipped.skipped)
+      expect(skippedImport.state.profiles).toEqual(beforeImport.profiles)
+      expect(skippedImport.state.activeId).toBe(beforeImport.activeId)
       for (const [format, data] of Object.entries(server.exports)) {
         const preview = await command({ command: 'previewImport', data })
         expect(preview.ok, format).toBe(true)

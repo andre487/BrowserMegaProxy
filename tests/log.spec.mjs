@@ -61,10 +61,18 @@ test('log persists, bounds its volume, coalesces repetitions, sanitizes and expo
       })
     }
     log.write('operation_failed', { code: 'password=private-secret https://private.example/' })
+    for (const code of ['NS_BINDING_ABORTED', 'NS_BASE_STREAM_CLOSED', 'PR_CONNECT_RESET_ERROR']) {
+      log.write('request_failed', { code, operation: 'request' })
+      log.write('operation_failed', { code: 'errorCheckNetwork', reason: code, operation: 'check' })
+    }
     await log.flush()
   })
   await expect(page.locator('#log-output')).toContainText('×20')
   await expect(page.locator('#log-output')).not.toContainText('private')
+  for (const code of ['NS_BINDING_ABORTED', 'NS_BASE_STREAM_CLOSED', 'PR_CONNECT_RESET_ERROR']) {
+    await expect(page.locator('#log-output')).toContainText(`"code":"${code}"`)
+    await expect(page.locator('#log-output')).toContainText(`"reason":"${code}"`)
+  }
   await page.reload()
   await expect(page.locator('#log-output')).toContainText('×20')
   const unchanged = await page.evaluate(async () => {

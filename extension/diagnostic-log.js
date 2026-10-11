@@ -26,7 +26,7 @@
     }
     if (details.code) {
       fields.code =
-        /^(?:(?:NS_ERROR_|SEC_ERROR_|SSL_ERROR_|MOZILLA_PKIX_ERROR_)[A-Z0-9_]+|(?:net::)?ERR_[A-Z0-9_]+|error[A-Z][A-Za-z]+)$/.test(
+        /^(?:(?:NS_ERROR_|NS_BINDING_|NS_BASE_|PR_|SEC_ERROR_|SSL_ERROR_|MOZILLA_PKIX_ERROR_)[A-Z0-9_]+|(?:net::)?ERR_[A-Z0-9_]+|error[A-Z][A-Za-z]+)$/.test(
           details.code
         )
           ? details.code.slice(0, 96)

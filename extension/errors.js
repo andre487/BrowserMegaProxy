@@ -59,7 +59,7 @@
     'locale_ru'
   ])
   const codePattern =
-    /^(?:splitUnsupportedWarning|error[A-Z][A-Za-z]+|(?:NS_ERROR_|SEC_ERROR_|SSL_ERROR_|MOZILLA_PKIX_ERROR_)[A-Z0-9_]+|(?:net::)?ERR_[A-Z0-9_]+)$/
+    /^(?:splitUnsupportedWarning|error[A-Z][A-Za-z]+|(?:NS_ERROR_|NS_BINDING_|NS_BASE_|PR_|SEC_ERROR_|SSL_ERROR_|MOZILLA_PKIX_ERROR_)[A-Z0-9_]+|(?:net::)?ERR_[A-Z0-9_]+)$/
   const names = new Set([
     'AbortError',
     'TimeoutError',
@@ -238,6 +238,13 @@
     return wrapped
   }
 
+  function isNavigationCancellation(error, target) {
+    return (
+      target === 'firefox' &&
+      ['NS_BINDING_ABORTED', 'NS_ERROR_DOCUMENT_LOAD_LISTENER_NO_PARENT_CHANNEL'].includes(error)
+    )
+  }
+
   function context(error, operation) {
     const wrapped = new Error(error?.message || 'errorUnexpected', { cause: error })
     wrapped.errorDetails = details(error, operation)
@@ -263,5 +270,13 @@
     return `${t(label)}${info.resource ? ` (${info.resource})` : ''}: ${reason}${info.hint ? `\n${t(info.hint)}` : ''}`
   }
 
-  root.MegaErrors = { details, context, format, httpError, responseText, proxyFailure }
+  root.MegaErrors = {
+    details,
+    context,
+    format,
+    httpError,
+    responseText,
+    proxyFailure,
+    isNavigationCancellation
+  }
 })(globalThis)

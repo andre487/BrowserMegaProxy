@@ -294,7 +294,7 @@
     "message": "Knock is not needed for SOCKS5, MASQUE or Firefox profiles with saved credentials."
   },
   "errorKnockMayBeRequired": {
-    "message": "The proxy may be using camouflage. Chrome needs a knock host to authenticate with such a proxy. Set it in the profile settings and reconnect. Ask the proxy administrator for the knock host address."
+    "message": "The proxy may be using camouflage. Chromium-based browsers need a knock host to authenticate with such a proxy. Set it in the profile settings and reconnect. Ask the proxy administrator for the knock host address."
   },
   "errorCheckInactive": {
     "message": "Connect a profile before testing"
@@ -1213,5 +1213,17 @@
   },
   "configDownloadWithoutProxyConfirm": {
     "message": "Could not download the configuration through the proxy. A knock host may be required for authentication. Download the configuration directly, without the proxy?"
+  },
+  "reasonNS_BINDING_ABORTED": {
+    "message": "The browser cancelled the request"
+  },
+  "reasonNS_BINDING_FAILED": {
+    "message": "The browser failed to process the request"
+  },
+  "reasonPR_CONNECT_RESET_ERROR": {
+    "message": "The connection was reset during the TLS handshake"
+  },
+  "reasonPR_END_OF_FILE_ERROR": {
+    "message": "The connection closed before the TLS handshake finished"
   }
 }
