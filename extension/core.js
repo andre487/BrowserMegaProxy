@@ -848,6 +848,7 @@ function FindProxyForURL(url, host) {
       !portable &&
       !Array.isArray(data) &&
       Object.keys(data).some(key => !['profiles', 'data'].includes(key))
+    let browserRoutingPatch
     const originalEntries = entries
     if (portable) {
       const filtered = filterConfig(data)
@@ -858,6 +859,23 @@ function FindProxyForURL(url, host) {
         Boolean(data.browser?.routing?.assignments?.length) ||
         ['profiles', 'failover'].includes(data.browser?.routing?.strategy)
       if (browserRouting) {
+        const supplied = data.browser.routing
+        browserRoutingPatch = Object.fromEntries(
+          Object.keys(supplied).map(key => [key, browserRouting[key]])
+        )
+        if (supplied.subscriptions) {
+          browserRoutingPatch.subscriptions = Object.fromEntries(
+            Object.keys(supplied.subscriptions).map(key => [key, browserRouting.subscriptions[key]])
+          )
+        }
+        if (Object.hasOwn(supplied, 'strategy')) {
+          browserRoutingPatch.mode = browserRouting.mode
+          if (supplied.strategy === 'failover') {
+            browserRoutingPatch.enabled = false
+          }
+        } else if (Object.hasOwn(supplied, 'mode')) {
+          browserRoutingPatch.strategy = undefined
+        }
         data.browser.routing = structuredClone(browserRouting)
       }
     }
@@ -1022,8 +1040,8 @@ function FindProxyForURL(url, host) {
             config: structuredClone(data),
             unsupportedSplitProxy,
             unsupportedWebRTC,
-            ...(browserRouting ? { browserRouting } : {}),
-            bypassLocalNetworks: data.routing?.bypassLocalNetworks ?? true
+            ...(browserRouting ? { browserRouting, browserRoutingPatch } : {}),
+            bypassLocalNetworks: data.routing?.bypassLocalNetworks
           }
         : {})
     }
@@ -1336,8 +1354,8 @@ function FindProxyForURL(url, host) {
       result.profiles.map(p => {
         const old = existing.get(p.id)
         const next = { ...p }
-        if (old && p.portable && !result.replaceSettings) {
-          for (const key of ['knockHost', 'bypass', 'authMode']) {
+        if (old && p.portable) {
+          for (const key of ['knockHost', 'bypass', 'authMode', 'masqueTemplate']) {
             if (!Object.hasOwn(p.portable.browser || {}, key)) {
               next[key] = old[key]
             }
@@ -1389,9 +1407,18 @@ function FindProxyForURL(url, host) {
       }
     }
 
-    const preferences = result.replaceSettings && result.config ? defaults() : state
-    const browserRouting =
-      result.browserRouting || (result.replaceSettings && result.config ? routing() : undefined)
+    let browserRouting = result.browserRouting
+    const incomingRouting = result.browserRoutingPatch
+    if (incomingRouting) {
+      browserRouting = routing({
+        ...state.browserRouting,
+        ...incomingRouting,
+        subscriptions: {
+          ...state.browserRouting?.subscriptions,
+          ...incomingRouting.subscriptions
+        }
+      })
+    }
     return {
       ...state,
       ...(nextSubscription !== undefined ? { subscription: nextSubscription } : {}),
@@ -1401,10 +1428,10 @@ function FindProxyForURL(url, host) {
       ...(result.config
         ? {
             portable: configuration,
-            theme: result.config.browser?.theme || preferences.theme,
-            language: result.config.browser?.language || preferences.language,
-            webRTC: result.config.browser?.webRTC || preferences.webRTC || 'browser',
-            bypassLocalNetworks: result.bypassLocalNetworks
+            theme: result.config.browser?.theme || state.theme,
+            language: result.config.browser?.language || state.language,
+            webRTC: result.config.browser?.webRTC || state.webRTC || 'browser',
+            bypassLocalNetworks: result.bypassLocalNetworks ?? state.bypassLocalNetworks
           }
         : {})
     }
