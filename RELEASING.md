@@ -213,13 +213,23 @@ release or disable submission until ready.
 
 For a first submission, `web-ext` creates the listing using the tagged source
 archive's reviewer notes and MIT license, with EN/RU listings from the released
-store-materials archive and Other categories for desktop and Android. After
-submission, the job updates the listing, privacy policy and icon, then uploads
-the five English and five Russian Firefox screenshots with captions into AMO's
-single shared gallery. AMO localizes captions, not the image gallery. Previous screenshots are removed
-only after all replacements are accepted. Rerunning an already submitted version
-still synchronizes materials without uploading the package again. Both first
+store-materials archive and Other categories for desktop and Android. Both first
 submissions and updates include the source ZIP for reproducible review.
+
+The job does not synchronize existing store materials. It checks the public
+listing through AMO's unauthenticated API and warns about differences in EN/RU
+names, summaries, descriptions, homepage/support links, icon, screenshot count,
+order, images and localized captions. The shared gallery should contain five EN
+images followed by five RU images. Update flagged materials manually in the AMO
+developer dashboard; review privacy policy separately when it changes.
+Comparison reports and image differences are attached as
+`firefox-store-materials-vX.Y.Z` and summarized in the job summary.
+Public drafts and pending changes are not visible to this check. Missing materials,
+network errors or invalid public data warn without blocking package submission;
+there are no authenticated material writes or rate-limit waits in the freshness check.
+An initial listing still requires the released text metadata.
+Run `npm run store:check:firefox -- vX.Y.Z` with the released materials archive in
+`dist/release/`, or omit the tag to compare repository materials.
 
 AMO reviewer notes are limited to 3,000 characters, including build instructions.
 When the full store notes exceed that limit, the submission points reviewers to
@@ -245,7 +255,7 @@ Unlike Opera's optional warning path, Firefox failures remain visible as failed
 jobs while the existing GitHub release remains available. Fix credentials or
 metadata in AMO, then rerun **Firefox Add-ons** for the same tag. Versions already
 listed as public or awaiting review with attached source skip package submission
-and still update store materials. Rejected,
+and only check public materials. Rejected,
 disabled, unlisted or incomplete existing versions require dashboard attention;
 the workflow does not silently replace or delete them.
 

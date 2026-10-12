@@ -20,6 +20,7 @@
     "store:assets": "npm run build && node scripts/store-assets.mjs",
     "release:assets": "node scripts/release.mjs package",
     "store:materials": "node scripts/release.mjs store-materials",
+    "store:check:firefox": "node scripts/firefox-store-materials.mjs",
     "store:check:chrome": "node scripts/chrome-store-materials.mjs",
     "test:android": "node scripts/test.mjs android-firefox",
     "test:android:chromium": "node scripts/test.mjs android-vivaldi",

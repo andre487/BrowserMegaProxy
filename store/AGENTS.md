@@ -19,8 +19,8 @@ uploader for a one-off dashboard recovery.
    drafts, privacy fields, icons or promotional tiles.
 4. Read [README.md](README.md) for the asset/locale mapping and the relevant
    section of [RELEASING.md](../RELEASING.md#store-publication) for automation.
-   The Firefox job already synchronizes supported materials; Chrome and Opera
-   require separate dashboard edits. The Opera job only uploads/submits the package. Do not rerun a whole publication workflow merely
+   Firefox and Chrome jobs check public materials and warn about differences; all
+   stores require separate dashboard edits. The Opera job only uploads/submits the package. Do not rerun a whole publication workflow merely
    to repair images: it may upload or submit the package again.
 5. In the dashboard, collect one compact baseline: version/status, localized
    text, image URLs/order/count, support/homepage and privacy fields. Compare
