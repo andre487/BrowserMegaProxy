@@ -1743,6 +1743,107 @@ test('config subscriptions authenticate, replace owned profiles atomically and r
   assert.equal((await synced.send({ command: 'get' })).state.subscription, undefined)
 })
 
+test('manual imports and subscription refresh preserve omitted and partial browser settings', async () => {
+  for (const target of ['firefox', 'chromium']) {
+    const remote = {
+      schema: 'net.megaproxy487.config',
+      version: 8,
+      profiles: [
+        {
+          id: 'one',
+          proxy: {
+            type: 'HTTPS',
+            host: 'proxy.example',
+            port: 443,
+            username: 'user',
+            password: 'secret'
+          },
+          browser: { knockHost: 'knock.example' }
+        }
+      ]
+    }
+    const h = harness(target, {}, async () => new Response(JSON.stringify(remote)))
+    assert.equal(
+      (
+        await h.send({
+          command: 'import',
+          data: remote,
+          subscription: { url: 'https://config.example/feed' }
+        })
+      ).ok,
+      true
+    )
+    await h.send({ command: 'activate', id: 'one' })
+    await h.send({ command: 'theme', theme: 'dark' })
+    await h.send({ command: 'language', language: 'ru' })
+    await h.send({ command: 'webRTC', value: 'disable_non_proxied_udp' })
+    await h.send({ command: 'bypassLocalNetworks', enabled: false })
+    await h.send({
+      command: 'routing',
+      routing: {
+        enabled: true,
+        strategy: 'manual',
+        domains: ['old.example'],
+        subscriptions: { autoUpdate: false, throughProxy: true }
+      }
+    })
+    const initial = (await h.send({ command: 'get' })).state
+    await h.send({
+      command: 'save',
+      profile: { ...initial.profiles[0], bypass: ['local.example'], authMode: 'challenge' }
+    })
+    for (const command of [
+      { command: 'import', data: remote },
+      { command: 'updateConfigSubscription' }
+    ]) {
+      assert.equal((await h.send(command)).ok, true, target)
+      const state = (await h.send({ command: 'get' })).state
+      assert.equal(state.theme, 'dark')
+      assert.equal(state.language, 'ru')
+      assert.equal(state.webRTC, 'disable_non_proxied_udp')
+      assert.equal(state.bypassLocalNetworks, false)
+      assert.equal(state.browserRouting.enabled, true)
+      assert.deepEqual([...state.browserRouting.domains], ['old.example'])
+      assert.deepEqual([...state.profiles[0].bypass], ['local.example'])
+      assert.equal(state.profiles[0].authMode, 'challenge')
+      assert.equal(state.activeId, 'one')
+    }
+    remote.browser = { routing: { domains: ['new.example'], subscriptions: { autoUpdate: true } } }
+    assert.equal((await h.send({ command: 'updateConfigSubscription' })).ok, true)
+    let state = (await h.send({ command: 'get' })).state
+    assert.deepEqual([...state.browserRouting.domains], ['new.example'])
+    assert.equal(state.browserRouting.enabled, true)
+    assert.equal(state.browserRouting.strategy, 'manual')
+    assert.equal(state.browserRouting.subscriptions.autoUpdate, true)
+    assert.equal(state.browserRouting.subscriptions.throughProxy, true)
+    remote.browser = {
+      theme: 'light',
+      language: 'auto',
+      webRTC: 'browser',
+      routing: { enabled: false, domains: [], subscriptions: { throughProxy: false } }
+    }
+    remote.routing = { bypassLocalNetworks: true }
+    remote.profiles[0].browser = { knockHost: '', bypass: [], authMode: 'auto' }
+    assert.equal((await h.send({ command: 'updateConfigSubscription' })).ok, true)
+    state = (await h.send({ command: 'get' })).state
+    assert.equal(
+      state.configSubscriptionState.error,
+      undefined,
+      JSON.stringify(state.configSubscriptionState)
+    )
+    assert.equal(state.theme, 'light')
+    assert.equal(state.language, 'auto')
+    assert.equal(state.webRTC, 'browser')
+    assert.equal(state.bypassLocalNetworks, true)
+    assert.equal(state.browserRouting.enabled, false)
+    assert.deepEqual([...state.browserRouting.domains], [])
+    assert.equal(state.browserRouting.subscriptions.throughProxy, false)
+    assert.deepEqual([...state.profiles[0].bypass], [])
+    assert.equal(state.profiles[0].authMode, 'auto')
+    assert.equal(state.profiles[0].knockHost, '')
+  }
+})
+
 test('legacy subscription snapshots reuse profiles and replace only settings represented by their format', async () => {
   const feeds = [
     {
@@ -1851,15 +1952,11 @@ test('legacy subscription snapshots reuse profiles and replace only settings rep
       assert.equal(state.profiles.length, 2, name)
       assert.equal(state.profiles[0].id, id, name)
       assert.equal(state.activeId, id, name)
-      assert.equal(state.theme, name === 'LegacyMegaProxy' ? 'system' : 'light', name)
-      assert.equal(state.language, name === 'LegacyMegaProxy' ? 'auto' : 'ru', name)
+      assert.equal(state.theme, 'light', name)
+      assert.equal(state.language, 'ru', name)
       assert.equal(
         state.browserRouting.domains[0],
-        name === 'ZeroOmega'
-          ? '**.feed.example'
-          : name === 'LegacyMegaProxy'
-            ? undefined
-            : 'old.example',
+        name === 'ZeroOmega' ? '**.feed.example' : 'old.example',
         name
       )
       assert.equal(state.configSubscriptionState.error, undefined, name)
@@ -1875,9 +1972,9 @@ test('legacy subscription snapshots reuse profiles and replace only settings rep
     await h.send({ command: 'updateConfigSubscription' })
     const state = (await h.send({ command: 'get' })).state
     assert.equal(state.profiles[0].host, 'replacement.example')
-    assert.equal(state.theme, 'system')
-    assert.equal(state.language, 'auto')
-    assert.equal(state.browserRouting.enabled, false)
+    assert.equal(state.theme, 'light')
+    assert.equal(state.language, 'ru')
+    assert.equal(state.browserRouting.enabled, true)
     assert.equal(state.profiles.length, 2)
     assert.equal(state.activeId, id)
   }

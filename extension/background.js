@@ -1156,7 +1156,6 @@ async function handle(message) {
       if (!result.profiles.length) {
         throw new Error('errorImportCompatible')
       }
-      result.replaceSettings = true
       if (
         (result.config?.version || 0) < 7 &&
         !result.profiles.every(p => p.id.startsWith('zero:'))

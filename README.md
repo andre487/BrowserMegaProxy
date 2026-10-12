@@ -376,9 +376,9 @@ and active profile stay selected while that profile still exists. If it disappea
 select the downloaded `activeProfileId` when that profile is supported, otherwise
 the first supported profile in snapshot order. This existing version 8 field also
 serves as a preferred replacement; Direct/System stay unchanged and an initial
-import does not connect automatically. Each update replaces all settings represented by its format; a full MegaProxy
-configuration also resets omitted browser preferences to their defaults. Settings
-not represented by the source format remain local. Supported subscription bodies
+import does not connect automatically. Each update applies explicitly supplied settings. Omitted browser preferences,
+routing fields, list subscription options and profile browser options remain local;
+explicit false values and empty lists still replace the corresponding setting. Supported subscription bodies
 are MegaProxy JSON, ZeroOmega JSON, FoxyProxy JSON, ProxyList and SuperProxy, with
 the same protocol and routing limitations as manual imports. Unsupported profiles
 and fields produce warnings; a source with no usable profiles fails the update.
