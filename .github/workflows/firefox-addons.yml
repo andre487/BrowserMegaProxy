@@ -41,7 +41,15 @@ jobs:
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
-          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-firefox-$RELEASE_TAG.zip" --pattern "MegaProxy-source-$RELEASE_TAG.zip" --pattern "MegaProxy-store-materials-$RELEASE_TAG.zip" --dir dist/release
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-firefox-$RELEASE_TAG.zip" --pattern "MegaProxy-source-$RELEASE_TAG.zip" --dir dist/release
+          if ! gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "MegaProxy-store-materials-$RELEASE_TAG.zip" --dir dist/release; then
+            echo '::warning title=Firefox Add-ons materials::Cannot download released materials; check listing manually. An initial submission still requires listing metadata.'
+          fi
+      - name: Install materials comparison dependencies
+        run: |
+          if ! npm ci; then
+            echo '::warning title=Firefox Add-ons materials::Cannot install comparison dependencies; check public materials manually.'
+          fi
       - name: Run Firefox integration
         env:
           RELEASE_TAG: ${{ inputs.tag }}
@@ -49,3 +57,12 @@ jobs:
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
           AMO_DRY_RUN: ${{ inputs.dry_run }}
         run: node scripts/firefox-addons.mjs "$RELEASE_TAG"
+      - name: Upload materials comparison report
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: firefox-store-materials-${{ inputs.tag }}
+          path: test-results/firefox-store-materials/
+          if-no-files-found: warn
+          retention-days: 14

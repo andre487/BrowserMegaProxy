@@ -6,11 +6,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import {
-  checkFirefoxRelease,
-  firefoxMetadata,
-  syncFirefoxMaterials
-} from '../scripts/firefox-addons.mjs'
+import { checkFirefoxRelease, firefoxMetadata } from '../scripts/firefox-addons.mjs'
 
 const env = { WEB_EXT_API_KEY: 'user:123:4', WEB_EXT_API_SECRET: 'test-secret' }
 const manifest = {
@@ -228,17 +224,18 @@ test('Firefox CLI validates released archives and delegates submission with sour
     }
     await write(
       'mock-api.mjs',
-      `let created = false
-    globalThis.fetch = async (url, options = {}) => {
-      if (options.method === 'PATCH') created = true
-      const ok = created || options.method !== 'GET' || url.endsWith('accounts/profile/')
+      `    globalThis.fetch = async (url, options = {}) => {
+      if (options.method && options.method !== 'GET') throw new Error('Unexpected materials write')
+      if (process.env.AMO_EXISTING === 'new' && url.includes('/versions/')) return {ok: false, status: 404}
+      if (process.env.AMO_EXISTING !== 'false') return {ok: true, status: 200, json: async () => url.endsWith('accounts/profile/') ? {id: 123} : url.includes('/versions/') && process.env.AMO_EXISTING === 'true' ? {channel: 'listed', file: {status: 'public'}, source: 'source.zip'} : {guid: 'browser-mega-proxy@andre487', authors: [{id: 123}]}}
+      const ok = url.endsWith('accounts/profile/')
       return { ok, status: ok ? 200 : 404, json: async () => ({id: 123, previews: []}) }
     }`
     )
     await write('bin/npx', '#!/bin/sh\nprintf "%s\\n" "$@" > "$AMO_CAPTURE"\n')
     await chmod(`${directory}/bin/npx`, 0o755)
     const capture = `${directory}/command.txt`
-    const run = dryRun =>
+    const run = (dryRun, existing = false) =>
       execFileSync(
         process.execPath,
         [
@@ -256,6 +253,7 @@ test('Firefox CLI validates released archives and delegates submission with sour
             PATH: `${directory}/bin:${process.env.PATH}`,
             AMO_CAPTURE: capture,
             AMO_DRY_RUN: String(dryRun),
+            AMO_EXISTING: String(existing),
             GITHUB_STEP_SUMMARY: `${directory}/summary.md`
           }
         }
@@ -273,65 +271,13 @@ test('Firefox CLI validates released archives and delegates submission with sour
     await rm(capture)
     assert.match(run(true), /dry run passed/)
     await assert.rejects(readFile(capture), { code: 'ENOENT' })
+    await rm(`${directory}/dist/release/MegaProxy-store-materials-v0.1.1.zip`)
+    assert.match(run(false, true), /already submitted/)
+    await assert.rejects(readFile(capture), { code: 'ENOENT' })
+    assert.match(run(false, 'new'), /submitted to AMO/)
+    const update = JSON.parse(await readFile(`${directory}/dist/amo-metadata.json`, 'utf8'))
+    assert.deepEqual(Object.keys(update), ['version'])
   } finally {
     await rm(directory, { recursive: true, force: true })
-  }
-})
-
-test('Firefox replaces listing, privacy, icon and localized previews; old previews survive an upload failure', async () => {
-  const listings = Object.fromEntries(
-    ['en', 'ru'].map(locale => [
-      locale,
-      {
-        name: 'MegaProxy',
-        summary: `Summary ${locale}`,
-        description: `Description ${locale}`,
-        homepage: 'https://example.org',
-        support: 'https://example.org/issues',
-        screenshotCaptions: [`Caption ${locale}`]
-      }
-    ])
-  )
-  const read = file =>
-    Buffer.from(
-      file.includes('/listings/')
-        ? JSON.stringify(listings[file.includes('/ru.') ? 'ru' : 'en'])
-        : file.endsWith('.png')
-          ? 'png'
-          : 'Privacy'
-    )
-  for (const fail of [false, true]) {
-    const mock = api([
-      {},
-      {},
-      {},
-      { previews: [{ id: 9 }] },
-      { id: 10 },
-      {},
-      fail ? { httpError: 400 } : { id: 11 },
-      ...(fail ? [] : [{}, {}])
-    ])
-    const sync = syncFirefoxMaterials('v0.1.1', manifest, { env, request: mock.request, read })
-    if (fail) {
-      await assert.rejects(sync, /HTTP 400/)
-    } else {
-      await sync
-    }
-    assert.deepEqual(JSON.parse(mock.calls[0].body).description, {
-      'en-US': 'Description en',
-      ru: 'Description ru'
-    })
-    assert.ok(!('version' in JSON.parse(mock.calls[0].body)))
-    assert.ok(mock.calls[1].url.endsWith('/eula_policy/'))
-    assert.deepEqual(JSON.parse(mock.calls[1].body), { privacy_policy: { 'en-US': 'Privacy' } })
-    assert.equal(mock.calls[2].body.get('icon').type, 'image/png')
-    assert.equal(mock.calls[4].body.get('image').name, 'en-1.png')
-    assert.equal(mock.calls[4].body.get('position'), '0')
-    assert.deepEqual(JSON.parse(mock.calls[5].body), { caption: { 'en-US': 'Caption en' } })
-    assert.equal(mock.calls[6].body.get('image').name, 'ru-1.png')
-    assert.equal(mock.calls.filter(call => call.method === 'DELETE').length, fail ? 0 : 1)
-    if (!fail) {
-      assert.ok(mock.calls.at(-1).url.endsWith('/previews/9/'))
-    }
   }
 })
