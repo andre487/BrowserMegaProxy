@@ -480,11 +480,8 @@ function render() {
       t(selected ? 'selectedProfile' : 'connect'),
       () => send('activate', { id: p.id }),
       'secondary',
-      selected ? 'check' : isOptions ? undefined : 'login'
+      selected ? 'check' : 'login'
     )
-    if (isOptions && !selected) {
-      select.prepend(icon('login'))
-    }
     select.disabled = selected
     if (isOptions) {
       const editButton = button(t('edit'), () => edit(p), 'secondary', 'edit')
@@ -523,11 +520,8 @@ function render() {
           $('#notice').textContent = t((await send('knock')).message)
         },
         'secondary',
-        isOptions ? undefined : 'recenter'
+        'recenter'
       )
-      if (isOptions) {
-        knock.prepend(icon('recenter'))
-      }
       knock.disabled = !platform.needsKnock(p)
       actions.insertBefore(knock, actions.querySelector('.profile-menu'))
     }

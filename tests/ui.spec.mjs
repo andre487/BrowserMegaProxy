@@ -615,7 +615,8 @@ test('knock host stays editable and is saved with or without Firefox credentials
   const knock = page.locator('.profile').getByRole('button', { name: 'Knock', exact: true })
   await expect(knock).toHaveCount(0)
   const select = page.locator('.profile').getByRole('button', { name: 'Выбрать', exact: true })
-  await expect(select).toHaveText('Выбрать')
+  await expect(select).toHaveText('')
+  await expect(select).toHaveAttribute('title', 'Выбрать')
   await expect(select.locator('svg')).toBeVisible()
   const selectWidth = (await select.boundingBox()).width
   await select.click()
@@ -627,10 +628,20 @@ test('knock host stays editable and is saved with or without Firefox credentials
   await expect(editButton).toHaveAttribute('title', 'Изменить')
   await expect(editButton).toHaveText('')
   await expect(editButton.locator('svg')).toBeVisible()
-  await expect(knock).toHaveText('Knock')
+  await expect(knock).toHaveText('')
+  await expect(knock).toHaveAttribute('title', 'Knock')
   await expect(knock.locator('svg')).toBeVisible()
   expect((await knock.boundingBox()).width).toBe(selectWidth)
   await expect(page.locator('.profile .actions > :last-child')).toHaveClass('profile-menu')
+  for (const control of await page
+    .locator('.profile .actions > button, .profile-menu > summary')
+    .all()) {
+    await expect(control).toHaveText('')
+    await expect(control).toHaveCSS('width', '40px')
+    await expect(control).toHaveCSS('height', '40px')
+    await expect(control).toHaveCSS('border-radius', '50%')
+    await expect(control).toHaveAttribute('title', /.+/)
+  }
   if (browserName === 'firefox') {
     await expect(knock).toBeDisabled()
   } else {
