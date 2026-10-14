@@ -482,6 +482,9 @@ function render() {
       'secondary',
       selected ? 'check' : isOptions ? undefined : 'login'
     )
+    if (isOptions && !selected) {
+      select.prepend(icon('login'))
+    }
     select.disabled = selected
     if (isOptions) {
       const editButton = button(t('edit'), () => edit(p), 'secondary', 'edit')
