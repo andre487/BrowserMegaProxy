@@ -16,7 +16,13 @@ const source = (
   )
 ).join('\n;\n')
 
-function harness(target = 'chromium', session = {}, opened = new Map(), savedCredentials = true) {
+function harness(
+  target = 'chromium',
+  session = {},
+  opened = new Map(),
+  savedCredentials = true,
+  local = {}
+) {
   const events = {}
   const reloaded = []
   const created = []
@@ -54,10 +60,11 @@ function harness(target = 'chromium', session = {}, opened = new Map(), savedCre
             statisticsEnabled: false,
             profiles: [profile],
             activeId: profile.id,
-            browserRouting: { enabled: true, domains: ['**.example.com'] }
+            browserRouting: { enabled: true, domains: ['**.example.com'] },
+            ...local.state
           }
         }),
-        set: async () => {}
+        set: async data => Object.assign(local, structuredClone(data))
       },
       session: {
         get: async () => structuredClone(session),
@@ -142,6 +149,95 @@ const tabs = () =>
     [5, { id: 5, url: 'https://other.example.com/', discarded: true }]
   ])
 
+test('manual knock refreshes only main-document proxy failures, including failures during knock', async () => {
+  const h = harness('chromium', {}, tabs())
+  const fail = (tabId, error, type = 'main_frame') =>
+    h.events.onErrorOccurred({
+      tabId,
+      type,
+      url: h.opened.get(tabId).url,
+      error
+    })
+  fail(1, 'net::ERR_PROXY_CONNECTION_FAILED')
+  fail(2, 'net::ERR_TUNNEL_CONNECTION_FAILED', 'image')
+  fail(3, 'net::ERR_PROXY_CONNECTION_FAILED')
+  await h.flush()
+  await h.send({ command: 'knock' })
+  fail(2, 'net::ERR_ABORTED')
+  h.complete(200)
+  await h.flush()
+  for (const id of [1, 2, 3]) {
+    await h.activate(id)
+  }
+  assert.deepEqual(h.reloaded, [1])
+
+  h.events.updated(99, { status: 'complete' }, { url: 'https://knock.example/' })
+  await h.flush()
+  await h.send({ command: 'knock' })
+  fail(2, 'net::ERR_TUNNEL_CONNECTION_FAILED')
+  h.complete(200)
+  await h.flush()
+  await h.activate(2)
+  assert.deepEqual(h.reloaded, [1, 2])
+})
+
+test('successful document loads clear proxy failures before a manual knock', async () => {
+  const h = harness('chromium', {}, tabs())
+  h.events.onErrorOccurred({
+    tabId: 1,
+    type: 'main_frame',
+    url: 'https://example.com/',
+    error: 'net::ERR_PROXY_CONNECTION_FAILED'
+  })
+  await h.flush()
+  h.events.onCompleted({
+    tabId: 1,
+    type: 'main_frame',
+    url: 'https://example.com/',
+    statusCode: 200
+  })
+  await h.flush()
+  await h.send({ command: 'knock' })
+  h.complete(200)
+  await h.flush()
+  await h.activate(1)
+  assert.deepEqual(h.reloaded, [])
+})
+
+test('disabling knock refresh clears pending markers and persists across worker recreation', async () => {
+  const session = {}
+  const local = {}
+  const h = harness('chromium', session, tabs(), true, local)
+  assert.equal((await h.send({ command: 'get' })).state.knockRefreshEnabled, true)
+  assert.equal((await h.send({ command: 'knockRefresh', enabled: 'false' })).ok, false)
+  h.events.startup()
+  await h.flush()
+  h.events.onBeforeRequest({ tabId: 1, type: 'image', url: 'https://example.com/icon' })
+  await h.flush()
+  await h.send({ command: 'knockRefresh', enabled: false })
+  h.complete(200)
+  await h.flush()
+  await h.activate(1)
+  assert.deepEqual(h.reloaded, [])
+  assert.deepEqual(session.knockRefresh.tabs, [])
+  assert.deepEqual(session.knockRefresh.candidates, [])
+  h.events.onErrorOccurred({
+    tabId: 2,
+    type: 'main_frame',
+    url: 'https://child.example.com/',
+    error: 'net::ERR_PROXY_CONNECTION_FAILED'
+  })
+  await h.flush()
+  assert.deepEqual(session.knockRefresh.candidates, [])
+  const resumed = harness('chromium', session, h.opened, true, local)
+  assert.equal((await resumed.send({ command: 'get' })).state.knockRefreshEnabled, false)
+  await resumed.activate(1)
+  assert.deepEqual(resumed.reloaded, [])
+  await h.send({ command: 'knockRefresh', enabled: true })
+  await h.activate(1)
+  assert.deepEqual(h.reloaded, [])
+})
+
 test('new knock tabs use unique query strings while pending tabs retain their navigation', async () => {
   const h = harness('chromium', {}, tabs())
   await h.send({ command: 'knock' })
@@ -156,6 +252,46 @@ test('new knock tabs use unique query strings while pending tabs retain their na
   assert.equal(h.opened.has(99), false)
   await h.send({ command: 'knock' })
   assert.notEqual(h.opened.get(99).url, first)
+})
+
+test('turning refresh off clears scheduled reloads even after turning it back on', async () => {
+  const h = harness('chromium', {}, tabs())
+  h.events.startup()
+  await h.flush()
+  h.events.onBeforeRequest({ tabId: 1, type: 'image', url: 'https://example.com/icon' })
+  h.complete(200)
+  await h.flush()
+  assert.equal(h.session.knockRefresh.tabs.length, 1)
+  await h.send({ command: 'knockRefresh', enabled: false })
+  await h.send({ command: 'knockRefresh', enabled: true })
+  await h.activate(1)
+  assert.deepEqual(h.reloaded, [])
+})
+
+test('startup request markers survive a failed knock and worker recreation', async () => {
+  const session = {}
+  const opened = tabs()
+  const first = harness('chromium', session, opened)
+  first.events.startup()
+  await first.flush()
+  first.events.onBeforeRequest({ tabId: 1, type: 'script', url: 'https://example.com/app.js' })
+  first.complete(500)
+  await first.flush()
+  assert.deepEqual(session.knockRefresh.tabs, [])
+  const resumed = harness('chromium', session, opened)
+  await resumed.flush()
+  resumed.events.onBeforeRequest({
+    tabId: 2,
+    type: 'xmlhttprequest',
+    url: 'https://child.example.com/api'
+  })
+  resumed.complete(200)
+  await resumed.flush()
+  await resumed.activate(1)
+  await resumed.activate(2)
+  assert.deepEqual(resumed.reloaded, [1, 2])
+  await resumed.send({ command: 'knockRefresh', enabled: false })
+  assert.deepEqual(session.knockRefresh.tabs, [])
 })
 
 test('Chromium retries a knock interrupted by proxy settings once, then closes on success or leaves a repeated failure open', async () => {
@@ -222,12 +358,24 @@ test('Chromium never retries an interrupted knock after the user navigates elsew
 
 test('Chromium startup marks only existing routed tabs after knock succeeds and reloads each once on activation', async () => {
   const h = harness('chromium', {}, tabs())
+  h.opened.set(7, { id: 7, url: 'https://healthy.example.com/' })
   await h.send({ command: 'get' })
+  h.events.onBeforeRequest({ tabId: 1, type: 'main_frame', url: 'https://example.com/' })
+  h.events.onBeforeRequest({
+    tabId: 1,
+    type: 'xmlhttprequest',
+    url: 'https://direct.example.net/analytics'
+  })
   h.events.startup()
+  await h.flush()
+  h.events.onBeforeRequest({ tabId: 2, type: 'image', url: 'https://child.example.com/icon' })
   await h.flush()
   await h.activate(1)
   assert.deepEqual(h.reloaded, [])
   h.opened.set(6, { id: 6, url: 'https://new.example.com/' })
+  h.events.onBeforeRequest({ tabId: 6, type: 'main_frame', url: 'https://new.example.com/' })
+  h.events.onBeforeRequest({ tabId: 3, type: 'main_frame', url: 'https://direct.example.net/' })
+  h.events.onBeforeRequest({ tabId: 5, type: 'image', url: 'https://other.example.com/icon' })
   h.events.onCompleted({
     tabId: 99,
     type: 'image',
@@ -243,7 +391,7 @@ test('Chromium startup marks only existing routed tabs after knock succeeds and 
     [1, 2]
   )
   assert.deepEqual(h.reloaded, [])
-  for (const id of [1, 1, 2, 3, 4, 5, 6, 99]) {
+  for (const id of [1, 1, 2, 3, 4, 5, 6, 7, 99]) {
     await h.activate(id)
   }
   assert.deepEqual(h.reloaded, [1, 2])
@@ -253,6 +401,13 @@ test('Chromium startup marks only existing routed tabs after knock succeeds and 
 test('failed knock, profile disconnect, changed URLs and closed tabs never cause stale reloads', async () => {
   for (const failure of ['http', 'network', 'disconnect']) {
     const h = harness('chromium', {}, tabs())
+    h.events.onErrorOccurred({
+      tabId: 1,
+      type: 'main_frame',
+      url: 'https://example.com/',
+      error: 'net::ERR_PROXY_CONNECTION_FAILED'
+    })
+    await h.flush()
     await h.send({ command: 'knock' })
     if (failure === 'network') {
       h.events.onErrorOccurred({
@@ -272,6 +427,15 @@ test('failed knock, profile disconnect, changed URLs and closed tabs never cause
     assert.deepEqual(h.reloaded, [])
   }
   const h = harness('chromium', {}, tabs())
+  for (const id of [1, 2]) {
+    h.events.onErrorOccurred({
+      tabId: id,
+      type: 'main_frame',
+      url: h.opened.get(id).url,
+      error: 'net::ERR_PROXY_CONNECTION_FAILED'
+    })
+  }
+  await h.flush()
   await h.send({ command: 'knock' })
   h.complete(200)
   await h.flush()
@@ -289,6 +453,13 @@ test('reload markers survive Chromium service worker recreation and Firefox neve
   const session = {}
   const opened = tabs()
   const first = harness('chromium', session, opened)
+  first.events.onErrorOccurred({
+    tabId: 1,
+    type: 'main_frame',
+    url: 'https://example.com/',
+    error: 'net::ERR_PROXY_CONNECTION_FAILED'
+  })
+  await first.flush()
   await first.send({ command: 'knock' })
   first.complete(200)
   await first.flush()
@@ -311,6 +482,13 @@ test('IPv6 knock success is recognized without marking its own host for refresh'
   await h.send({ command: 'routing', routing: { enabled: false } })
   await h.send({ command: 'bypassLocalNetworks', enabled: false })
   h.opened.set(6, { id: 6, url: 'https://[::1]/existing' })
+  h.events.onErrorOccurred({
+    tabId: 1,
+    type: 'main_frame',
+    url: 'https://example.com/',
+    error: 'net::ERR_TUNNEL_CONNECTION_FAILED'
+  })
+  await h.flush()
   const p = (await h.send({ command: 'get' })).state.profiles[0]
   assert.equal((await h.send({ command: 'save', profile: { ...p, knockHost: '::1' } })).ok, true)
   assert.equal(

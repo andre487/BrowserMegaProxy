@@ -38,6 +38,7 @@
     theme: 'system',
     language: 'auto',
     statisticsEnabled: true,
+    knockRefreshEnabled: true,
     masqueEnabled: false,
     connectionMode: 'proxy',
     webRTC: 'browser',

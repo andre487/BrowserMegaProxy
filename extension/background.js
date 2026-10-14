@@ -32,6 +32,8 @@ let knockTabs = []
 let lastKnockProfile
 let routingMigration = false
 let knockRefresh = { pending: null, profileId: null, tabs: [] }
+const earlyKnockRequests = new Map()
+let collectEarlyKnockRequests = platform.id === 'chromium'
 const ready = Promise.all([
   api.storage.local.get(['state', 'syncOptions']).then(data => {
     routingMigration =
@@ -68,6 +70,9 @@ const ready = Promise.all([
       connectionCheck = data.connectionCheck || null
       recoverTransientProxy = data.assignedKnockLease === true || data.transientProxyLease === true
       knockRefresh = platform.restoreKnockRefresh(data, knockRefresh)
+      if (data.knockRefresh) {
+        collectEarlyKnockRequests = false
+      }
     })
 ])
 let queue = Promise.resolve()
@@ -318,6 +323,7 @@ async function retryKnock(details) {
 function refreshEligible(tab, p = M.active(state)) {
   const url = tab.pendingUrl || tab.url
   return Boolean(
+    state.knockRefreshEnabled !== false &&
     p &&
     !tab.discarded &&
     /^https?:\/\//.test(url || '') &&
@@ -331,17 +337,53 @@ async function storeKnockRefresh() {
   await api.storage.session?.set({ knockRefresh })
 }
 
+async function markKnockRefresh(details, proxyError = false) {
+  await ready
+  if (platform.id !== 'chromium' || state.knockRefreshEnabled === false || details.tabId < 0) {
+    return
+  }
+  const p = M.active(state)
+  if (!p?.knockHost || (!proxyError && !knockRefresh.startupTabs?.includes(details.tabId))) {
+    return
+  }
+  if ((await requestProfile(details))?.id !== p.id) {
+    return
+  }
+  const tab = await api.tabs.get(details.tabId).catch(() => null)
+  if (!tab || !refreshEligible(tab, p)) {
+    return
+  }
+  const marked = { id: tab.id, url: tab.pendingUrl || tab.url, profileId: p.id }
+  knockRefresh.candidates ||= []
+  if (
+    knockRefresh.candidates.some(
+      item => item.id === marked.id && item.url === marked.url && item.profileId === p.id
+    )
+  ) {
+    return
+  }
+  knockRefresh.candidates = knockRefresh.candidates.filter(item => item.id !== tab.id)
+  knockRefresh.candidates.push(marked)
+  if (knockRefresh.pending?.profileId === p.id) {
+    knockRefresh.pending.tabs = knockRefresh.pending.tabs.filter(item => item.id !== tab.id)
+    knockRefresh.pending.tabs.push(marked)
+  }
+  await storeKnockRefresh()
+}
+
 async function finishKnockRefresh(details, failed = false) {
   await ready
   const pending = knockRefresh.pending
   if (!pending || details.tabId !== pending.tabId || details.type !== 'main_frame') {
     return
   }
+  if (failed || details.statusCode < 200 || details.statusCode >= 400) {
+    return
+  }
 
   const p = M.active(state)
   knockRefresh.pending = null
   if (
-    !failed &&
     details.statusCode >= 200 &&
     details.statusCode < 400 &&
     p?.id === pending.profileId &&
@@ -349,6 +391,10 @@ async function finishKnockRefresh(details, failed = false) {
   ) {
     knockRefresh.profileId = p.id
     knockRefresh.tabs = pending.tabs.filter(tab => refreshEligible(tab, p))
+    knockRefresh.candidates = (knockRefresh.candidates || []).filter(tab => tab.profileId !== p.id)
+    delete knockRefresh.startupTabs
+    earlyKnockRequests.clear()
+    collectEarlyKnockRequests = false
   }
 
   await storeKnockRefresh()
@@ -383,12 +429,16 @@ async function refreshActivatedTab(tabId) {
 async function forgetKnockTab(tabId, changedURL) {
   await ready
   let changed = false
-  for (const owner of [knockRefresh, knockRefresh.pending].filter(Boolean)) {
-    const tabs = owner.tabs.filter(
+  for (const [owner, key] of [
+    [knockRefresh, 'tabs'],
+    [knockRefresh, 'candidates'],
+    [knockRefresh.pending, 'tabs']
+  ].filter(([owner]) => owner)) {
+    const tabs = (owner[key] || []).filter(
       tab => tab.id !== tabId || (changedURL && tab.url === changedURL)
     )
-    if (tabs.length !== owner.tabs.length) {
-      owner.tabs = tabs
+    if (tabs.length !== (owner[key] || []).length) {
+      owner[key] = tabs
       changed = true
     }
   }
@@ -1283,6 +1333,11 @@ async function handle(message) {
     }
 
     next.statisticsEnabled = message.enabled
+  } else if (message.command === 'knockRefresh') {
+    if (platform.id !== 'chromium' || typeof message.enabled !== 'boolean') {
+      throw new Error('errorProfileFields', { cause: new Error('errorBooleanSetting') })
+    }
+    next.knockRefreshEnabled = message.enabled
   } else if (message.command === 'webRTC') {
     next.webRTC = M.webRTC(message.value)
   } else if (message.command === 'theme') {
@@ -1345,6 +1400,12 @@ async function handle(message) {
     }
     if (old.statisticsEnabled !== next.statisticsEnabled) {
       configureStatistics()
+    }
+    if (next.knockRefreshEnabled === false && old.knockRefreshEnabled !== false) {
+      knockRefresh = { pending: null, profileId: null, tabs: [], candidates: [] }
+      earlyKnockRequests.clear()
+      collectEarlyKnockRequests = false
+      await storeKnockRefresh()
     }
 
     if (JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting)) {
@@ -1867,18 +1928,42 @@ ready.then(configureStatistics)
 // tabs.onUpdated can report "loading" after a fast response has already completed.
 api.webRequest.onBeforeRequest?.addListener(
   details => {
+    if (collectEarlyKnockRequests && details.tabId >= 0 && /^https?:/.test(details.url)) {
+      earlyKnockRequests.set(`${details.tabId}:${new URL(details.url).hostname}`, details)
+    }
     queue = queue
-      .then(() => updateKnockTab(details.tabId, { loading: true, url: details.url }))
+      .then(async () => {
+        await markKnockRefresh(details)
+        if (details.type === 'main_frame') {
+          await updateKnockTab(details.tabId, { loading: true, url: details.url })
+        }
+      })
       .catch(() => {})
   },
-  { urls: ['<all_urls>'], types: ['main_frame'] }
+  { urls: ['<all_urls>'] }
 )
 api.webRequest.onCompleted.addListener(
   details => {
     finishAuth(details)
     attempts.delete(details.requestId)
     if (details.type === 'main_frame') {
-      queue = queue.then(() => updateKnockTab(details.tabId, details)).catch(() => {})
+      queue = queue
+        .then(async () => {
+          if (details.statusCode === 407) {
+            await markKnockRefresh(details, true)
+          }
+          if (
+            platform.id === 'chromium' &&
+            !knockRefresh.startupTabs &&
+            details.statusCode >= 200 &&
+            details.statusCode < 400 &&
+            !knockTabs.some(tab => tab.tabId === details.tabId)
+          ) {
+            await forgetKnockTab(details.tabId)
+          }
+          await updateKnockTab(details.tabId, details)
+        })
+        .catch(() => {})
     }
   },
   { urls: ['<all_urls>'] }
@@ -1899,6 +1984,13 @@ api.webRequest.onErrorOccurred.addListener(
     ) {
       queue = queue
         .then(async () => {
+          if (
+            /^net::ERR_(?:PROXY_|TUNNEL_CONNECTION_FAILED|SOCKS_|INVALID_AUTH_CREDENTIALS|NO_SUPPORTED_PROXIES|MANDATORY_PROXY_CONFIGURATION_FAILED)/.test(
+              details.error || ''
+            )
+          ) {
+            await markKnockRefresh(details, true)
+          }
           if (await retryKnock(details)) {
             return
           }
@@ -1930,9 +2022,23 @@ api.webRequest.onErrorOccurred.addListener(
 
 for (const event of ['onInstalled', 'onStartup']) {
   api.runtime[event]?.addListener(() => {
+    const startupTabs =
+      event === 'onStartup' && platform.id === 'chromium' ? api.tabs.query({}) : null
     queue = queue
       .then(async () => {
         await ready
+        if (startupTabs && state.knockRefreshEnabled !== false) {
+          knockRefresh.startupTabs = (await startupTabs).map(tab => tab.id)
+          for (const details of earlyKnockRequests.values()) {
+            await markKnockRefresh(details)
+          }
+          earlyKnockRequests.clear()
+          collectEarlyKnockRequests = false
+          await storeKnockRefresh()
+        } else if (event === 'onInstalled' || startupTabs) {
+          earlyKnockRequests.clear()
+          collectEarlyKnockRequests = false
+        }
         if (event === 'onStartup' && state.connectionUpdate) {
           delete state.connectionUpdate
           await api.storage.local.set({ state })

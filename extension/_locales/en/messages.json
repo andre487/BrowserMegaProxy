@@ -437,6 +437,12 @@
   "statisticsTitle": {
     "message": "Proxy requests"
   },
+  "knockRefreshEnabled": {
+    "message": "Refresh affected tabs after knock"
+  },
+  "knockRefreshHint": {
+    "message": "After a successful knock, refresh tabs with main-page proxy errors and startup tabs that made proxy requests before knock. Each tab refreshes once when you switch to it."
+  },
   "statisticsEnabled": {
     "message": "Statistics and network monitor"
   },

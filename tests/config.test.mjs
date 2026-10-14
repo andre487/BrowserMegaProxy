@@ -189,6 +189,17 @@ test('export validates against both schemas and discards unsupported fields with
   assert.throws(() => M.exportConfig(state), /errorExportProtocol/)
 })
 
+test('knock refresh preference stays local across configuration export and import', () => {
+  for (const enabled of [true, false]) {
+    const state = M.mergeImport(M.defaults(), M.importProfiles(portable))
+    state.knockRefreshEnabled = enabled
+    const config = M.exportConfig(state)
+    assert.equal(Object.hasOwn(config, 'knockRefreshEnabled'), false)
+    assert.equal(Object.hasOwn(config.browser, 'knockRefreshEnabled'), false)
+    assert.equal(M.mergeImport(state, M.importProfiles(config)).knockRefreshEnabled, enabled)
+  }
+})
+
 test('importing a profile without a username clears an omitted local password', () => {
   const state = M.mergeImport(M.defaults(), M.importProfiles(portable))
   const config = structuredClone(portable)

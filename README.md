@@ -539,12 +539,18 @@ GitHub PR workflow. Browser-account cloud transport is not automated: tests cove
 the storage API protocol, opt-out, malformed snapshots and quota failures locally.
 
 In Chromium, a successful knock (HTTP 2xx/3xx on its main page) schedules a
-one-time refresh for HTTP(S) tabs that were already open when knock started and
-are routed through the active proxy. They reload only when activated. Direct,
+one-time refresh for HTTP(S) tabs with observed main-document proxy errors, and
+tabs present at browser startup that made observed requests through the active
+proxy before knock succeeded. A successful main-document load clears an error
+marker outside the startup window. They reload only when activated. Direct,
 extension/browser and already-discarded tabs are excluded. Navigating elsewhere
 or closing a tab removes its marker; a failed knock does not schedule refreshes.
 Markers remain local in `storage.session`, survive service-worker suspension,
-and are cleared with the browser session. Firefox does not use this behavior.
+and are cleared with the browser session. Requests made before the extension's
+listeners start cannot be detected. Firefox does not use this behavior.
+The **Refresh affected tabs after knock** option in General preferences is enabled
+by default. Disabling it clears pending refreshes. The preference stays local and
+is not synchronized or included in configuration exports.
 
 ## Diagnostic log
 

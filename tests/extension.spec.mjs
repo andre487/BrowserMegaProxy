@@ -188,7 +188,7 @@ for (const scenario of ['auto', 'challenge']) {
         await options.getByRole('button', { name: 'Save profile' }).click()
         await expect(options.locator('.profile')).toHaveCount(1)
         await expect(popup.locator('.profile')).toHaveCount(1)
-        // An already-open proxied tab must reload lazily only after authentication succeeds.
+        // A healthy tab opened before profile activation must not reload after knock.
         const existing = await context.newPage()
         const existingURL = `https://127.0.0.1:${originPort}/existing`
         await existing.goto(existingURL)
@@ -209,38 +209,19 @@ for (const scenario of ['auto', 'challenge']) {
             async url => (await chrome.tabs.query({})).find(tab => tab.url === url).id,
             existingURL
           )
-          await expect
-            .poll(
-              async () =>
-                requests.some(
-                  r => r.target === `127.0.0.1:${originPort}` && r.auth === credential
-                ) ||
-                (await worker.evaluate(
-                  async id =>
-                    (await chrome.storage.session.get('knockRefresh')).knockRefresh?.tabs.some(
-                      tab => tab.id === id
-                    ),
-                  existingTabId
-                ))
+          expect(
+            await worker.evaluate(
+              async id =>
+                (await chrome.storage.session.get('knockRefresh')).knockRefresh.tabs.some(
+                  tab => tab.id === id
+                ),
+              existingTabId
             )
-            .toBe(true)
+          ).toBe(false)
           await worker.evaluate(id => chrome.tabs.update(id, { active: true }), existingTabId)
-          await expect
-            .poll(() =>
-              requests.some(r => r.target === `127.0.0.1:${originPort}` && r.auth === credential)
-            )
-            .toBe(true)
-          await expect
-            .poll(async () =>
-              worker.evaluate(
-                async id =>
-                  (await chrome.storage.session.get('knockRefresh')).knockRefresh.tabs.some(
-                    tab => tab.id === id
-                  ),
-                existingTabId
-              )
-            )
-            .toBe(false)
+          expect(
+            requests.some(r => r.target === `127.0.0.1:${originPort}` && r.auth === credential)
+          ).toBe(false)
           await existing.close()
         }
       }

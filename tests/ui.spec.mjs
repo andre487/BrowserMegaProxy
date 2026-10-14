@@ -353,6 +353,10 @@ test('profile lifecycle, import, themes and responsive keyboard-accessible form'
   await page.goto('http://127.0.0.1:8765/popup.html')
   await expect(page.locator('#profile-form')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Изменить' })).toHaveCount(0)
+  const select = page.getByRole('button', { name: 'Выбрать', exact: true })
+  await expect(select).toHaveAttribute('title', 'Выбрать')
+  await expect(select).toHaveText('')
+  await expect(select.locator('svg')).toHaveCount(1)
   await page.getByRole('button', { name: 'Выбрать' }).click()
   await expect(page.locator('#connection')).toHaveText('Профиль: Main')
 
@@ -608,6 +612,27 @@ test('knock host stays editable and is saved with or without Firefox credentials
   await page.getByLabel('Название', { exact: true }).fill('Test')
   await page.getByLabel('Хост прокси').fill('proxy.example.com')
   await page.getByRole('button', { name: 'Сохранить профиль' }).click()
+  const knock = page.locator('.profile').getByRole('button', { name: 'Knock', exact: true })
+  await expect(knock).toHaveCount(0)
+  await page.locator('.profile').getByRole('button', { name: 'Выбрать', exact: true }).click()
+  const selected = page.locator('.profile .actions > :first-child')
+  await expect(selected).toHaveAttribute('aria-label', 'Выбран')
+  await expect(selected).toHaveText('')
+  await expect(selected.locator('svg')).toBeVisible()
+  const editButton = page.locator('.profile').getByRole('button', { name: 'Изменить', exact: true })
+  await expect(editButton).toHaveAttribute('title', 'Изменить')
+  await expect(editButton).toHaveText('')
+  await expect(editButton.locator('svg')).toBeVisible()
+  await expect(knock).toHaveText('Knock')
+  await expect(knock.locator('svg')).toBeVisible()
+  await expect(page.locator('.profile .actions > :last-child')).toHaveClass('profile-menu')
+  if (browserName === 'firefox') {
+    await expect(knock).toBeDisabled()
+  } else {
+    await expect(knock).toBeEnabled()
+    await knock.click()
+    expect(await page.evaluate(() => globalThis.testCommands.at(-1))).toBe('knock')
+  }
   await page.getByRole('button', { name: 'Изменить' }).click()
   await expect(page.getByLabel('Knock host')).toBeEnabled()
   await expect(page.getByLabel('Knock host')).toHaveValue('knock.example.com')
@@ -623,6 +648,88 @@ test('knock host stays editable and is saved with or without Firefox credentials
     await page.getByRole('button', { name: 'Изменить' }).click()
     await expect(page.getByLabel('Knock host')).toHaveValue('other-knock.example.com')
   }
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  for (const name of ['Выбран', 'Knock']) {
+    const control = page.locator('.profile').getByRole('button', { name, exact: true })
+    await expect(control).toHaveAttribute('title', name)
+    await expect(control).toHaveText('')
+    await expect(control.locator('svg')).toHaveCount(1)
+    expect(
+      await control.evaluate(element => {
+        const style = getComputedStyle(element)
+        return style.width === style.height && style.borderRadius === '50%'
+      })
+    ).toBe(true)
+  }
+  const knocks = await page.evaluate(
+    () => globalThis.testCommands.filter(command => command === 'knock').length
+  )
+  await knock.click()
+  await expect
+    .poll(() =>
+      page.evaluate(() => globalThis.testCommands.filter(command => command === 'knock').length)
+    )
+    .toBe(knocks + 1)
+})
+
+test('settings remains available while Knock waits and does not release its busy state', async ({
+  page
+}) => {
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'testState',
+      JSON.stringify({
+        profiles: [
+          {
+            id: 'one',
+            name: 'Test',
+            type: 'https',
+            host: 'proxy.example',
+            port: 443,
+            knockHost: 'knock.example',
+            color: 0,
+            bypass: []
+          }
+        ],
+        activeId: 'one',
+        connectionMode: 'proxy',
+        language: 'ru',
+        statisticsEnabled: false
+      })
+    )
+  )
+  await page.goto('http://127.0.0.1:8765/popup.html')
+  await expect(page.locator('#check')).toBeEnabled()
+  await page.evaluate(() => {
+    const original = chrome.runtime.sendMessage
+    chrome.runtime.sendMessage = async message => {
+      if (message.command === 'knock') {
+        await new Promise(resolve => {
+          globalThis.finishKnock = resolve
+        })
+        return { ok: true, message: 'knockOpened' }
+      }
+      return original(message)
+    }
+    globalThis.tabCalls = []
+    chrome.tabs.create = async options => {
+      globalThis.tabCalls.push(['create', options])
+      return { id: 42 }
+    }
+    chrome.tabs.update = async (id, options) => globalThis.tabCalls.push(['update', id, options])
+  })
+  const knock = page.getByRole('button', { name: 'Knock', exact: true })
+  await knock.click()
+  await expect(knock).toBeDisabled()
+  await expect(knock).toHaveAttribute('aria-busy', 'true')
+  await expect(page.locator('#notice')).not.toHaveText('')
+  await page.locator('#open-settings').click()
+  await expect.poll(() => page.evaluate(() => globalThis.tabCalls.length)).toBe(2)
+  await expect(page.locator('#open-settings')).toBeEnabled()
+  expect(await page.evaluate('busy')).toBe(true)
+  await page.evaluate(() => globalThis.finishKnock())
+  await expect(knock).toBeEnabled()
+  await expect(page.locator('#notice')).toContainText('Knock открыт')
 })
 
 test('unknown and Android-only fields show a single general import warning', async ({ page }) => {
