@@ -620,7 +620,15 @@ test('knock host stays editable and is saved with or without Firefox credentials
   await expect(select.locator('svg')).toBeVisible()
   const selectWidth = (await select.boundingBox()).width
   await select.click()
-  const selected = page.locator('.profile .actions > :first-child')
+  await expect(page.locator('.profile .actions > :first-child')).toHaveAttribute(
+    'aria-label',
+    'Knock'
+  )
+  const selected = page.locator('.profile').getByRole('button', { name: 'Выбран', exact: true })
+  await expect(page.locator('.profile .actions > :nth-last-child(2)')).toHaveAttribute(
+    'aria-label',
+    'Выбран'
+  )
   await expect(selected).toHaveAttribute('aria-label', 'Выбран')
   await expect(selected).toHaveText('')
   await expect(selected.locator('svg')).toBeVisible()
@@ -665,6 +673,14 @@ test('knock host stays editable and is saved with or without Firefox credentials
     await expect(page.getByLabel('Knock host')).toHaveValue('other-knock.example.com')
   }
   await page.goto('http://127.0.0.1:8765/popup.html')
+  await expect(page.locator('.profile .actions > :first-child')).toHaveAttribute(
+    'aria-label',
+    'Knock'
+  )
+  await expect(page.locator('.profile .actions > :last-child')).toHaveAttribute(
+    'aria-label',
+    'Выбран'
+  )
   for (const name of ['Выбран', 'Knock']) {
     const control = page.locator('.profile').getByRole('button', { name, exact: true })
     await expect(control).toHaveAttribute('title', name)

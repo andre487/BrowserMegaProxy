@@ -523,7 +523,8 @@ function render() {
         'recenter'
       )
       knock.disabled = !platform.needsKnock(p)
-      actions.insertBefore(knock, actions.querySelector('.profile-menu'))
+      actions.insertBefore(knock, select)
+      actions.insertBefore(select, actions.querySelector('.profile-menu'))
     }
 
     if (isOptions) {
