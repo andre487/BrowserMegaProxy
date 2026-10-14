@@ -223,6 +223,14 @@ for (const scenario of ['auto', 'challenge']) {
             requests.some(r => r.target === `127.0.0.1:${originPort}` && r.auth === credential)
           ).toBe(false)
           await existing.close()
+        } else {
+          const manualKnockPagePromise = context.waitForEvent('page')
+          await popup.getByRole('button', { name: 'Knock', exact: true }).click()
+          const manualKnockPage = await manualKnockPagePromise
+          await expect.poll(() => manualKnockPage.isClosed()).toBe(true)
+          expect(
+            requests.some(r => r.target === 'knock.invalid:443' && r.auth === credential)
+          ).toBe(true)
         }
       }
 

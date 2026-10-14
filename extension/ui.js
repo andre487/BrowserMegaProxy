@@ -119,7 +119,7 @@ function captureProfileFocus(element) {
     ? {
         id: card.dataset.profileId,
         index: [...$('#profiles').children].indexOf(card),
-        control: [...card.querySelectorAll('button, summary')].indexOf(element)
+        control: element.getAttribute('aria-label') || element.textContent
       }
     : null
 }
@@ -131,7 +131,9 @@ function restoreProfileFocus(focus) {
   const card =
     $(`[data-profile-id="${CSS.escape(focus.id)}"]`) ||
     $('#profiles').children[Math.min(focus.index, state.profiles.length - 1)]
-  const item = card?.querySelectorAll('button, summary')[focus.control]
+  const item = [...(card?.querySelectorAll('button, summary') || [])].find(
+    control => (control.getAttribute('aria-label') || control.textContent) === focus.control
+  )
   const control = item?.closest('.profile-menu')?.querySelector('summary') || item
   if (control && !control.disabled) {
     control.focus()
@@ -522,7 +524,7 @@ function render() {
         'secondary',
         'recenter'
       )
-      knock.disabled = !platform.needsKnock(p)
+      knock.disabled = !platform.needsKnock(p, true)
       actions.insertBefore(knock, select)
       actions.insertBefore(select, actions.querySelector('.profile-menu'))
     }
@@ -973,7 +975,7 @@ function syncKnock() {
           ? platform.id === 'chromium'
             ? 'knockChromiumHint'
             : 'knockHint'
-          : 'knockDisabledHint'
+          : 'knockFirefoxCredentialsHint'
   )
 }
 

@@ -607,7 +607,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
   await page.locator('.profile-advanced > summary').click()
   await page.getByLabel('Knock host').fill('knock.example.com')
   if (browserName === 'firefox') {
-    await expect(page.locator('#knock-hint')).toContainText('не использует knock host')
+    await expect(page.locator('#knock-hint')).toContainText('автоматический knock не нужен')
   }
   await page.getByLabel('Название', { exact: true }).fill('Test')
   await page.getByLabel('Хост прокси').fill('proxy.example.com')
@@ -650,20 +650,16 @@ test('knock host stays editable and is saved with or without Firefox credentials
     await expect(control).toHaveCSS('border-radius', '50%')
     await expect(control).toHaveAttribute('title', /.+/)
   }
-  if (browserName === 'firefox') {
-    await expect(knock).toBeDisabled()
-  } else {
-    await expect(knock).toBeEnabled()
-    await knock.click()
-    expect(await page.evaluate(() => globalThis.testCommands.at(-1))).toBe('knock')
-  }
+  await expect(knock).toBeEnabled()
+  await knock.click()
+  expect(await page.evaluate(() => globalThis.testCommands.at(-1))).toBe('knock')
   await page.getByRole('button', { name: 'Изменить' }).click()
   await expect(page.getByLabel('Knock host')).toBeEnabled()
   await expect(page.getByLabel('Knock host')).toHaveValue('knock.example.com')
   if (browserName === 'firefox') {
     await page.getByLabel('Пароль', { exact: true }).fill('')
     await expect(page.getByLabel('Knock host')).toBeEnabled()
-    await expect(page.locator('#knock-hint')).not.toContainText('не использует knock host')
+    await expect(page.locator('#knock-hint')).not.toContainText('автоматический knock не нужен')
     await page.locator('.profile-advanced').evaluate(element => {
       element.open = true
     })
@@ -2746,7 +2742,7 @@ test('saving indicates progress, reports errors inside the editor and preserves 
   await expect(page.locator('#profile-form button[type=submit]')).toHaveText('Сохранение…')
   await page.evaluate(() => globalThis.finishSave())
   await expect(page.locator('#editor')).not.toHaveAttribute('open', '')
-  await page.locator('.profile .actions button').filter({ hasText: 'Выбрать' }).focus()
+  await page.locator('.profile').getByRole('button', { name: 'Выбрать', exact: true }).focus()
   await page.keyboard.press('Enter')
   await expect(page.locator('.profile-info')).toBeFocused()
   await page.getByRole('button', { name: 'Изменить', exact: true }).click()

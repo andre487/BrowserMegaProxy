@@ -35,11 +35,11 @@
       return false
     }
 
-    needsKnock(profile) {
+    needsKnock(profile, manual = false) {
       return Boolean(
         profile &&
         !['socks5', 'masque'].includes(profile.type) &&
-        !this.core.hasCredentials(profile)
+        (manual || !this.core.hasCredentials(profile))
       )
     }
 

@@ -176,7 +176,7 @@ async function knock() {
     throw new Error('errorKnockMissing')
   }
 
-  if (!platform.needsKnock(p)) {
+  if (!platform.needsKnock(p, true)) {
     throw new Error('errorKnockDisabled')
   }
 
@@ -746,7 +746,13 @@ async function requestProfile(details, navigation = false) {
   const tabUrl = await platform.tabUrl(details, state, tabUrls, navigation)
   const routedState = isSubscriptionDownload(details)
     ? { ...state, downloadRouting }
-    : forcedTabs.has(details.tabId)
+    : forcedTabs.has(details.tabId) ||
+        knockTabs.some(
+          tab =>
+            tab.tabId === details.tabId &&
+            tab.profileId === M.active(state)?.id &&
+            tab.host === M.host(new URL(details.url).hostname)
+        )
       ? { ...state, browserRouting: { ...state.browserRouting, enabled: false } }
       : state
 

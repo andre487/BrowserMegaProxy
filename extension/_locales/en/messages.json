@@ -239,8 +239,8 @@
   "bypassLocalHint": {
     "message": "Local IP ranges, localhost and local names connect directly. Disable to send them through the proxy."
   },
-  "knockDisabledHint": {
-    "message": "Firefox sends saved credentials immediately and does not use the knock host. You can still save it for connections without saved credentials."
+  "knockFirefoxCredentialsHint": {
+    "message": "Firefox sends saved credentials immediately, so automatic knock is not needed. Use the Knock button to open the knock host manually."
   },
   "exportConfig": {
     "message": "Export settings"
@@ -291,7 +291,7 @@
     "message": "HTTP profiles and HTTPS profiles with IPv6 hosts cannot be exported compatibly. SOCKS5 and MASQUE exports require a client that supports that protocol."
   },
   "errorKnockDisabled": {
-    "message": "Knock is not needed for SOCKS5, MASQUE or Firefox profiles with saved credentials."
+    "message": "Knock is unavailable for SOCKS5 and MASQUE."
   },
   "errorKnockMayBeRequired": {
     "message": "The proxy may be using camouflage. Chromium-based browsers need a knock host to authenticate with such a proxy. Set it in the profile settings and reconnect. Ask the proxy administrator for the knock host address."
