@@ -586,6 +586,10 @@ footer {
 .options .profile:last-child {
   border-bottom: 0;
 }
+.options .profile .actions > button:not(.icon-button) {
+  flex: 0 0 108px;
+  justify-content: center;
+}
 .profile.active {
   background: var(--soft);
 }

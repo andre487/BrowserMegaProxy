@@ -617,6 +617,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
   const select = page.locator('.profile').getByRole('button', { name: 'Выбрать', exact: true })
   await expect(select).toHaveText('Выбрать')
   await expect(select.locator('svg')).toBeVisible()
+  const selectWidth = (await select.boundingBox()).width
   await select.click()
   const selected = page.locator('.profile .actions > :first-child')
   await expect(selected).toHaveAttribute('aria-label', 'Выбран')
@@ -628,6 +629,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
   await expect(editButton.locator('svg')).toBeVisible()
   await expect(knock).toHaveText('Knock')
   await expect(knock.locator('svg')).toBeVisible()
+  expect((await knock.boundingBox()).width).toBe(selectWidth)
   await expect(page.locator('.profile .actions > :last-child')).toHaveClass('profile-menu')
   if (browserName === 'firefox') {
     await expect(knock).toBeDisabled()
