@@ -206,9 +206,46 @@ test('startup and activation knock matrix supplies saved credentials and leaves 
       const auth = await pendingAuth
       assert.equal(Boolean(auth.authCredentials), Boolean(credentials.password))
       if (!expected) {
-        assert.equal((await h.send({ command: 'knock' })).error, 'errorKnockDisabled')
+        assert.equal((await h.send({ command: 'knock' })).ok, true)
+        assert.equal(h.tabs.length, 1, 'Firefox permits a manual knock with saved credentials')
+        assert.equal(h.tabs[0].active, false)
       }
     }
+  }
+})
+
+test('manual Firefox knock with saved credentials uses the proxy under selective routing', async () => {
+  const h = harness('firefox', { username: 'user', password: 'secret' })
+  await h.send({ command: 'routing', routing: { enabled: true, domains: ['included.example'] } })
+  h.events.startup()
+  await h.flush()
+  assert.equal(h.tabs.length, 0, 'saved credentials still skip automatic knock')
+  assert.equal((await h.send({ command: 'knock' })).ok, true)
+  const request = { tabId: h.tabs[0].id, type: 'main_frame', url: h.tabs[0].url }
+  const route = await h.events.proxyRequest(request)
+  assert.equal(route[0].host, 'proxy.example')
+  assert.equal(route[0].proxyAuthorizationHeader, `Basic ${btoa('user:secret')}`)
+  assert.equal((await h.events.proxyRequest({ ...request, tabId: 999 })).type, 'direct')
+  assert.equal(
+    (await h.events.proxyRequest({ ...request, url: 'https://other.example/' })).type,
+    'direct'
+  )
+  assert.equal((await h.send({ command: 'knock' })).ok, true)
+  assert.equal(h.tabs.length, 1, 'repeated manual knock reuses the pending tab')
+})
+
+test('manual knock still rejects local-network bypass and SOCKS5', async () => {
+  for (const target of ['firefox', 'chromium']) {
+    const bypassed = harness(target, {
+      username: 'user',
+      password: 'secret',
+      knockHost: 'localhost'
+    })
+    assert.equal((await bypassed.send({ command: 'knock' })).error, 'errorKnockBypass')
+    assert.equal(bypassed.tabs.length, 0)
+    const socks = harness(target, { type: 'socks5' })
+    assert.equal((await socks.send({ command: 'knock' })).error, 'errorKnockDisabled')
+    assert.equal(socks.tabs.length, 0)
   }
 })
 

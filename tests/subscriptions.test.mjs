@@ -171,7 +171,7 @@ function harness(target, initial, fetcher) {
       },
       onRequest: event('proxy')
     },
-    tabs: {},
+    tabs: { query: async () => [] },
     alarms: {
       create: async (...args) => alarms.push(args),
       clear: async () => {},

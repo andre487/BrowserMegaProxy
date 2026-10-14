@@ -524,6 +524,17 @@ footer {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.popup .profile .actions {
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+.profile .icon-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
 .popup #site-actions {
   padding: 10px;
   margin-top: 8px;
@@ -615,8 +626,8 @@ button:has(.icon) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   list-style: none;
 }

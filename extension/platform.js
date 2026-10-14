@@ -35,11 +35,11 @@
       return false
     }
 
-    needsKnock(profile) {
+    needsKnock(profile, manual = false) {
       return Boolean(
         profile &&
         !['socks5', 'masque'].includes(profile.type) &&
-        !this.core.hasCredentials(profile)
+        (manual || !this.core.hasCredentials(profile))
       )
     }
 
@@ -215,9 +215,9 @@
     }
 
     async prepareKnock(profile, refresh, eligible, store) {
-      const tabs = (await this.api.tabs.query({}))
-        .filter(tab => eligible(tab, profile))
-        .map(tab => ({ id: tab.id, url: tab.pendingUrl || tab.url }))
+      const tabs = (refresh.candidates || []).filter(
+        tab => tab.profileId === profile.id && eligible(tab, profile)
+      )
       Object.assign(refresh, {
         pending: { tabId: null, profileId: profile.id, host: profile.knockHost, tabs },
         profileId: null,

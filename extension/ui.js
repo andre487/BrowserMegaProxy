@@ -119,7 +119,7 @@ function captureProfileFocus(element) {
     ? {
         id: card.dataset.profileId,
         index: [...$('#profiles').children].indexOf(card),
-        control: [...card.querySelectorAll('button, summary')].indexOf(element)
+        control: element.getAttribute('aria-label') || element.textContent
       }
     : null
 }
@@ -131,7 +131,9 @@ function restoreProfileFocus(focus) {
   const card =
     $(`[data-profile-id="${CSS.escape(focus.id)}"]`) ||
     $('#profiles').children[Math.min(focus.index, state.profiles.length - 1)]
-  const item = card?.querySelectorAll('button, summary')[focus.control]
+  const item = [...(card?.querySelectorAll('button, summary') || [])].find(
+    control => (control.getAttribute('aria-label') || control.textContent) === focus.control
+  )
   const control = item?.closest('.profile-menu')?.querySelector('summary') || item
   if (control && !control.disabled) {
     control.focus()
@@ -164,12 +166,19 @@ function highlightAttention(element) {
   element.classList.add('needs-attention')
 }
 
-async function action(fn, operation = 'interface', source = document.activeElement) {
-  if (busy) {
+async function action(
+  fn,
+  operation = 'interface',
+  source = document.activeElement,
+  exclusive = true
+) {
+  if (busy && exclusive) {
     return
   }
 
-  busy = true
+  if (exclusive) {
+    busy = true
+  }
   const notice = placeNotice(source)
   const attentionBlock = notice.closest('dialog, details, section') || notice
   attentionBlock.classList.remove('needs-attention')
@@ -184,7 +193,10 @@ async function action(fn, operation = 'interface', source = document.activeEleme
       : 'working'
   if (trigger) {
     trigger.disabled = true
-    if (!['check', 'disconnect'].includes(trigger.id)) {
+    if (
+      !trigger.classList.contains('icon-button') &&
+      !['check', 'disconnect'].includes(trigger.id)
+    ) {
       trigger.textContent = t(working)
     }
   }
@@ -214,7 +226,9 @@ async function action(fn, operation = 'interface', source = document.activeEleme
     notice.classList.add('error')
     highlightAttention(attentionBlock)
   } finally {
-    busy = false
+    if (exclusive) {
+      busy = false
+    }
     source?.removeAttribute('aria-busy')
     if (trigger?.isConnected) {
       trigger.disabled = wasDisabled
@@ -233,10 +247,16 @@ async function action(fn, operation = 'interface', source = document.activeEleme
   }
 }
 
-function button(label, fn, className = 'secondary') {
+function button(label, fn, className = 'secondary', iconName) {
   const element = document.createElement('button')
   element.textContent = label
   element.className = className
+  if (iconName) {
+    element.replaceChildren(icon(iconName))
+    element.classList.add('icon-button')
+    element.setAttribute('aria-label', label)
+    element.title = label
+  }
   element.onclick = () => action(fn, 'interface', element)
 
   return element
@@ -244,21 +264,23 @@ function button(label, fn, className = 'secondary') {
 
 function icon(name) {
   const paths = {
-    edit: 'M16 3l5 5-12 12H4v-5L16 3zM14 5l5 5',
-    more: 'M5 12h.01M12 12h.01M19 12h.01',
+    // Google Material Icons/Symbols (Apache 2.0); see icons/MATERIAL-LICENSE.
+    login:
+      'M11,7L9.6,8.4l2.6,2.6H2v2h10.2l-2.6,2.6L11,17l5-5L11,7z M20,19h-8v2h8c1.1,0,2-0.9,2-2V5c0-1.1-0.9-2-2-2h-8v2h8V19z',
+    recenter:
+      'M440-40v-167l-44 43-56-56 140-140 140 140-56 56-44-43v167h-80ZM220-340l-56-56 43-44H40v-80h167l-43-44 56-56 140 140-140 140Zm520 0L600-480l140-140 56 56-43 44h167v80H753l43 44-56 56Zm-260-80q-25 0-42.5-17.5T420-480q0-25 17.5-42.5T480-540q25 0 42.5 17.5T540-480q0 25-17.5 42.5T480-420Zm0-180L340-740l56-56 44 43v-167h80v167l44-43 56 56-140 140Z',
+    edit: 'M14.06 9.02l.92.92L5.92 19H5v-.92l9.06-9.06M17.66 3c-.25 0-.51.1-.7.29l-1.83 1.83 3.75 3.75 1.83-1.83c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29zm-3.6 3.19L3 17.25V21h3.75L17.81 9.94l-3.75-3.75z',
+    more_horiz:
+      'M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z',
     settings:
-      'M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1 1-3zM16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0z',
-    check: 'M5 12l4 4L19 6'
+      'M19.43 12.98c.04-.32.07-.64.07-.98 0-.34-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46c-.09-.16-.26-.25-.44-.25-.06 0-.12.01-.17.03l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1c-.06-.02-.12-.03-.18-.03-.17 0-.34.09-.43.25l-2 3.46c-.13.22-.07.49.12.64l2.11 1.65c-.04.32-.07.65-.07.98 0 .33.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.09.16.26.25.44.25.06 0 .12-.01.17-.03l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.06.02.12.03.18.03.17 0 .34-.09.43-.25l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zm-1.98-1.71c.04.31.05.52.05.73 0 .21-.02.43-.05.73l-.14 1.13.89.7 1.08.84-.7 1.21-1.27-.51-1.04-.42-.9.68c-.43.32-.84.56-1.25.73l-1.06.43-.16 1.13-.2 1.35h-1.4l-.19-1.35-.16-1.13-1.06-.43c-.43-.18-.83-.41-1.23-.71l-.91-.7-1.06.43-1.27.51-.7-1.21 1.08-.84.89-.7-.14-1.13c-.03-.31-.05-.54-.05-.74s.02-.43.05-.73l.14-1.13-.89-.7-1.08-.84.7-1.21 1.27.51 1.04.42.9-.68c.43-.32.84-.56 1.25-.73l1.06-.43.16-1.13.2-1.35h1.39l.19 1.35.16 1.13 1.06.43c.43.18.83.41 1.23.71l.91.7 1.06-.43 1.27-.51.7 1.21-1.07.85-.89.7.14 1.13zM12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 6c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z',
+    check: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z'
   }
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   svg.classList.add('icon')
-  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('viewBox', name === 'recenter' ? '0 -960 960 960' : '0 0 24 24')
   svg.setAttribute('aria-hidden', 'true')
-  svg.setAttribute('fill', 'none')
-  svg.setAttribute('stroke', 'currentColor')
-  svg.setAttribute('stroke-width', name === 'more' ? '4' : '2')
-  svg.setAttribute('stroke-linecap', 'round')
-  svg.setAttribute('stroke-linejoin', 'round')
+  svg.setAttribute('fill', 'currentColor')
   const path = document.createElementNS(svg.namespaceURI, 'path')
   path.setAttribute('d', paths[name])
   svg.append(path)
@@ -409,6 +431,8 @@ function render() {
     $('#masque-setting').hidden = platform.id !== 'firefox'
     $('#masque-enabled').checked = state.masqueEnabled === true
     $('#statistics-enabled').checked = state.statisticsEnabled === true
+    $('#knock-refresh-setting').hidden = platform.id !== 'chromium'
+    $('#knock-refresh-enabled').checked = state.knockRefreshEnabled !== false
     $('#bypass-local').checked = state.bypassLocalNetworks !== false
   }
 
@@ -454,19 +478,21 @@ function render() {
 
     const actions = document.createElement('div')
     actions.className = 'actions'
-    const select = button(t(selected ? 'selectedProfile' : 'connect'), () =>
-      send('activate', { id: p.id })
+    const select = button(
+      t(selected ? 'selectedProfile' : 'connect'),
+      () => send('activate', { id: p.id }),
+      'secondary',
+      selected ? 'check' : 'login'
     )
     select.disabled = selected
     if (isOptions) {
-      const editButton = button(t('edit'), () => edit(p))
-      editButton.prepend(icon('edit'))
+      const editButton = button(t('edit'), () => edit(p), 'secondary', 'edit')
       const menu = document.createElement('details')
       menu.className = 'profile-menu'
       const summary = document.createElement('summary')
       summary.setAttribute('aria-label', `${t('profileActions')}: ${p.name || p.host}`)
       summary.title = t('profileActions')
-      summary.append(icon('more'))
+      summary.append(icon('more_horiz'))
       const items = document.createElement('div')
       items.append(
         button(t('clone'), () =>
@@ -483,17 +509,24 @@ function render() {
         )
       )
       menu.append(summary, items)
-      actions.append(editButton, select, menu)
+      actions.append(...(selected ? [select, editButton, menu] : [editButton, select, menu]))
     } else {
       actions.append(select)
+    }
 
-      if (p.knockHost && p.id === state.activeId) {
-        const knock = button(t('knock'), async () => {
+    if (p.knockHost && selected) {
+      const knock = button(
+        t('knock'),
+        async () => {
+          $('#notice').textContent = t('working')
           $('#notice').textContent = t((await send('knock')).message)
-        })
-        knock.disabled = !platform.needsKnock(p)
-        actions.append(knock)
-      }
+        },
+        'secondary',
+        'recenter'
+      )
+      knock.disabled = !platform.needsKnock(p, true)
+      actions.insertBefore(knock, select)
+      actions.insertBefore(select, actions.querySelector('.profile-menu'))
     }
 
     if (isOptions) {
@@ -942,7 +975,7 @@ function syncKnock() {
           ? platform.id === 'chromium'
             ? 'knockChromiumHint'
             : 'knockHint'
-          : 'knockDisabledHint'
+          : 'knockFirefoxCredentialsHint'
   )
 }
 
@@ -1277,6 +1310,8 @@ if (isOptions) {
     })
   $('#bypass-local').onchange = () =>
     action(() => send('bypassLocalNetworks', { enabled: $('#bypass-local').checked }))
+  $('#knock-refresh-enabled').onchange = () =>
+    action(() => send('knockRefresh', { enabled: $('#knock-refresh-enabled').checked }))
   $('#theme').onchange = () => action(() => send('theme', { theme: $('#theme').value }))
   $('#language').onchange = () => action(() => send('language', { language: $('#language').value }))
 
@@ -1391,9 +1426,10 @@ if (isOptions) {
     })
   $('#toggle-tab').onclick = () => action(() => send('toggleTab'))
   $('#disconnect').onclick = () => action(() => send('activate', { id: null }))
-  $('#open-settings').onclick = () => action(() => openSettings(), 'get')
+  $('#open-settings').onclick = () =>
+    action(() => openSettings(), 'get', $('#open-settings'), false)
   for (const id of ['add-profile', 'import-config']) {
-    $(`#${id}`).onclick = () => action(() => openSettings(id))
+    $(`#${id}`).onclick = () => action(() => openSettings(id), 'get', $(`#${id}`), false)
   }
 }
 

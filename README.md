@@ -278,9 +278,9 @@ the same hostname to the server's `knock` setting. An allowed hostname is enough
 to trigger the authentication request, but a working HTTPS website is needed for
 the tab to load and close successfully. Keep it out of proxy bypass rules.
 
-In Firefox, saved credentials are submitted through the proxy API, so the knock
-action is disabled when both login and password are saved. The hostname remains
-editable for later use without saved credentials. SOCKS5 and MASQUE do not use
+In Firefox, saved credentials are submitted through the proxy API, so automatic
+knock is skipped when both login and password are saved. The Knock button can
+still open the configured host manually through the active proxy. SOCKS5 and MASQUE do not use
 knock hosts. Opening the tab alone does not prove that authentication succeeded.
 Switching profiles may require a new knock because browsers cache proxy authentication.
 
@@ -288,7 +288,7 @@ Switching profiles may require a new knock because browsers cache proxy authenti
 
 | Browser  | Credentials before 407                                                      | Knock                                                                                           |
 | -------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Firefox  | Saved credentials are supplied through `ProxyInfo.proxyAuthorizationHeader` | Opens on connection and browser startup without saved credentials; disabled when both are saved |
+| Firefox  | Saved credentials are supplied through `ProxyInfo.proxyAuthorizationHeader` | Opens automatically without saved credentials; manual Knock is available with saved credentials |
 | Chromium | The browser controls the first CONNECT; credentials are supplied after 407  | Opens on connection and startup even with saved credentials                                     |
 
 When configured, a normal HTTPS tab opens, active when credentials are missing and otherwise in the background. Without a saved username
@@ -302,7 +302,7 @@ response other than 407; then they are saved to that profile, the dialog closes 
 according to the existing sync preferences. Network failures, cancellation, profile
 changes, and failed local storage writes do not replace the saved credentials.
 If a request expires while the dialog is open, reload its original page to retry.
-Firefox disables the knock action when both username and password are saved.
+Firefox allows manual knock even when both username and password are saved.
 The knock host remains editable and is retained for connections without saved credentials.
 After a successful HTTP response and completed load, the knock tab closes automatically.
 Load errors, cancellation or unsuccessful authentication leave it open; a successful
@@ -539,12 +539,18 @@ GitHub PR workflow. Browser-account cloud transport is not automated: tests cove
 the storage API protocol, opt-out, malformed snapshots and quota failures locally.
 
 In Chromium, a successful knock (HTTP 2xx/3xx on its main page) schedules a
-one-time refresh for HTTP(S) tabs that were already open when knock started and
-are routed through the active proxy. They reload only when activated. Direct,
+one-time refresh for HTTP(S) tabs with observed main-document proxy errors, and
+tabs present at browser startup that made observed requests through the active
+proxy before knock succeeded. A successful main-document load clears an error
+marker outside the startup window. They reload only when activated. Direct,
 extension/browser and already-discarded tabs are excluded. Navigating elsewhere
 or closing a tab removes its marker; a failed knock does not schedule refreshes.
 Markers remain local in `storage.session`, survive service-worker suspension,
-and are cleared with the browser session. Firefox does not use this behavior.
+and are cleared with the browser session. Requests made before the extension's
+listeners start cannot be detected. Firefox does not use this behavior.
+The **Refresh affected tabs after knock** option in General preferences is enabled
+by default. Disabling it clears pending refreshes. The preference stays local and
+is not synchronized or included in configuration exports.
 
 ## Diagnostic log
 
