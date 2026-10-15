@@ -906,13 +906,13 @@ dialog h2 {
 }
 
 .profile-drag {
+  justify-content: center;
   touch-action: none;
   user-select: none;
   cursor: grab;
   min-width: 44px;
   min-height: 44px;
   padding: 4px;
-  font-size: 24px;
 }
 .profile.dragging {
   background: var(--soft);
