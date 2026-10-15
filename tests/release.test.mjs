@@ -6,6 +6,8 @@ import path from 'node:path'
 import { readListing } from '../scripts/store-materials.mjs'
 import {
   generateNotes,
+  selectPreviousRelease,
+  releaseContext,
   prepareStoreMaterials,
   responseNotes,
   validateVersion
@@ -46,7 +48,7 @@ test('release notes use the selected model and reject incomplete, refused or inv
     apiKey: 'test-key',
     model: 'gpt-6.1-sol',
     history: 'Add proxy settings',
-    stat: '1 file',
+    diff: '-old settings\n+new settings',
     previous: null
   }
   let calls = 0
@@ -60,6 +62,8 @@ test('release notes use the selected model and reject incomplete, refused or inv
       assert.equal(body.store, false)
       assert.equal(body.text.format.strict, true)
       assert.equal(JSON.parse(body.input).history, options.history)
+      assert.equal(JSON.parse(body.input).diff, options.diff)
+      assert.match(body.instructions, /exactly one sentence per change/)
       return { ok: true, json: async () => completed(notes) }
     }),
     notes
@@ -76,7 +80,7 @@ test('release notes use the selected model and reject incomplete, refused or inv
     { en: '', ru: notes.ru },
     { en: notes.en },
     { ...notes, extra: 'bad' },
-    { en: 'a'.repeat(4001), ru: notes.ru },
+    { en: 'a'.repeat(3001), ru: notes.ru },
     { en: notes.en, ru: 'English only' },
     { en: 'Bad\u0000text', ru: notes.ru }
   ]) {
@@ -98,7 +102,7 @@ test('release notes use the selected model and reject incomplete, refused or inv
     )
   )
   await assert.rejects(
-    generateNotes('0.1.1', { ...options, history: 'a'.repeat(100001) }, () =>
+    generateNotes('0.1.1', { ...options, history: 'a'.repeat(600001) }, () =>
       assert.fail('No request for oversized history')
     )
   )
@@ -151,7 +155,7 @@ test('release note retries receive fresh timeout signals', async () => {
       apiKey: 'test-key',
       model: 'test-model',
       history: 'Fix subscriptions',
-      stat: '1 file',
+      diff: '-old settings\n+new settings',
       retryWait: async () => {}
     },
     async (_, options) => {
@@ -173,4 +177,97 @@ test('release note retries receive fresh timeout signals', async () => {
   assert.deepEqual(result, notes)
   assert.equal(signals.length, 2)
   assert.notEqual(signals[0], signals[1])
+})
+
+test('baseline requires a reachable older stable release with all uploaded archives and checksums', () => {
+  const release = (tag, changes = {}) => ({
+    tag_name: tag,
+    draft: false,
+    prerelease: false,
+    assets: [
+      ...['chromium', 'firefox', 'source', 'store-materials'].map(
+        kind => `MegaProxy-${kind}-${tag}.zip`
+      ),
+      'SHA256SUMS'
+    ].map(name => ({ name, state: 'uploaded', size: 100 })),
+    ...changes
+  })
+  const good = release('v1.2.1')
+  const tags = ['v1.2.1', 'v1.2.2', 'v1.2.3']
+  for (const changes of [
+    { assets: [] },
+    { draft: true },
+    { prerelease: true },
+    { assets: release('v1.2.2').assets.slice(0, -1) },
+    { assets: release('v1.2.2').assets.map(asset => ({ ...asset, size: 0 })) },
+    { assets: release('v1.2.2').assets.map(asset => ({ ...asset, state: 'new' })) }
+  ]) {
+    assert.equal(
+      selectPreviousRelease('1.2.3', tags, [
+        release('v1.2.3'),
+        release('v1.2.2', changes),
+        release('v1.2.0'),
+        good
+      ]),
+      'v1.2.1'
+    )
+  }
+  assert.equal(
+    selectPreviousRelease('1.11.0', ['v1.9.0', 'v1.10.0'], [release('v1.9.0'), release('v1.10.0')]),
+    'v1.10.0'
+  )
+  assert.throws(() => selectPreviousRelease('1.2.3', tags, []), /No previous complete/)
+  assert.equal(selectPreviousRelease('0.1.0', [], []), null)
+})
+
+test('release context paginates releases and sends net diff at the requested ref', () => {
+  const calls = []
+  const context = releaseContext('1.2.3', 'v1.2.3', undefined, (command, args) => {
+    calls.push([command, args])
+    if (command === 'gh') {
+      assert.ok(args.includes('--paginate'))
+      return JSON.stringify([
+        [],
+        [
+          {
+            tag_name: 'v1.2.1',
+            draft: false,
+            prerelease: false,
+            assets: [
+              ...['chromium', 'firefox', 'source', 'store-materials'].map(
+                kind => `MegaProxy-${kind}-v1.2.1.zip`
+              ),
+              'SHA256SUMS'
+            ].map(name => ({ name, state: 'uploaded', size: 100 }))
+          }
+        ]
+      ])
+    }
+    if (args[0] === 'tag') {
+      return 'v1.2.1\nv1.2.2\nv1.2.3'
+    }
+    if (args[0] === 'log') {
+      assert.ok(args.includes('--no-merges'))
+      assert.ok(args.includes('v1.2.1..v1.2.3'))
+      return 'Fix stale settings'
+    }
+    assert.deepEqual(args.slice(0, 6), [
+      'diff',
+      '--no-ext-diff',
+      '--no-textconv',
+      '--unified=3',
+      'v1.2.1',
+      'v1.2.3'
+    ])
+    assert.ok(args.includes(':(exclude)releases/**'))
+    assert.ok(args.includes(':(exclude)package-lock.json'))
+    return '-stale\n+fresh'
+  })
+  assert.deepEqual(context, {
+    previous: 'v1.2.1',
+    head: 'v1.2.3',
+    history: 'Fix stale settings',
+    diff: '-stale\n+fresh'
+  })
+  assert.equal(calls.length, 4)
 })
