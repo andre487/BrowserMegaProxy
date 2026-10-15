@@ -906,6 +906,7 @@ dialog h2 {
 }
 
 .profile-drag {
+  justify-content: center;
   touch-action: none;
   user-select: none;
   cursor: grab;
