@@ -61,7 +61,7 @@ test('all release API integrations retain 5xx response diagnostics without crede
           retryWait: async () => {},
           model: 'model',
           history: 'history',
-          stat: 'stat',
+          diff: 'diff',
           previous: null
         },
         failing

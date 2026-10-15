@@ -35,13 +35,35 @@ Firefox Add-ons and Opera Add-ons submission, all in one workflow run.
 
 The generator uses the [OpenAI Responses API](https://developers.openai.com/api/docs/quickstart)
 and [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol).
-It sends commit history and file-change statistics since the previous release
-tag, or the complete history for the first release. File contents are not sent;
-API response storage is disabled (`store: false`). The EN/RU changelog is saved in
+It selects the highest reachable published stable release older than the requested
+version with all four nonempty uploaded ZIP archives and `SHA256SUMS`, skipping
+bare tags, drafts, prereleases and incomplete releases. If stable tags exist but
+none qualifies, preparation stops; repositories without stable tags use the full history.
+It sends non-merge commit messages and the actual net diff, excluding `releases/`,
+`package-lock.json`, `*.lock` and `*.sum`. Context over 600,000 characters fails
+without truncation. API response storage is disabled (`store: false`).
+Notes use equivalent EN/RU lists with at most 10 bullets and 3,000 characters per
+language, one sentence per change. Maintenance-only releases name the maintenance
+and state that extension behavior is unchanged. The returned model, Git range and
+token usage are logged without credentials. The EN/RU changelog is saved in
 `releases/vX.Y.Z.md`, included in the release PR, and published to GitHub Release
 from the tagged commit. Republishing does not call OpenAI again.
 API failures or invalid output stop preparation before committing and pushing.
 Android signing and store credentials are not needed for GitHub releases.
+
+## Preview notes
+
+With authenticated `gh`, `OPENAI_API_KEY` and optionally `OPENAI_RELEASE_MODEL`:
+
+```sh
+node scripts/release.mjs notes-preview 1.2.3 v1.2.3
+# Explicit baseline override:
+node scripts/release.mjs notes-preview 1.2.3 v1.2.3 v1.2.1
+```
+
+The optional ref defaults to `HEAD`; automatic baseline selection uses GitHub
+Releases in `GITHUB_REPOSITORY` or the current repository. Preview prints notes
+without writing release files or publishing; the OpenAI request incurs API charges.
 
 ## Each release
 
