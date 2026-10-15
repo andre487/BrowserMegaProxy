@@ -472,7 +472,7 @@ function render() {
     title.append(flag, `${flag.textContent ? ' ' : ''}${p.name || p.host}`)
 
     const endpoint = document.createElement('p')
-    endpoint.textContent = `${p.type.toUpperCase()} · ${p.host}:${p.port}${selected ? ` · ${t('active')}` : ''}`
+    endpoint.textContent = `${p.type.toUpperCase()} · ${p.host}:${p.port}`
     endpoint.title = endpoint.textContent
     info.append(title, endpoint)
 
