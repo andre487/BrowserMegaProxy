@@ -71,6 +71,10 @@ for (const scenario of ['auto', 'challenge']) {
           res.end('subscription.invalid\nchild.subscription.invalid\n127.0.0.1\n')
           return
         }
+        if (host === 'h3.speed.cloudflare.com') {
+          res.end('ip=203.0.113.7\nloc=US\nhttp=http/1.1\ntls=TLSv1.3\n')
+          return
+        }
         if (req.url === '/split') {
           res.setHeader('Content-Type', 'text/html')
           res.end(

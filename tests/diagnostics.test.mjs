@@ -13,7 +13,13 @@ const scripts = await Promise.all(
   ].map(file => readFile(`extension/${file}`, 'utf8'))
 )
 
-function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'proxy') {
+function harness(
+  bypass = [],
+  httpsFails = false,
+  target = 'firefox',
+  mode = 'proxy',
+  countrySucceeds = false
+) {
   const listeners = new Map()
   const event = name => ({
     addListener: callback => {
@@ -83,8 +89,7 @@ function harness(bypass = [], httpsFails = false, target = 'firefox', mode = 'pr
           if (
             (httpsFails === true && url.includes('example.com')) ||
             url.includes('ifconfig.me') ||
-            url.includes('country') ||
-            url.includes('ifconfig.co')
+            (!countrySucceeds && (url.includes('country') || url.includes('ifconfig.co')))
           ) {
             emit('error', {
               tabId: id,
@@ -223,7 +228,7 @@ test('connection check falls back on transport and invalid IP responses, treats 
   assert.equal(result.ok, true)
   assert.equal(result.connectionCheck.exitIp, '203.0.113.9')
   assert.equal(result.connectionCheck.countryCode, '')
-  assert.equal(h.urls.length, 7)
+  assert.equal(h.urls.length, 8)
   assert.deepEqual(h.removed, [7])
 })
 
@@ -342,4 +347,42 @@ test('disconnect interrupts a diagnostic navigation and releases its temporary r
   assert.deepEqual(h.removed, [7])
   assert.equal(h.session.connectionCheck, null)
   assert.equal(h.session.transientProxyLease, false)
+})
+
+test('Cloudflare supplies exit IP, country, HTTP and TLS before fallback services', async () => {
+  const h = harness()
+  h.api.scripting.executeScript = async () => [
+    { result: 'fl=abc\nip=2001:db8::1\nloc=de\nhttp=http/2\ntls=TLSv1.3\n' }
+  ]
+  const result = await h.command({ command: 'check' })
+  assert.equal(result.ok, true)
+  assert.equal(result.connectionCheck.exitIp, '2001:db8::1')
+  assert.equal(result.connectionCheck.countryCode, 'DE')
+  assert.equal(result.connectionCheck.httpProtocol, 'http/2')
+  assert.equal(result.connectionCheck.tlsVersion, 'TLSv1.3')
+  assert.deepEqual(h.urls, [
+    'https://example.com/',
+    'https://h3.speed.cloudflare.com/cdn-cgi/trace'
+  ])
+  assert.deepEqual(h.removed, [7])
+})
+
+test('Cloudflare missing country uses country fallbacks and rejects unrecognized protocol values', async () => {
+  const h = harness([], false, 'firefox', 'proxy', true)
+  h.api.scripting.executeScript = async () => [
+    {
+      result: h.urls.at(-1).includes('cloudflare')
+        ? 'ip=203.0.113.8\nloc=unknown\nhttp=invalid\ntls=invalid'
+        : 'US'
+    }
+  ]
+  const result = await h.command({ command: 'check' })
+  assert.equal(result.connectionCheck.exitIp, '203.0.113.8')
+  assert.equal(result.connectionCheck.countryCode, 'US')
+  assert.equal(result.connectionCheck.httpProtocol, '')
+  assert.equal(result.connectionCheck.tlsVersion, '')
+  assert.equal(
+    h.urls.some(url => url.includes('ifconfig.me')),
+    false
+  )
 })

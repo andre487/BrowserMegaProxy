@@ -615,7 +615,8 @@ async function runConnectionCheck() {
     'https://icanhazip.com/',
     'https://ifconfig.co/country-iso',
     'https://ipapi.co/country_code/',
-    'https://api.country.is/'
+    'https://api.country.is/',
+    'https://h3.speed.cloudflare.com/cdn-cgi/trace'
   ]
   let tab
   let transient = false
@@ -651,7 +652,7 @@ async function runConnectionCheck() {
           await testPage(tab.id, url, AbortSignal.any([deadline, AbortSignal.timeout(10000)]))
           const results = await api.scripting.executeScript({
             target: { tabId: tab.id },
-            func: () => document.body.innerText.slice(0, 256)
+            func: () => document.body.innerText.slice(0, 4096)
           })
           const value = parse(String(results[0]?.result || '').trim())
           if (value) {
@@ -671,33 +672,47 @@ async function runConnectionCheck() {
 
     connectionCheck.stage = 'ip'
     await storeConnectionCheck()
-    const exitIp = await lookup(urls.slice(1, 4), text => {
+    function parseIp(text) {
       try {
         const normalized = M.host(text)
         return /^(?:\d{1,3}\.){3}\d{1,3}$/.test(text) || text.includes(':') ? normalized : ''
       } catch {
         return ''
       }
+    }
+    const trace = await lookup(urls.slice(7), text => {
+      const fields = Object.fromEntries(
+        text.split(/\r?\n/).map(line => {
+          const index = line.indexOf('=')
+          return [line.slice(0, index), line.slice(index + 1).trim()]
+        })
+      )
+      return parseIp(fields.ip || '') ? fields : ''
     })
+    const exitIp = (trace && parseIp(trace.ip)) || (await lookup(urls.slice(1, 4), parseIp))
     if (!exitIp) {
       throw new Error('errorCheckIP')
     }
 
     connectionCheck.stage = 'country'
     await storeConnectionCheck()
-    const countryCode = await lookup(urls.slice(4), text => {
+    function parseCountry(text) {
       if (text.startsWith('{')) {
         text = JSON.parse(text).country
       }
 
       return /^[a-z]{2}$/i.test(text) ? text.toUpperCase() : ''
-    })
+    }
+    const countryCode =
+      parseCountry(trace.loc || '') || (await lookup(urls.slice(4, 7), parseCountry))
     connectionCheck = {
       stage: 'complete',
       mode,
       profileId: p?.id || null,
       exitIp,
       countryCode,
+      httpProtocol: /^http\/(?:1\.[01]|2|3)$/.test(trace.http || '') ? trace.http : '',
+      tlsVersion: /^TLSv1(?:\.[0-3])?$/.test(trace.tls || '') ? trace.tls : '',
       latencyMs,
       checkedAt: Date.now()
     }

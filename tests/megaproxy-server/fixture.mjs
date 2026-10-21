@@ -164,7 +164,7 @@ export async function startServer(scenario) {
     ])
     await writeFile(
       `${dir}/extensions.cnf`,
-      'subjectAltName=DNS:direct.localhost,DNS:chain.localhost,DNS:exit.internal,DNS:*.invalid,DNS:example.com,DNS:raw.githubusercontent.com,DNS:ifconfig.me,DNS:api.ipify.org,DNS:icanhazip.com,DNS:ifconfig.co,DNS:ipapi.co,DNS:api.country.is,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n'
+      'subjectAltName=DNS:direct.localhost,DNS:chain.localhost,DNS:exit.internal,DNS:*.invalid,DNS:example.com,DNS:raw.githubusercontent.com,DNS:ifconfig.me,DNS:api.ipify.org,DNS:icanhazip.com,DNS:ifconfig.co,DNS:ipapi.co,DNS:api.country.is,DNS:h3.speed.cloudflare.com,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n'
     )
     await exec('openssl', [
       'x509',
@@ -218,7 +218,8 @@ export async function startServer(scenario) {
       'icanhazip.com',
       'ifconfig.co',
       'ipapi.co',
-      'api.country.is'
+      'api.country.is',
+      'h3.speed.cloudflare.com'
     ]
     const origin = await run(
       'origin',
