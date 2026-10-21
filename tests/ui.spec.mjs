@@ -542,12 +542,14 @@ test('profile colors, cloning, order, local bypass and portable export/import re
   expect(config.routing.bypassLocalNetworks).toBe(false)
   expect(config.profiles[0].countryCode).toBe('US')
   await expect(page.locator('#export-passwords')).toBeChecked()
+  expect(config.passwordsIncluded).toBe(true)
   expect(config.profiles[0].proxy.password).toBe('export-secret')
   await page.locator('#export-passwords').uncheck()
   const passwordlessDownload = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Экспорт настроек' }).click()
   const passwordlessFile = await passwordlessDownload
   const passwordlessConfig = JSON.parse(await readFile(await passwordlessFile.path(), 'utf8'))
+  expect(passwordlessConfig.passwordsIncluded).toBe(false)
   expect(passwordlessConfig.profiles[0].proxy.password).toBeUndefined()
   config.profiles = [config.profiles[0]]
   config.profiles[0].name = 'Updated'

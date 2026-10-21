@@ -1,15 +1,15 @@
 {
   "repository": "https://github.com/andre487/MegaProxyConfig",
-  "commit": "8cb2d57cb1641fd97446b4ffd18ef6dcdad618dd",
+  "commit": "6e4f86bfeedd45bb9b7bdb5875b51ccc96fad563",
   "overrides": [],
   "upstreamFiles": {
-    "megaproxy-v8.schema.json": "7361c353d29a54892d0a3de01e0163949c5a6915a8be6fc86e62e42bdc6fd4c7",
-    "android-v8.schema.json": "dead18fb6b88b5f7c832461ae1a288fb44a472c9068a8ef59835380417573629",
+    "megaproxy-v8.schema.json": "7591c7f910452a99dda6a5eaf9622bca41298ed290f80dd90790eae35d545b60",
+    "android-v8.schema.json": "7bd831f92352a74554c6d29befaeea0c6c35a3ba73db86ffe30f3cffa49da2a0",
     "LICENSE": "6c13885cba42ec32ee2f3720283ee61256643bd4a12fa736b4b6d9823e6e4ccc"
   },
   "files": {
-    "megaproxy-v8.schema.json": "7361c353d29a54892d0a3de01e0163949c5a6915a8be6fc86e62e42bdc6fd4c7",
-    "android-v8.schema.json": "dead18fb6b88b5f7c832461ae1a288fb44a472c9068a8ef59835380417573629",
+    "megaproxy-v8.schema.json": "7591c7f910452a99dda6a5eaf9622bca41298ed290f80dd90790eae35d545b60",
+    "android-v8.schema.json": "7bd831f92352a74554c6d29befaeea0c6c35a3ba73db86ffe30f3cffa49da2a0",
     "LICENSE": "6c13885cba42ec32ee2f3720283ee61256643bd4a12fa736b4b6d9823e6e4ccc"
   }
 }

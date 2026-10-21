@@ -391,8 +391,10 @@ Use stable IDs in MegaProxy and stable names in ZeroOmega. Formats without stabl
 IDs match uniquely named profiles, then unique proxy type/host/port endpoints;
 ambiguous or entirely changed profiles get new IDs. A downloaded configuration can
 replace the main subscription URL and fallback URLs. If it omits subscription settings,
-the current URLs are kept. Locally configured credentials, update interval, and
-automatic-update preference remain in use.
+the current URLs are kept. A supplied primary URL without `fallbackUrls` clears the
+previous backup list. Locally configured credentials, update interval, and
+automatic-update preference remain in use. The same Basic Auth pair will be sent
+to replacement URLs, so trust the subscription operator to choose its recipients.
 
 Subscription settings and status stay on this device; browser sync does not start
 subscriptions on another device. Export includes the subscription settings, with
@@ -448,14 +450,17 @@ passwords; do not commit them.
 
 Import review shows new, updated and skipped profiles. Matching IDs update without
 duplicates or changing local order. A missing password preserves the local value
-only when the proxy protocol, host, port and username are unchanged; an explicit
-empty string clears it. Local profiles absent from the file remain and can be
+only when the proxy protocol, normalized host, port and username are unchanged; an
+explicit empty string clears it. Local profiles absent from the file remain and can be
 selected for deletion. Import does not connect the file's active profile.
 Changes to an already active profile apply after confirming the import.
 
-Exports use MegaProxy JSON version 8. Passwords are included by default and can
-be excluded with a separate toggle. Unsupported Android fields are discarded on
-import with the general warning. The Android version 8 baseline used by the shared contract does not support HTTP, SOCKS5
+Exports use MegaProxy JSON version 8. The UI includes passwords by default and must
+provide a visible **Include passwords** opt out before export. Clearing it omits
+both proxy and subscription passwords and sets `passwordsIncluded` to false.
+Private keys are never exported. URL query tokens are not removed by this toggle.
+Unsupported Android fields are discarded on import with the general warning. The
+current Android version 8 baseline supports SOCKS5 and subscriptions, but not HTTP
 or IPv6 literals in the proxy host field. HTTP and HTTPS/IPv6 exports fail explicitly
 without changing their protocol; SOCKS5 exports use the shared schema and require
 a supporting client. Android ignores new `browser` blocks but currently drops

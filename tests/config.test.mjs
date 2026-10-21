@@ -60,7 +60,7 @@ test('SOCKS5 imports and exports preserve the protocol and report unsupported au
   config.profiles[0].proxy.type = 'SOCKS5'
   config.profiles[0].proxy.port = 1080
   assert.ok(validate(config), JSON.stringify(validate.errors))
-  assert.equal(android(config), false)
+  assert.ok(android(config), JSON.stringify(android.errors))
   const result = M.importProfiles(config, 'firefox')
   const state = M.mergeImport(M.defaults(), result)
   assert.equal(state.profiles[0].type, 'socks5')
@@ -372,6 +372,18 @@ test('standalone browser validator rejects invalid optional fields at import', a
   assert.equal(compatible.profiles.length, 1)
   assert.equal(compatible.unknownFields, true)
   assert.deepEqual(Array.from(compatible.skipped), ['future_transport'])
+  for (const routing of [
+    { domains: null },
+    { domains: ['example.com', 'example.com'] },
+    { sites: null },
+    { subscriptions: { domainSources: null } },
+    { subscriptions: { siteSources: ['youtube', 'youtube'] } }
+  ]) {
+    assert.throws(
+      () => context.MegaProxy.importProfiles({ ...config, browser: { routing } }, 'firefox'),
+      /errorProfileFields/
+    )
+  }
   future.profiles[0].proxy.port = '443'
   assert.throws(() => context.MegaProxy.importProfiles(future), /errorProfileFields/)
   future.profiles[0].proxy.port = 443
@@ -590,6 +602,7 @@ test('root config subscriptions validate, round-trip and follow secret omission 
   assert.equal(state.subscription.intervalMinutes, 60)
   const exported = M.exportConfig(state)
   assert.ok(validate(exported), JSON.stringify(validate.errors))
+  assert.ok(android(exported), JSON.stringify(android.errors))
   assert.equal(exported.subscription.password, undefined)
   assert.equal(M.exportConfig(state, true).subscription.password, 'private')
   state = M.mergeImport(state, M.importProfiles(exported, 'firefox'))
@@ -659,4 +672,30 @@ test('omitted passwords survive imports only for the same endpoint and account',
       'explicit'
     )
   }
+})
+
+test('SOCKS5 usernames with colons round-trip without relaxing HTTP Basic validation', () => {
+  const config = structuredClone(portable)
+  config.profiles[0].proxy.type = 'SOCKS5'
+  config.profiles[0].proxy.username = 'user:account'
+  for (const validator of [validate, android]) {
+    assert.ok(validator(config), JSON.stringify(validator.errors))
+  }
+  const imported = M.importProfiles(config, 'firefox')
+  const state = M.mergeImport(M.defaults(), imported)
+  assert.equal(state.profiles[0].username, 'user:account')
+  assert.equal(M.exportConfig(state, true).profiles[0].proxy.username, 'user:account')
+  assert.equal(
+    M.importProfiles('socks5://user%3Aaccount:secret@proxy.example', 'firefox').profiles[0]
+      .username,
+    'user:account'
+  )
+  assert.equal(M.importProfiles(config, 'chromium').profiles.length, 0)
+  for (const type of ['https', 'http']) {
+    assert.throws(() => M.profile({ ...state.profiles[0], type }, 'firefox'), /errorCredentials/)
+  }
+  assert.throws(
+    () => M.profile({ ...state.profiles[0], username: 'user\naccount' }, 'firefox'),
+    /errorCredentials/
+  )
 })
