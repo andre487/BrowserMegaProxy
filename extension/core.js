@@ -318,7 +318,8 @@
     const username = String(input.username || '')
     const password = String(input.password || '')
     if (
-      /[:\r\n]/.test(username) ||
+      /[\r\n]/.test(username) ||
+      (type !== 'socks5' && username.includes(':')) ||
       /[\r\n]/.test(password) ||
       username.length > 4096 ||
       password.length > 16384
@@ -877,7 +878,6 @@ function FindProxyForURL(url, host) {
         } else if (Object.hasOwn(supplied, 'mode')) {
           browserRoutingPatch.strategy = undefined
         }
-        data.browser.routing = structuredClone(browserRouting)
       }
     }
 
@@ -1015,7 +1015,7 @@ function FindProxyForURL(url, host) {
       profiles.push(result)
     }
 
-    // Validate only data this browser will apply; unsupported entries and fields are discarded.
+    // Validate supported input before routing normalization can hide malformed fields.
     if (
       portable &&
       data.version === 8 &&
@@ -1024,6 +1024,10 @@ function FindProxyForURL(url, host) {
       !root.MegaValidate({ ...data, profiles: profiles.map(p => p.portable) })
     ) {
       throw new Error('errorProfileFields', { cause: new Error('errorConfigSchema') })
+    }
+
+    if (browserRouting) {
+      data.browser.routing = structuredClone(browserRouting)
     }
 
     if (!profiles.length && !skipped.length) {

@@ -50,7 +50,7 @@ async function socksServer(originPorts, authenticated) {
           }
           const username = pending.subarray(2, 2 + pending[1]).toString()
           const password = pending.subarray(3 + pending[1], length).toString()
-          const accepted = pending[0] === 1 && username === 'user' && password === 'secret'
+          const accepted = pending[0] === 1 && username === 'user:account' && password === 'secret'
           requests.push({ username, password, accepted })
           pending = pending.subarray(length)
           if (!accepted) {
@@ -153,7 +153,7 @@ for (const authenticated of [false, true]) {
       )
       proxy = await socksServer([await listen(origin), await listen(secureOrigin)], authenticated)
       browser = await launchExtension(testInfo.project.name, dir)
-      const credentials = authenticated ? { username: 'user', password: 'secret' } : {}
+      const credentials = authenticated ? { username: 'user:account', password: 'secret' } : {}
       const saved = await browser.command({
         command: 'save',
         profile: {
@@ -200,7 +200,9 @@ for (const authenticated of [false, true]) {
         expect(
           proxy.requests.some(
             request =>
-              request.username === 'user' && request.password === 'secret' && request.accepted
+              request.username === 'user:account' &&
+              request.password === 'secret' &&
+              request.accepted
           )
         ).toBe(true)
         origin.closeAllConnections()
