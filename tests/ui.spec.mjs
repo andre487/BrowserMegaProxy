@@ -2195,6 +2195,10 @@ test('connection results localize country names and preserve missing-country out
   await page.locator('#settings > summary').click()
   await page.locator('#language').selectOption('en')
   await expect(page.locator('#check-result')).toContainText('🇩🇪 DE (Germany)')
+  await page.evaluate(
+    'connectionCheck.httpProtocol = "http/2"; connectionCheck.tlsVersion = "TLSv1.3"; renderCheck()'
+  )
+  await expect(page.locator('#check-result')).toContainText('HTTP/2 · TLSv1.3')
   await page.evaluate('connectionCheck.countryCode = ""; renderCheck()')
   await expect(page.locator('#check-result')).toContainText('Country: —')
   await expect(page.locator('#check-result')).not.toContainText('undefined')

@@ -1051,7 +1051,8 @@ function renderCheck() {
             check.exitIp,
             `${flag.textContent} ${check.countryCode || '—'}${countryName ? ` (${countryName})` : ''}`.trim(),
             check.latencyMs
-          )
+          ),
+          [check.httpProtocol?.toUpperCase(), check.tlsVersion].filter(Boolean).join(' · ')
         ]
           .filter(Boolean)
           .join('\n')

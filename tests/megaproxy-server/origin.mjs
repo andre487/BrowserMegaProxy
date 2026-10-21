@@ -24,6 +24,8 @@ function respond(req, res) {
     res.end('203.0.113.7')
   } else if (['ifconfig.co', 'ipapi.co'].includes(host)) {
     res.end('US')
+  } else if (host === 'h3.speed.cloudflare.com') {
+    res.end('ip=203.0.113.7\nloc=US\nhttp=http/1.1\ntls=TLSv1.3\n')
   } else if (host === 'api.country.is') {
     res.end('{"country":"US"}')
   } else if (req.url === '/split') {

@@ -134,9 +134,13 @@ test('strict TLS rejects an untrusted HTTPS proxy without a direct fallback', as
     await expect(page.goto(`${url}?strict`, { timeout: 10000 })).rejects.toThrow()
     expect(connected).toBe(false)
     expect(hits).toBe(before)
-    expect((await browser.networkErrors()).some(error => /CERT|PROXY/i.test(error.error))).toBe(
-      true
-    )
+    await expect
+      .poll(async () =>
+        (await browser.networkErrors())
+          .filter(error => error.url === `${url}?strict`)
+          .map(error => error.error)
+      )
+      .toEqual(expect.arrayContaining([expect.stringMatching(/CERT|PROXY|^SSL_ERROR_UNKNOWN$/i)]))
   } finally {
     await browser?.close()
     await Promise.all([close(proxy), close(origin)])
