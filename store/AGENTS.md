@@ -20,7 +20,7 @@ uploader for a one-off dashboard recovery.
 4. Read [README.md](README.md) for the asset/locale mapping and the relevant
    section of [RELEASING.md](../RELEASING.md#store-publication) for automation.
    Firefox and Chrome jobs check public materials and warn about differences; all
-   stores require separate dashboard edits. The Opera job only uploads/submits the package. Do not rerun a whole publication workflow merely
+   stores require separate dashboard edits. Do not rerun a whole publication workflow merely
    to repair images: it may upload or submit the package again.
 5. In the dashboard, collect one compact baseline: version/status, localized
    text, image URLs/order/count, support/homepage and privacy fields. Compare
@@ -50,8 +50,7 @@ uploader for a one-off dashboard recovery.
   dialogs, uploads and verification sequential. Check upload completion by state
   or count, not fixed sleeps. Selecting a file is not proof of uploading it.
 - Scope file inputs/buttons to their visible section. Respect deletion dialogs.
-  Do not force clicks through overlays. After reload, wait for dashboard controls;
-  Opera may reset to General instead of retaining the requested tab.
+  Do not force clicks through overlays. After reload, wait for dashboard controls.
 - Use `setInputFiles(path)` with native CDP. If extension-based file transfer fails,
   a Playwright file payload `{name, mimeType, buffer}` is a fallback; keep base64 in
   a temporary script and never print it. Do not retry a timed-out transfer blindly.
@@ -90,34 +89,13 @@ uploader for a one-off dashboard recovery.
   Verify through the public listing/API; do not resubmit an already published
   package just to obtain a review status for metadata.
 
-## Opera Add-ons
-
-- Version Media: 3 EN screenshots and 64px icon. Version Translations: EN/RU
-  summaries/descriptions. Package Promotional Image: 300×188 promo, a separate section.
-  The dashboard asks for Opera captures; current generated assets reuse Chromium UI.
-  Do not claim they were captured in Opera; follow moderator requirements if requested.
-- Flow uploader requires selecting files **and** clicking its section's upload
-  control (`$flow.upload()` in the observed UI). Another hidden uploader may exist
-  on the same page. Scope to the appropriate panel; wait for the attached image.
-- A failed PATCH/HTTP 500 may have changed server state. Reload/read back before
-  repeating an attachment or deletion; blind retries can duplicate screenshots.
-  GET chunk-probe HTTP 405 alone is not upload failure: check the final attachment.
-- `Icon with this size already exists` and `Promotional Image already exists`
-  are known replacement failures. Do not delete a valid promo as an experiment:
-  deletion can persist while both new upload and restoration still fail with
-  `already exists`. Preserve it and report the blocker. If already removed, try
-  restoring the saved original once and report its actual resulting state.
-- Material changes can leave the version with unsubmitted edits. Use General →
-  Submit changes after verifying saved materials; confirm the dashboard's submission
-  message/status. Do not send moderator messages without explicit authorization.
-
 ## Verification and privacy
 
 - Compare text after trimming/normalizing whitespace. Compare images by content,
   not filenames, CDN hashes or byte equality. Reuse exported `compareScreenshots`
   from `scripts/chrome-store-materials.mjs`; summarize `similar`, `mean`, `region`.
   Review flagged differences: store resizing/JPEG compression is expected.
-  For AMO's resized icon compare against `icon-128.png`, not Opera's `icon-64.png`.
+  For AMO's resized icon compare against `icon-128.png`.
 - Download only observed public image URLs for unauthenticated comparisons.
   Check image order/count, all intended locales, captions and moderation state
   after saving/reloading. Keep baseline images until replacement is verified.

@@ -233,7 +233,7 @@ export async function prepareStoreMaterials(destination = 'dist/store-materials'
   await rm(destination, { recursive: true, force: true })
   const store = path.join(destination, 'store')
   await cp('store', store, { recursive: true })
-  for (const shop of ['chrome', 'firefox', 'opera']) {
+  for (const shop of ['chrome', 'firefox']) {
     for (const locale of ['en', 'ru']) {
       const file = path.join(store, 'listings', shop, locale)
       const listing = await readListing(file)

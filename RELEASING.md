@@ -1,8 +1,8 @@
 # Releasing MegaProxy
 
 The process follows AndroidMegaProxy: manual version input → release PR →
-required checks → merge → tag → build and GitHub Release → Chrome Web Store,
-Firefox Add-ons and Opera Add-ons submission, all in one workflow run.
+required checks → merge → tag → build and GitHub Release → Chrome Web Store
+and Firefox Add-ons submission, all in one workflow run.
 
 ## One-time setup
 
@@ -92,7 +92,7 @@ inspect that PR rather than preparing the same version again over an existing br
 
 ## Release files
 
-- `MegaProxy-chromium-vX.Y.Z.zip` — Chrome and Opera: unpacked developer installation
+- `MegaProxy-chromium-vX.Y.Z.zip` — Chromium: unpacked developer installation
   or submission to the appropriate store.
 - `MegaProxy-firefox-vX.Y.Z.zip` — unsigned Firefox package: temporary installation
   through `about:debugging` or submission to Mozilla for signing.
@@ -151,10 +151,9 @@ above remains a separate manual option for self-distribution.
 
 ## Store publication
 
-Chrome Web Store, Firefox Add-ons and Opera Add-ons submission can be automated as
+Chrome Web Store and Firefox Add-ons submission can be automated as
 described below. Use the listings, screenshots
 and policy in [store/](store/README.md), and supply a public privacy-policy URL.
-Before Opera publication, test the release in the target browser version.
 
 ### Chrome Web Store
 
@@ -273,7 +272,7 @@ submission. AMO signs and publishes after approval. This integration does not
 download a signed XPI or attach one to GitHub Release; public store installation
 uses AMO, including on supported Firefox Android versions.
 
-Unlike Opera's optional warning path, Firefox failures remain visible as failed
+Firefox failures remain visible as failed
 jobs while the existing GitHub release remains available. Fix credentials or
 metadata in AMO, then rerun **Firefox Add-ons** for the same tag. Versions already
 listed as public or awaiting review with attached source skip package submission
@@ -284,76 +283,19 @@ the workflow does not silently replace or delete them.
 See [Mozilla's signing command reference](https://extensionworkshop.com/documentation/develop/web-ext-command-reference/#web-ext-sign)
 and [JWT authentication documentation](https://mozilla.github.io/addons-server/topics/api/auth.html).
 
-### Opera Add-ons
-
-The optional **Submit to Opera Add-ons** job uses the existing Chromium ZIP from
-GitHub Release. It calls the developer dashboard's undocumented HTTP API using
-the session cookie in secret `OPERA_SESSION_ID` and the numeric package ID in
-variable `OPERA_PACKAGE_ID`. The listing and its first version must already exist
-in Opera's dashboard. Opera submission is enabled by default after normal releases;
-set `OPERA_PUBLISH_ENABLED=false` to disable it explicitly.
-
-The job uploads the ZIP in chunks, creates the version using the previous version's
-metadata (`metadata_from`), and submits it for moderation. It does not download or
-update store materials. Synchronize descriptions, links, privacy policy, icons and
-screenshots separately using [the agent runbook](store/AGENTS.md).
-It resumes a version already created after a failed attempt and skips a version
-already submitted. A successful submission does not mean Opera has approved or
-published it. Sessions can expire and dashboard API changes can require updating
-the integration. No account password is stored by this workflow.
-
-For a read-only check, run **Actions → Opera Add-ons → Run workflow**, select a
-GitHub release tag and keep **dry_run** enabled (the default). It validates archive
-integrity/version, reads the package and previous version metadata, and confirms
-that the account can edit the listing. It does not upload, edit or submit a version.
-Use this workflow independently to retry Opera without rebuilding GitHub assets or
-triggering Chrome publication. Clearing **dry_run** submits the selected release.
-The **Release extension artifacts** workflow with **dry_run** enabled also checks
-Opera unless `OPERA_PUBLISH_ENABLED=false`, alongside its Chrome access check.
-
-Opera API requests retry HTTP 5xx with exponential backoff; see
-[HTTP failure diagnostics](#http-failure-diagnostics) for the retry policy.
-
-Failures in normal Opera submission are non-blocking: the workflow emits a warning
-and a job summary with manual upload and credential renewal instructions. GitHub
-Release and Chrome publication continue independently. A green workflow does not
-confirm Opera submission: check the integration step's log for confirmation and
-the summary for recovery warnings. Dry-run failures remain
-blocking so invalid credentials are reported clearly.
-
-If creating a version returns HTTP 500 after upload, the dry run does not exercise
-that failing request. Check the endpoint and response excerpt before changing
-credentials; a server error alone does not mean the session expired. Try the same
-ZIP through the dashboard and inspect its response to distinguish an integration
-request problem from a failure in Opera's package processing.
-
-Manual recovery: download the Chromium ZIP from the GitHub release, open
-[Opera Developer Dashboard](https://addons.opera.com/developer/), select the extension's
-**Versions** tab, upload the ZIP, verify metadata and submit for moderation. To
-renew access, sign in to that dashboard, copy its `sessionid` cookie from browser
-DevTools → Application → Cookies and replace GitHub secret `OPERA_SESSION_ID`.
-Check `OPERA_PACKAGE_ID` against the numeric ID in the dashboard URL, then run a
-dry run before retrying. Never share or commit the cookie value.
-
-API behavior is based on the [publish-browser-extension implementation](https://github.com/aklinker1/publish-browser-extension/blob/main/src/stores/opera-addons-store.ts);
-Opera's supported manual process is described in its [publishing guidelines](https://help.opera.com/en/extensions/publishing-guidelines/).
-
 All store integration scripts print developer-dashboard links in logs and job summaries.
 
 ## HTTP failure diagnostics
 
-Release API calls (Chrome, Firefox, Opera and release-note generation), schema/catalog
+Release API calls (Chrome, Firefox and release-note generation), schema/catalog
 renewal and extension downloads include response excerpts for HTTP 500–599 errors.
 The shared handler reads at most 16 KiB and outputs at most 4,096 characters, with
 known credentials, authorization fields, URLs and control characters redacted.
 Errors identify the method and endpoint in release logs. By default, release and maintenance
 API calls and extension configuration downloads retry HTTP 5xx up to three total
-attempts with 1 and 2 second delays. Opera uses a longer exponential retry policy,
-configured in `scripts/opera-addons.mjs`; its request timeout starts afresh for each
-attempt. The Opera job time limit is configured in `.github/workflows/opera-addons.yml`.
+attempts with 1 and 2 second delays.
 Each retry logs its response excerpt. Connection checks do not retry requests.
-HTTP 4xx and transport failures are not retried by this handler. Opera separately
-retries HTTP 400/404 during version creation while uploaded chunks become available.
+HTTP 4xx and transport failures are not retried by this handler.
 Empty or unreadable bodies
 are marked explicitly; HTTP 4xx response bodies are not logged.
 
