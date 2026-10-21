@@ -25,9 +25,13 @@ Safari and browsers without extension proxy APIs are not supported.
 
 ## Build and install
 
-**Chrome:** [Install MegaProxy from the Chrome Web Store](https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo).
-
-**Firefox:** [Install MegaProxy from the Mozilla Add-Ons](https://addons.mozilla.org/ru/firefox/addon/megaproxy/).
+<table>
+  <tr><th align="center">Chromium</th><th align="center">Firefox</th></tr>
+  <tr>
+    <td align="center"><a href="https://chromewebstore.google.com/detail/megaproxy/kfilelfnldddoncicbampiojjjcpbigo"><img src="docs/assets/chrome-web-store.png" alt="Install MegaProxy from the Chrome Web Store" height="60"></a></td>
+    <td align="center"><a href="https://addons.mozilla.org/firefox/addon/megaproxy/"><img src="docs/assets/firefox-addons.png" alt="Get MegaProxy for Firefox" height="60"></a></td>
+  </tr>
+</table>
 
 For a local development build:
 
@@ -609,8 +613,8 @@ Release PR preparation, checks, tagging and archive publication are documented i
 
 ## Store materials
 
-English and Russian listings, screenshots, icons and promotional materials for Chrome Web Store,
-Firefox Add-ons and Opera Add-ons are available in [store/](store/README.md).
+English and Russian listings, screenshots, icons and promotional materials for Chrome Web Store
+and Firefox Add-ons are available in [store/](store/README.md).
 Regenerate images with `npm run store:assets`.
 
 ### Experimental MASQUE in Firefox

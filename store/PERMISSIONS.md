@@ -1,6 +1,6 @@
 # Permission justifications
 
-The following text explains every permission requested by the production manifests. Chromium includes Chrome and Opera. Firefox additionally requests `webRequestBlocking`. The `privacy` and `notifications` permissions are optional in both packages.
+The following text explains every permission requested by the production manifests. Firefox additionally requests `webRequestBlocking`. The `privacy` and `notifications` permissions are optional in both packages.
 
 ## Single purpose
 

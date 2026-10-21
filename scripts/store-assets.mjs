@@ -207,9 +207,9 @@ async function demo(page, target, language, theme, strategy, subscribed) {
   )
 }
 
-async function canvas(page, width, height, draw, outputSize = [width, height]) {
+async function canvas(page, width, height, draw) {
   const png = await page.evaluate(
-    async ({ width, height, draw, logo, outputSize }) => {
+    async ({ width, height, draw, logo }) => {
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
@@ -302,35 +302,17 @@ async function canvas(page, width, height, draw, outputSize = [width, height]) {
           ctx.drawImage(shot, 510 + (728 - w) / 2, 28 + (744 - h) / 2, w, h)
         }
       }
-      if (outputSize[0] !== width || outputSize[1] !== height) {
-        const original = document.createElement('canvas')
-        original.width = width
-        original.height = height
-        original.getContext('2d').drawImage(canvas, 0, 0)
-        canvas.width = outputSize[0]
-        canvas.height = outputSize[1]
-        const scale = Math.min(canvas.width / width, canvas.height / height)
-        ctx.fillStyle = '#fff'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(
-          original,
-          (canvas.width - width * scale) / 2,
-          (canvas.height - height * scale) / 2,
-          width * scale,
-          height * scale
-        )
-      }
       document.body.style.margin = '0'
       canvas.style.display = 'block'
       document.body.replaceChildren(canvas)
       return canvas.toDataURL('image/png').split(',')[1]
     },
-    { width, height, draw, logo, outputSize }
+    { width, height, draw, logo }
   )
   const buffer =
     draw.kind === 'icon' ? Buffer.from(png, 'base64') : await page.locator('canvas').screenshot()
-  assert.equal(buffer.readUInt32BE(16), outputSize[0])
-  assert.equal(buffer.readUInt32BE(20), outputSize[1])
+  assert.equal(buffer.readUInt32BE(16), width)
+  assert.equal(buffer.readUInt32BE(20), height)
   assert.equal(buffer[25], draw.kind === 'icon' ? 6 : 2, 'Only icons may have transparency')
   return buffer
 }
@@ -340,14 +322,11 @@ try {
   const graphics = await designer.newPage()
   await mkdir('store/assets/shared', { recursive: true })
   await writeFile('store/assets/shared/LICENSE', await readFile('extension/icons/LICENSE'))
-  for (const size of [64, 128]) {
-    await writeFile(
-      `store/assets/shared/icon-${size}.png`,
-      await canvas(graphics, size, size, { kind: 'icon' })
-    )
-  }
+  await writeFile(
+    'store/assets/shared/icon-128.png',
+    await canvas(graphics, 128, 128, { kind: 'icon' })
+  )
   for (const [width, height, name] of [
-    [300, 188, 'promo-opera'],
     [440, 280, 'promo-small'],
     [1400, 560, 'promo-marquee']
   ]) {
@@ -438,27 +417,6 @@ try {
               language
             })
           )
-          if (target === 'chromium' && i < 3) {
-            const operaDir = `store/assets/opera/${language}`
-            await mkdir(operaDir, { recursive: true })
-            await writeFile(
-              `${operaDir}/0${i + 1}.png`,
-              await canvas(
-                graphics,
-                1280,
-                800,
-                {
-                  kind: 'screenshot',
-                  title,
-                  subtitle,
-                  label,
-                  shot,
-                  language
-                },
-                [612, 408]
-              )
-            )
-          }
           await page.close()
         }
       }
@@ -471,4 +429,4 @@ try {
 } finally {
   await designer.close()
 }
-console.log('Store assets generated: Chrome / Opera (chromium), Firefox, en / ru.')
+console.log('Store assets generated: Chrome (Chromium), Firefox, en / ru.')

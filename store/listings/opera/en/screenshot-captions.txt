@@ -1,5 +1,0 @@
-Profiles and quick actions in the dark theme.
-Configuration subscription: primary and backup URLs, authentication and update controls.
-Selective proxy routing and the rule tester.
-Automatic domain lists with optional updates through the proxy.
-Local network monitor and failed request domains.

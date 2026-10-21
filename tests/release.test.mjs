@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { readListing } from '../scripts/store-materials.mjs'
@@ -112,7 +112,17 @@ test('store material generation preserves text sources and assets and derives AP
   const destination = await mkdtemp(path.join(tmpdir(), 'mega-store-materials-'))
   try {
     await prepareStoreMaterials(destination)
-    for (const shop of ['chrome', 'firefox', 'opera']) {
+    const listings = await readdir(path.join(destination, 'store/listings'), {
+      withFileTypes: true
+    })
+    assert.deepEqual(
+      listings
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name)
+        .sort(),
+      ['chrome', 'firefox']
+    )
+    for (const shop of ['chrome', 'firefox']) {
       for (const locale of ['en', 'ru']) {
         const file = path.join('store', 'listings', shop, locale)
         const listing = await readListing(file)

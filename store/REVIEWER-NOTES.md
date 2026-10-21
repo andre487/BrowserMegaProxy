@@ -14,7 +14,7 @@ There is no remote executable code. UI scripts and schema validation are package
 
 1. Install the browser-specific package. Chromium requires version 120+; Firefox requires 140+ (142+ on Android). In Firefox, allow private-window access; desktop proxy control uses `proxy.settings`, while Android uses `proxy.onRequest`.
 2. Open settings. Add an HTTP or HTTPS CONNECT proxy you control. Save and select it. Test Proxy, Direct and System, then run a connection check.
-3. Expand Routing mode. Test manual domains and subdomain wildcards, rule testing and automatic list selection. Firefox additionally exposes By tabs. Chrome and Opera do not offer tab routing.
+3. Expand Routing mode. Test manual domains and subdomain wildcards, rule testing and automatic list selection. Firefox additionally exposes By tabs. Chromium does not offer tab routing.
 4. Test import/export using non-sensitive HTTPS profiles. HTTP profiles and HTTPS proxies with IPv6 addresses cannot be exported under the portable contract. Imports also accept FoxyProxy, ZeroOmega, ProxyList and SuperProxy, with compatibility warnings.
 5. Import a complete configuration from a URL you control and enable a subscription, or import a MegaProxy file containing `subscription`. Expand the subscription editor; edit source URLs, credentials and the interval. Pause automatic checks and confirm **Update now** works in settings and popup while paused. Cancel the subscription and verify the imported profiles remain. Optional Basic Auth requires HTTPS. Use only trusted backup URLs because they receive the same configured credentials.
 6. Change the active profile's endpoint in the subscription, then remove it in the next snapshot. A surviving local selection stays selected; a removed selection uses the downloaded `activeProfileId` or first supported profile. Direct/System remain unchanged; failed downloads retain the working configuration.
@@ -38,7 +38,6 @@ No MegaProxy account is required. A Proxy-mode connection test needs a working p
 
 - Chrome Web Store: ZIP containing the contents of `dist/chromium`, with `manifest.json` at its root.
 - Firefox Add-ons: ZIP containing the contents of `dist/firefox`. Mozilla signs the store distribution; development/PR archives are unsigned.
-- Opera Add-ons: use the Chromium package. Assets and descriptions are prepared for its Chromium UI; a release must also be checked in the target Opera version before submission. Opera-specific runtime testing has not been performed by this asset generator.
 
 Upload the extension package, not the store-materials ZIP. Provide a public URL for the privacy policy after this document is available on the default branch. For example: `https://github.com/andre487/BrowserMegaProxy/blob/main/store/PRIVACY.md`.
 

@@ -4,7 +4,6 @@ import { spawnSync } from 'node:child_process'
 import { requestWithRetry } from '../scripts/http-request.mjs'
 import { publishChromeWebStore } from '../scripts/chrome-web-store.mjs'
 import { checkFirefoxRelease } from '../scripts/firefox-addons.mjs'
-import { submitOperaAddon } from '../scripts/opera-addons.mjs'
 import { generateNotes } from '../scripts/release.mjs'
 import '../extension/subscription-catalog.js'
 import '../extension/subscriptions.js'
@@ -48,12 +47,6 @@ test('all release API integrations retain 5xx response diagnostics without crede
         }
       ),
     () =>
-      submitOperaAddon('v1.0.0', Buffer.from('zip'), {
-        env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret },
-        retryWait: async () => {},
-        request: failing
-      }),
-    () =>
       generateNotes(
         '1.0.0',
         {
@@ -76,50 +69,6 @@ test('all release API integrations retain 5xx response diagnostics without crede
       )
       return true
     })
-  }
-})
-
-test('Opera 5xx details identify failures after upload and on submission', async () => {
-  const stages = [
-    'file-upload/',
-    'developer/package-versions/?package_id=123',
-    'developer/package-versions/123-1.0.0/submit_for_moderation/'
-  ]
-  for (const stage of stages) {
-    let attempts = 0
-    const waits = []
-    const submission = submitOperaAddon('v1.0.0', Buffer.from('zip'), {
-      env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret },
-      retryWait: async ms => waits.push(ms),
-      request: async (url, options) => {
-        if (url === `https://addons.opera.com/api/${stage}`) {
-          attempts++
-          return failing(url, options)
-        }
-        let data = {}
-        if (url.endsWith('/packages/123/')) {
-          data = { id: 123, is_editable: true, versions: [{ version: '0.1.0' }] }
-        }
-        if (url.endsWith('/123-0.1.0/')) {
-          data = { translations: { en: { short_description: 'Proxy' } } }
-        }
-        if (url.endsWith('?package_id=123')) {
-          data = { version: '1.0.0' }
-        }
-        if (url.endsWith('/submit_for_moderation/')) {
-          data = { version: '1.0.0', submitted_for_moderation: true }
-        }
-        return new Response(JSON.stringify(data))
-      }
-    })
-    await assert.rejects(submission, error => {
-      assert.match(error.message, /upstream processing failed/)
-      assert.ok(error.message.includes(stage))
-      assert.ok(!error.message.includes(secret))
-      return true
-    })
-    assert.equal(attempts, 6)
-    assert.deepEqual(waits, [10000, 20000, 40000, 80000, 160000])
   }
 })
 
@@ -328,9 +277,9 @@ test('429 honors Retry-After seconds and dates without clamping; malformed value
   }
 })
 
-test('all three stores recover from 429 and expose sanitized 400 diagnostics', async () => {
+test('both stores recover from 429 and expose sanitized 400 diagnostics', async () => {
   for (const status of [429, 400]) {
-    for (const store of ['chrome', 'firefox', 'opera']) {
+    for (const store of ['chrome', 'firefox']) {
       const waits = []
       const signals = []
       let calls = 0
@@ -347,9 +296,7 @@ test('all three stores recover from 429 and expose sanitized 400 diagnostics', a
             ? { id: 1 }
             : url.includes('addons.mozilla.org')
               ? { guid: 'browser-mega-proxy@andre487', authors: [{ id: 1 }] }
-              : url.endsWith('/packages/123/')
-                ? { id: 123, is_editable: true, versions: [{ version: '1.0.0' }] }
-                : {}
+              : {}
         return new Response(JSON.stringify(data))
       }
       const options = { request, retryWait: async ms => waits.push(ms), dryRun: true }
@@ -365,19 +312,15 @@ test('all three stores recover from 429 and expose sanitized 400 diagnostics', a
                 CWS_REFRESH_TOKEN: secret
               }
             })
-          : store === 'firefox'
-            ? checkFirefoxRelease(
-                'v1.0.0',
-                {
-                  version: '1.0.0',
-                  browser_specific_settings: { gecko: { id: 'browser-mega-proxy@andre487' } }
-                },
-                { ...options, env: { WEB_EXT_API_KEY: 'key', WEB_EXT_API_SECRET: secret } }
-              )
-            : submitOperaAddon('v1.0.0', Buffer.from('zip'), {
-                ...options,
-                env: { OPERA_PACKAGE_ID: '123', OPERA_SESSION_ID: secret }
-              })
+          : checkFirefoxRelease(
+              'v1.0.0',
+              {
+                version: '1.0.0',
+                browser_specific_settings: { gecko: { id: 'browser-mega-proxy@andre487' } }
+              },
+              { ...options, env: { WEB_EXT_API_KEY: 'key', WEB_EXT_API_SECRET: secret } }
+            )
+
       if (status === 429) {
         await invoke()
         assert.deepEqual(waits, [30000], store)
