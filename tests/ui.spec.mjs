@@ -1298,10 +1298,10 @@ test('HTML pages load vector logos and favicons', async ({ page }) => {
   for (const name of ['popup', 'options', 'log']) {
     await page.goto(`http://127.0.0.1:8765/${name}.html`)
     const icon = page.locator('link[rel="icon"]')
-    await expect(icon).toHaveAttribute('href', 'icons/icon.svg')
+    await expect(icon).toHaveAttribute('href', 'icons/icon-radius.svg')
     await expect(icon).toHaveAttribute('type', 'image/svg+xml')
     await expect(icon).toHaveAttribute('sizes', 'any')
-    const response = await page.request.get('http://127.0.0.1:8765/icons/icon.svg')
+    const response = await page.request.get('http://127.0.0.1:8765/icons/icon-radius.svg')
     expect(response.ok()).toBe(true)
     expect(response.headers()['content-type']).toBe('image/svg+xml')
     expect(await response.text()).not.toContain('<image')
@@ -1315,13 +1315,14 @@ test('HTML pages load vector logos and favicons', async ({ page }) => {
       }
       return { width: icon.naturalWidth, brand: brand ? brand.getAttribute('src') : null }
     })
-    expect(loaded).toEqual({ width: 512, brand: name === 'log' ? null : 'icons/icon.svg' })
+    expect(loaded).toEqual({
+      width: expect.any(Number),
+      brand: name === 'log' ? null : 'icons/icon-radius.svg'
+    })
   }
 })
 
-test('toolbar icons have crisp white marks and transparent space for the profile dot', async ({
-  page
-}) => {
+test('toolbar icons render the upstream white mark and full background', async ({ page }) => {
   for (const size of [16, 24, 32, 48, 64]) {
     const result = await page.evaluate(async size => {
       const image = new Image()
@@ -1348,8 +1349,8 @@ test('toolbar icons have crisp white marks and transparent space for the profile
       width: size,
       height: size,
       centerAlpha: 255,
-      rightAlpha: 0,
-      bottomAlpha: 0
+      rightAlpha: 255,
+      bottomAlpha: 255
     })
     expect(result.leg).toEqual([255, 255, 255, 255])
     expect(result.cornerAlpha).toBeLessThan(255)

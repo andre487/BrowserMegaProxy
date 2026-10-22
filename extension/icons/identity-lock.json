@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/andre487/MegaProxyIdentity",
+  "commit": "fc236e43659602c3093726521d7c25bdd3536fe7",
+  "files": {
+    "SVG/icon-radius.svg": "7c276c805dbd641569d838831fcc355e671f9d17e577bcba1be22120978414e4",
+    "SVG/icon-toolbar.svg": "7bba88344b0bf0440abeaed4d1de8cf488fd785822b7e5a349e387ccb16d55b0",
+    "SVG/feature-graphic.svg": "cb76a52ba46da5e0ee63821325d5481731f17436059c9c026111d41c37a412a0",
+    "LICENSE": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+  }
+}
