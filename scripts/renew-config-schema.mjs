@@ -14,10 +14,14 @@ const ref = args[0]?.slice(6) || 'main'
 const directory = fileURLToPath(new URL('../config-schema/', import.meta.url))
 
 async function download(url) {
-  const response = await requestWithRetry(fetch, url, {
-    signal: AbortSignal.timeout(30000),
-    headers: { 'User-Agent': 'MegaProxy-schema-sync', 'Cache-Control': 'no-cache' }
-  })
+  const response = await requestWithRetry(
+    fetch,
+    url,
+    {
+      headers: { 'User-Agent': 'MegaProxy-schema-sync', 'Cache-Control': 'no-cache' }
+    },
+    { timeoutMs: 30000 }
+  )
   if (!response.ok) {
     throw await globalThis.MegaErrors.httpError(
       response,

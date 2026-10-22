@@ -339,3 +339,42 @@ test('both stores recover from 429 and expose sanitized 400 diagnostics', async 
     }
   }
 })
+
+test('retry timeouts are per attempt while an explicit caller signal still cancels the operation', async () => {
+  for (const status of [429, 503]) {
+    let previous
+    let calls = 0
+    const result = await requestWithRetry(
+      async (_url, options) => {
+        options.signal.throwIfAborted()
+        if (previous) {
+          assert.notEqual(options.signal, previous)
+          assert.equal(previous.aborted, true)
+        }
+        previous = options.signal
+        return new Response('ok', { status: ++calls === 1 ? status : 200 })
+      },
+      'https://example.org/',
+      {},
+      { timeoutMs: 5, wait: async () => new Promise(resolve => setTimeout(resolve, 20)) }
+    )
+    assert.equal(result.status, 200)
+    assert.equal(calls, 2)
+  }
+  const controller = new AbortController()
+  const cancelled = new Error('caller cancelled')
+  let calls = 0
+  await assert.rejects(
+    requestWithRetry(
+      async () => {
+        calls++
+        return new Response('', { status: 429 })
+      },
+      'https://example.org/',
+      { signal: controller.signal },
+      { timeoutMs: 1000, wait: async () => controller.abort(cancelled) }
+    ),
+    error => error === cancelled
+  )
+  assert.equal(calls, 1)
+})

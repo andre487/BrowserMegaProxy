@@ -136,7 +136,8 @@ function harness(
     opened,
     session,
     created,
-    navigations
+    navigations,
+    context
   }
 }
 
@@ -619,3 +620,29 @@ for (const target of ['chromium', 'firefox']) {
     assert.equal(resumed.created.length, 0)
   })
 }
+
+test('early Chromium request evidence is bounded, omits private URL data, and stops collecting after worker recreation', async () => {
+  const session = {}
+  const h = harness('chromium', session, tabs())
+  for (let index = 0; index < 1000; index++) {
+    h.events.onBeforeRequest({
+      tabId: 1,
+      type: 'image',
+      url: `https://host${index}.example/private-path?secret=private-token`
+    })
+  }
+  assert.equal(vm.runInContext('earlyKnockRequests.size', h.context), 256)
+  const entries = vm.runInContext('JSON.stringify([...earlyKnockRequests.values()])', h.context)
+  assert.doesNotMatch(entries, /private-path|private-token|secret/)
+  h.events.removed(1)
+  assert.equal(vm.runInContext('earlyKnockRequests.size', h.context), 0)
+  await h.flush()
+  assert.ok(session.knockRefresh)
+
+  const restarted = harness('chromium', session, tabs())
+  await restarted.flush()
+  restarted.events.onBeforeRequest({ tabId: 1, type: 'image', url: 'https://example.com/icon' })
+  await restarted.flush()
+  assert.equal(vm.runInContext('collectEarlyKnockRequests', restarted.context), false)
+  assert.equal(vm.runInContext('earlyKnockRequests.size', restarted.context), 0)
+})

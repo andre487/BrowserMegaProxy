@@ -5,10 +5,20 @@ export async function requestWithRetry(
   request,
   url,
   options,
-  { secrets = [], wait = setTimeout, maxAttempts = 3, initialDelay = 1000 } = {}
+  { secrets = [], wait = setTimeout, maxAttempts = 3, initialDelay = 1000, timeoutMs } = {}
 ) {
   for (let attempt = 0, rateLimits = 0; ; attempt++) {
-    const response = await request(url, options)
+    options?.signal?.throwIfAborted()
+    const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined
+    const response = await request(
+      url,
+      signal
+        ? {
+            ...options,
+            signal: options?.signal ? AbortSignal.any([options.signal, signal]) : signal
+          }
+        : options
+    )
     const limited = response.status === 429
     const attempts = limited ? 6 : maxAttempts
     if (

@@ -24,7 +24,8 @@ if (!bytes || createHash('sha256').update(bytes).digest('hex') !== checksum) {
   const response = await requestWithRetry(
     fetch,
     `https://github.com/go-gost/gost/releases/download/v${version}/${path.basename(archive)}`,
-    { signal: AbortSignal.timeout(60000) }
+    {},
+    { timeoutMs: 60000 }
   )
   if (!response.ok) {
     throw await globalThis.MegaErrors.httpError(
