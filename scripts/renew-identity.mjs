@@ -8,7 +8,7 @@ if (args.length > 1 || args.some(arg => !/^--ref=[A-Za-z0-9._/-]+$/.test(arg))) 
   throw new Error('Use npm run renew-identity -- [--ref=<commit-or-branch>]')
 }
 async function download(path) {
-  const response = await requestWithRetry(fetch, path, { signal: AbortSignal.timeout(30000) })
+  const response = await requestWithRetry(fetch, path, {}, { timeoutMs: 30000 })
   if (!response.ok) {
     throw new Error(`Identity download failed: HTTP ${response.status} ${path}`)
   }

@@ -2845,3 +2845,59 @@ test('worker restart expires unconfirmed authentication without persisting candi
   assert.equal(state.profiles[0].password, 'saved')
   assert.equal(JSON.stringify(h.stored() || {}).includes('unconfirmed-secret'), false)
 })
+
+test('Firefox tab overrides survive background restarts and unchanged synced routing, but not closed tabs or changed rules', async () => {
+  for (const proxied of [false, true]) {
+    const shared = {}
+    const initial = {
+      session: {},
+      state: {
+        profiles: [{ id: 'one', host: 'proxy.example', port: 443 }],
+        activeId: 'one',
+        browserRouting: {
+          enabled: true,
+          strategy: 'tabs',
+          sites: proxied ? [] : ['**.example.com']
+        }
+      }
+    }
+    const first = harness('firefox', shared, undefined, initial)
+    await first.flush()
+    assert.equal((await first.send({ command: 'toggleTab' })).currentSite.proxied, proxied)
+    assert.deepEqual(initial.session.tabOverrides.entries, [[1, proxied]])
+    initial.session.tabOverrides.entries.push([999, proxied])
+    const restarted = harness('firefox', shared, undefined, {
+      state: (await first.send({ command: 'get' })).state,
+      session: initial.session
+    })
+    await restarted.flush()
+    assert.equal((await restarted.send({ command: 'currentSite' })).currentSite.proxied, proxied)
+    assert.equal(vm.runInContext('tabOverrides.has(999)', restarted.context), false)
+
+    await first.send({ command: 'theme', theme: 'light' })
+    restarted.events.changed({ megaConfig: {} }, 'sync')
+    await restarted.flush()
+    assert.equal((await restarted.send({ command: 'currentSite' })).currentSite.proxied, proxied)
+
+    const saved = structuredClone(initial.session)
+    const changed = harness('firefox', {}, undefined, {
+      state: {
+        ...initial.state,
+        browserRouting: { ...initial.state.browserRouting, domains: ['changed.example'] }
+      },
+      session: saved
+    })
+    await changed.flush()
+    assert.equal((await changed.send({ command: 'currentSite' })).currentSite.proxied, !proxied)
+
+    restarted.events.removed(1)
+    await restarted.flush()
+    assert.deepEqual(initial.session.tabOverrides.entries, [])
+    const before = (await restarted.send({ command: 'currentSite' })).currentSite.proxied
+    restarted.api.storage.session.set = async () => {
+      throw new Error('session unavailable')
+    }
+    assert.equal((await restarted.send({ command: 'toggleTab' })).ok, false)
+    assert.equal((await restarted.send({ command: 'currentSite' })).currentSite.proxied, before)
+  }
+})

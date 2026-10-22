@@ -5,7 +5,9 @@ import '../extension/subscriptions.js'
 
 const catalog = await globalThis.MegaSubscriptions.refreshCatalog(
   undefined,
-  (url, options) => requestWithRetry(fetch, url, options),
+  // The browser downloader supplies an overall timeout; CLI retries need a fresh deadline per attempt.
+  (url, options) =>
+    requestWithRetry(fetch, url, { ...options, signal: undefined }, { timeoutMs: 30000 }),
   true
 )
 if (catalog.error) {

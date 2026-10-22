@@ -32,6 +32,7 @@ let knockTabs = []
 let lastKnockProfile
 let routingMigration = false
 let knockRefresh = { pending: null, profileId: null, tabs: [] }
+const EARLY_KNOCK_REQUEST_LIMIT = 256
 const earlyKnockRequests = new Map()
 let collectEarlyKnockRequests = platform.id === 'chromium'
 const ready = Promise.all([
@@ -63,7 +64,8 @@ const ready = Promise.all([
       'knockRefresh',
       'knockTabs',
       'assignedKnockLease',
-      'transientProxyLease'
+      'transientProxyLease',
+      'tabOverrides'
     ])
     .then(data => {
       knockTabs = data.knockTabs || []
@@ -73,8 +75,19 @@ const ready = Promise.all([
       if (data.knockRefresh) {
         collectEarlyKnockRequests = false
       }
+      return data
     })
-])
+]).then(async ([, session]) => {
+  const saved = session?.tabOverrides
+  if (platform.supportsTabRouting && saved?.routing === JSON.stringify(state.browserRouting)) {
+    const open = new Set((await api.tabs.query({})).map(tab => tab.id))
+    for (const [tabId, enabled] of saved.entries) {
+      if (open.has(tabId) && typeof enabled === 'boolean') {
+        tabOverrides.set(tabId, enabled)
+      }
+    }
+  }
+})
 let queue = Promise.resolve()
 let networkController = new AbortController()
 let pendingConnectionChanges = 0
@@ -729,6 +742,12 @@ async function runConnectionCheck() {
   }
 }
 
+async function storeTabOverrides(overrides = tabOverrides) {
+  await api.storage.session?.set({
+    tabOverrides: { routing: JSON.stringify(state.browserRouting), entries: [...overrides] }
+  })
+}
+
 async function currentSite(tab) {
   if (!tab) {
     ;[tab] = await api.tabs.query({ active: true, currentWindow: true })
@@ -1072,6 +1091,7 @@ async function handle(message) {
       throw new Error('errorCurrentSite')
     }
 
+    await storeTabOverrides(new Map(tabOverrides).set(site.tabId, !site.proxied))
     tabOverrides.set(site.tabId, !site.proxied)
     await api.tabs.reload(site.tabId)
     return { ok: true, currentSite: await currentSite() }
@@ -1431,10 +1451,13 @@ async function handle(message) {
 
     if (JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting)) {
       tabOverrides.clear()
+      await storeTabOverrides()
     }
 
     if (message.reloadTabId !== undefined) {
-      tabOverrides.delete(message.reloadTabId)
+      if (tabOverrides.delete(message.reloadTabId)) {
+        await storeTabOverrides()
+      }
       await api.tabs.reload(message.reloadTabId).catch(() => {})
     }
 
@@ -1564,7 +1587,19 @@ platform.registerRouting({
 })
 
 api.tabs.onRemoved?.addListener(tabId => {
-  queue = queue.then(() => updateKnockTab(tabId, { closed: true })).catch(() => {})
+  queue = queue
+    .then(async () => {
+      await updateKnockTab(tabId, { closed: true })
+      if (tabOverrides.delete(tabId)) {
+        await storeTabOverrides()
+      }
+    })
+    .catch(() => {})
+  for (const [key, details] of earlyKnockRequests) {
+    if (details.tabId === tabId) {
+      earlyKnockRequests.delete(key)
+    }
+  }
   for (const dialog of authDialogs.values()) {
     if (dialog.dialogTabId === tabId) {
       cancelAuth(dialog)
@@ -1580,7 +1615,6 @@ api.tabs.onRemoved?.addListener(tabId => {
   badgeVersions.delete(tabId)
   networkLog.delete(tabId)
   tabUrls.delete(tabId)
-  tabOverrides.delete(tabId)
   forcedTabs.delete(tabId)
 })
 api.tabs.onUpdated?.addListener((tabId, change, tab) => {
@@ -1950,7 +1984,13 @@ ready.then(configureStatistics)
 api.webRequest.onBeforeRequest?.addListener(
   details => {
     if (collectEarlyKnockRequests && details.tabId >= 0 && /^https?:/.test(details.url)) {
-      earlyKnockRequests.set(`${details.tabId}:${new URL(details.url).hostname}`, details)
+      const url = new URL(details.url)
+      const key = `${details.tabId}:${url.hostname}`
+      // ponytail: retain at most 256 early tab/host pairs; oldest startup evidence is expendable.
+      if (!earlyKnockRequests.has(key) && earlyKnockRequests.size >= EARLY_KNOCK_REQUEST_LIMIT) {
+        earlyKnockRequests.delete(earlyKnockRequests.keys().next().value)
+      }
+      earlyKnockRequests.set(key, { tabId: details.tabId, type: details.type, url: url.origin })
     }
     queue = queue
       .then(async () => {
@@ -2589,7 +2629,10 @@ async function receiveSync() {
     startupError = unsupportedRouting ? 'splitUnsupportedWarning' : undefined
     startupErrorDetails = undefined
     reconcileAuthDialogs()
-    tabOverrides.clear()
+    if (JSON.stringify(old.browserRouting) !== JSON.stringify(next.browserRouting)) {
+      tabOverrides.clear()
+      await storeTabOverrides()
+    }
     connectionCheck = null
     await storeConnectionCheck()
     if (
@@ -2722,6 +2765,9 @@ queue = queue
   .then(async () => {
     await ready
     diagnosticLog?.write('background_started', { mode: state.connectionMode })
+    if (platform.id === 'chromium') {
+      await storeKnockRefresh()
+    }
     if (recoverTransientProxy || routingMigration) {
       await apply(state)
       await api.storage.session?.set({ assignedKnockLease: false, transientProxyLease: false })
