@@ -139,11 +139,27 @@ MegaProxyServer interoperability.
   [Playwright extensions](https://playwright.dev/docs/chrome-extensions).
 
 Code is written for this repository; source code from other extensions is not copied.
-The icon comes from [AndroidMegaProxy](https://github.com/andre487/AndroidMegaProxy/blob/main/fastlane/metadata/android/en-US/images/icon.png)
-under MIT. The original PNG and browser sizes are in `extension/icons`, alongside
-the upstream license. The Android repository has no vector source.
-Toolbar icons are separate PNGs with rounded transparent corners at 16, 24, 32,
-48 and 64 px. Vector sources are `extension/icons/icon.svg` and
-`extension/icons/toolbar.svg`. Regenerate the toolbar PNGs from their vector source
-with `node scripts/renew-toolbar-icons.mjs`
-(requires installed Playwright Chromium).
+MegaProxy branding has one source: [MegaProxyIdentity](https://github.com/andre487/MegaProxyIdentity)
+(CC0-1.0). `extension/icons/identity-lock.json` records the upstream commit and
+SHA-256 checksums; downloaded SVGs and the license are stored unchanged alongside it.
+Do not edit these files or generated PNGs locally.
+Previous BrowserMegaProxy icons are archived in
+[MegaProxyIdentity/Generative/BrowserMegaProxy](https://github.com/andre487/MegaProxyIdentity/tree/main/Generative/BrowserMegaProxy)
+with their original license.
+
+```sh
+npm run renew-identity                    # download latest main and generate PNGs
+npm run renew-identity -- --ref=<commit>   # use a specific upstream revision
+```
+
+`SVG/icon-radius.svg` supplies UI logos and large extension icons;
+`SVG/icon-toolbar.svg` supplies toolbar icons and the 16/32 px extension icons;
+`SVG/feature-graphic.svg` supplies both store promotional images. The shared store
+icon has the required 16 px transparent margins. Promo images preserve the full
+SVG aspect ratio with opaque padding to fit the store dimensions.
+`npm run build` uses the checked-in assets without network access.
+`node scripts/renew-toolbar-icons.mjs` verifies source checksums and regenerates
+all branding PNGs offline using the installed Sharp dependency.
+Screenshots remain generated from the real UI by `npm run store:assets`.
+The official Google/Mozilla installation badges in `docs/assets` are third-party
+marks, not MegaProxy identity assets.

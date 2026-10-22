@@ -1,2 +1,5 @@
 # Vendored schemas are checksum-verified against their upstream source.
 config-schema/
+
+# Identity SVGs are checksum-verified, unmodified upstream sources.
+extension/icons/*.svg

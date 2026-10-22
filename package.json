@@ -13,6 +13,7 @@
     "format": "prettier --ignore-path .gitignore --ignore-path .prettierignore --write .",
     "lint:js": "eslint . --max-warnings 0",
     "start": "node scripts/start.mjs",
+    "renew-identity": "node scripts/renew-identity.mjs",
     "renew-config-schema": "node scripts/renew-config-schema.mjs",
     "prepare:server-e2e": "node scripts/prepare-server-e2e.mjs",
     "format:check": "prettier --ignore-path .gitignore --ignore-path .prettierignore --check .",

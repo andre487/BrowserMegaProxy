@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { chromium, firefox } from '@playwright/test'
 
-const logo = `data:image/png;base64,${(await readFile('extension/icons/icon.png')).toString('base64')}`
+const logo = `data:image/svg+xml;base64,${(await readFile('extension/icons/icon-radius.svg')).toString('base64')}`
 const copy = {
   en: [
     ['Your proxy. Your choice.', 'Switch profiles from the toolbar.', 'Profiles and quick actions'],
@@ -65,7 +65,7 @@ async function demo(page, target, language, theme, strategy, subscribed) {
     const file = url.pathname.slice(1)
     assert.match(
       file,
-      /^(?:[\w-]+\.(?:html|js|css)|icons\/\w+\.(?:png|svg)|fonts\/TwemojiCountryFlags\.woff2|_locales\/(en|ru)\/messages\.json)$/
+      /^(?:[\w-]+\.(?:html|js|css)|icons\/[\w-]+\.(?:png|svg)|fonts\/TwemojiCountryFlags\.woff2|_locales\/(en|ru)\/messages\.json)$/
     )
     const types = {
       html: 'text/html',
@@ -208,12 +208,12 @@ async function demo(page, target, language, theme, strategy, subscribed) {
 }
 
 async function canvas(page, width, height, draw) {
-  const png = await page.evaluate(
+  await page.evaluate(
     async ({ width, height, draw, logo }) => {
       const canvas = document.createElement('canvas')
       canvas.width = width
       canvas.height = height
-      const ctx = canvas.getContext('2d', { alpha: draw.kind === 'icon' })
+      const ctx = canvas.getContext('2d', { alpha: false })
       const image = new Image()
       image.src = logo
       await image.decode()
@@ -225,116 +225,74 @@ async function canvas(page, width, height, draw) {
         ctx.drawImage(image, x, y, size, size)
         ctx.restore()
       }
-      if (draw.kind === 'icon') {
-        const padding = width / 8
-        drawLogo(padding, padding, width - padding * 2)
-      } else {
-        const gradient = ctx.createLinearGradient(0, 0, width, height)
-        gradient.addColorStop(0, '#10283f')
-        gradient.addColorStop(0.55, '#19204e')
-        gradient.addColorStop(1, '#481669')
-        ctx.fillStyle = gradient
-        ctx.fillRect(0, 0, width, height)
-        if (draw.kind === 'promo') {
-          const size = height * 0.55
-          drawLogo((width - size) / 2, (height - size) / 2, size)
-          ctx.strokeStyle = '#82baff55'
-          ctx.lineWidth = 2
-          for (const scale of [0.75, 1.15, 1.55]) {
-            ctx.beginPath()
-            ctx.ellipse(
-              width / 2,
-              height / 2,
-              height * scale,
-              (height * scale) / 2,
-              -0.25,
-              0,
-              2 * Math.PI
-            )
-            ctx.stroke()
-          }
-        } else {
-          drawLogo(44, 48, 54)
-          ctx.fillStyle = '#fff'
-          ctx.font = 'bold 27px system-ui'
-          ctx.fillText('MegaProxy', 114, 83)
-          const wrap = (text, x, y, maxWidth, lineHeight) => {
-            let line = ''
-            for (const word of text.split(' ')) {
-              if (line && ctx.measureText(`${line} ${word}`).width > maxWidth) {
-                ctx.fillText(line, x, y)
-                y += lineHeight
-                line = word
-              } else {
-                line += (line ? ' ' : '') + word
-              }
-            }
+      const gradient = ctx.createLinearGradient(0, 0, width, height)
+      gradient.addColorStop(0, '#10283f')
+      gradient.addColorStop(0.55, '#19204e')
+      gradient.addColorStop(1, '#481669')
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, width, height)
+      drawLogo(44, 48, 54)
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 27px system-ui'
+      ctx.fillText('MegaProxy', 114, 83)
+      const wrap = (text, x, y, maxWidth, lineHeight) => {
+        let line = ''
+        for (const word of text.split(' ')) {
+          if (line && ctx.measureText(`${line} ${word}`).width > maxWidth) {
             ctx.fillText(line, x, y)
-            return y + lineHeight
+            y += lineHeight
+            line = word
+          } else {
+            line += (line ? ' ' : '') + word
           }
-          ctx.fillStyle = '#a8c7fa'
-          ctx.font = 'bold 17px system-ui'
-          ctx.fillText(draw.label, 44, 194)
-          ctx.fillStyle = '#fff'
-          ctx.font = 'bold 43px system-ui'
-          const bottom = wrap(draw.title, 44, 274, 400, 54)
-          ctx.fillStyle = '#c5cce1'
-          ctx.font = '24px system-ui'
-          wrap(draw.subtitle, 44, bottom + 28, 400, 34)
-          ctx.font = '15px system-ui'
-          ctx.fillText(
-            draw.language === 'ru' ? 'Демонстрационная конфигурация' : 'Demo configuration',
-            44,
-            752
-          )
-          const shot = new Image()
-          shot.src = draw.shot
-          await shot.decode()
-          ctx.save()
-          ctx.shadowColor = '#0007'
-          ctx.shadowBlur = 30
-          ctx.fillStyle = '#202124'
-          ctx.fillRect(510, 28, 728, 744)
-          ctx.restore()
-          const scale = Math.min(728 / shot.width, 744 / shot.height)
-          const w = shot.width * scale
-          const h = shot.height * scale
-          ctx.drawImage(shot, 510 + (728 - w) / 2, 28 + (744 - h) / 2, w, h)
         }
+        ctx.fillText(line, x, y)
+        return y + lineHeight
       }
+      ctx.fillStyle = '#a8c7fa'
+      ctx.font = 'bold 17px system-ui'
+      ctx.fillText(draw.label, 44, 194)
+      ctx.fillStyle = '#fff'
+      ctx.font = 'bold 43px system-ui'
+      const bottom = wrap(draw.title, 44, 274, 400, 54)
+      ctx.fillStyle = '#c5cce1'
+      ctx.font = '24px system-ui'
+      wrap(draw.subtitle, 44, bottom + 28, 400, 34)
+      ctx.font = '15px system-ui'
+      ctx.fillText(
+        draw.language === 'ru' ? 'Демонстрационная конфигурация' : 'Demo configuration',
+        44,
+        752
+      )
+      const shot = new Image()
+      shot.src = draw.shot
+      await shot.decode()
+      ctx.save()
+      ctx.shadowColor = '#0007'
+      ctx.shadowBlur = 30
+      ctx.fillStyle = '#202124'
+      ctx.fillRect(510, 28, 728, 744)
+      ctx.restore()
+      const scale = Math.min(728 / shot.width, 744 / shot.height)
+      const w = shot.width * scale
+      const h = shot.height * scale
+      ctx.drawImage(shot, 510 + (728 - w) / 2, 28 + (744 - h) / 2, w, h)
       document.body.style.margin = '0'
       canvas.style.display = 'block'
       document.body.replaceChildren(canvas)
-      return canvas.toDataURL('image/png').split(',')[1]
     },
     { width, height, draw, logo }
   )
-  const buffer =
-    draw.kind === 'icon' ? Buffer.from(png, 'base64') : await page.locator('canvas').screenshot()
+  const buffer = await page.locator('canvas').screenshot()
   assert.equal(buffer.readUInt32BE(16), width)
   assert.equal(buffer.readUInt32BE(20), height)
-  assert.equal(buffer[25], draw.kind === 'icon' ? 6 : 2, 'Only icons may have transparency')
+  assert.equal(buffer[25], 2, 'Screenshots must be opaque')
   return buffer
 }
 
 const designer = await chromium.launch()
 try {
   const graphics = await designer.newPage()
-  await mkdir('store/assets/shared', { recursive: true })
-  await writeFile('store/assets/shared/LICENSE', await readFile('extension/icons/LICENSE'))
-  await writeFile(
-    'store/assets/shared/icon-128.png',
-    await canvas(graphics, 128, 128, { kind: 'icon' })
-  )
-  for (const [width, height, name] of [
-    [440, 280, 'promo-small'],
-    [1400, 560, 'promo-marquee']
-  ]) {
-    await writeFile(
-      `store/assets/shared/${name}.png`,
-      await canvas(graphics, width, height, { kind: 'promo' })
-    )
-  }
   for (const target of ['chromium', 'firefox']) {
     const browser = target === 'chromium' ? designer : await firefox.launch()
     try {
