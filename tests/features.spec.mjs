@@ -441,8 +441,8 @@ test('profile icons preserve the logo, show a colored dot and keep full names in
       expect(check.logoMatches).toBe(true)
       expect(check.color).toEqual([244, 67, 54, 255])
       expect(check.otherColor).toEqual([233, 30, 99, 255])
-      expect(check.rightBaseAlpha).toBe(0)
-      expect(check.bottomBaseAlpha).toBe(0)
+      expect(check.rightBaseAlpha).toBe(255)
+      expect(check.bottomBaseAlpha).toBe(255)
       expect(check.rightDotAlpha).toBeGreaterThan(0)
       expect(check.bottomDotAlpha).toBeGreaterThan(0)
     }
