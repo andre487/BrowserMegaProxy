@@ -31,18 +31,16 @@ for (const size of [16, 32]) {
 }
 await mkdir('store/assets/shared', { recursive: true })
 await copyFile(`${directory}/LICENSE`, 'store/assets/shared/LICENSE')
-await sharp(`${directory}/icon-radius.svg`, { density: 192 })
-  .resize(96, 96)
-  .extend({ top: 16, bottom: 16, left: 16, right: 16, background: '#0000' })
-  .png()
-  .toFile('store/assets/shared/icon-128.png')
-for (const [width, height, name] of [
-  [440, 280, 'promo-small'],
-  [1400, 560, 'promo-marquee']
+await mkdir('docs/assets', { recursive: true })
+for (const [source, width, height, destination] of [
+  ['shop-icon.svg', 128, 128, 'store/assets/shared/icon-128.png'],
+  ['chrome-promo-little.svg', 440, 280, 'store/assets/shared/promo-small.png'],
+  ['chrome-promo-big.svg', 1400, 560, 'store/assets/shared/promo-marquee.png'],
+  ['social-preview.svg', 1280, 640, 'docs/assets/social-preview.png']
 ]) {
-  await sharp(`${directory}/feature-graphic.svg`, { density: 192 })
-    .resize(width, height, { fit: 'contain', background: '#10283f' })
-    .flatten({ background: '#10283f' })
-    .png()
-    .toFile(`store/assets/shared/${name}.png`)
+  const image = sharp(`${directory}/${source}`, { density: 192 }).resize(width, height)
+  if (source.startsWith('chrome-promo-')) {
+    image.flatten({ background: '#10283f' })
+  }
+  await image.png().toFile(destination)
 }
