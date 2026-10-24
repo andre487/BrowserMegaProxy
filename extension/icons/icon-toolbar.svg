@@ -8,6 +8,6 @@
   </defs>
   <g id="icon-2" data-name="icon">
     <rect id="Background" width="128" height="128" rx="16" ry="16" fill="url(#linear-gradient)"/>
-    <polygon id="M" points="18 119 18 9 36.2 9 63.5 54.83 90.8 9 109 9 109 119 91 119 91 45.86 63.5 91.57 36 45.86 36 119 18 119" fill="#fff"/>
+    <polygon id="M" points="19 119 19 9 37 9 64 54.83 91 9 109 9 109 119 91 119 91 45.86 64 91.57 37 45.86 37 119 19 119" fill="#fff"/>
   </g>
 </svg>

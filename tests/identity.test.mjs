@@ -11,9 +11,13 @@ test('identity snapshot is pinned and PNG icons match its unchanged SVGs', async
   assert.match(lock.commit, /^[a-f0-9]{40}$/)
   assert.deepEqual(Object.keys(lock.files).sort(), [
     'LICENSE',
+    'SVG/chrome-promo-big.svg',
+    'SVG/chrome-promo-little.svg',
     'SVG/feature-graphic.svg',
     'SVG/icon-radius.svg',
-    'SVG/icon-toolbar.svg'
+    'SVG/icon-toolbar.svg',
+    'SVG/shop-icon.svg',
+    'SVG/social-preview.svg'
   ])
   for (const [file, hash] of Object.entries(lock.files)) {
     const source = await readFile(`${directory}/${file.split('/').at(-1)}`)
@@ -40,6 +44,26 @@ test('identity snapshot is pinned and PNG icons match its unchanged SVGs', async
     assert.deepEqual(
       await readFile(`${directory}/icon${size}.png`),
       await readFile(`${directory}/toolbar${size}.png`)
+    )
+  }
+  for (const [source, width, height, destination] of [
+    ['shop-icon.svg', 128, 128, 'store/assets/shared/icon-128.png'],
+    ['chrome-promo-little.svg', 440, 280, 'store/assets/shared/promo-small.png'],
+    ['chrome-promo-big.svg', 1400, 560, 'store/assets/shared/promo-marquee.png'],
+    ['social-preview.svg', 1280, 640, 'docs/assets/social-preview.png']
+  ]) {
+    const metadata = await sharp(destination).metadata()
+    assert.equal(metadata.format, 'png')
+    assert.equal(metadata.width, width)
+    assert.equal(metadata.height, height)
+    assert.deepEqual(
+      await sharp(destination).ensureAlpha().raw().toBuffer(),
+      await sharp(`${directory}/${source}`, { density: 192 })
+        .resize(width, height)
+        .ensureAlpha()
+        .raw()
+        .toBuffer(),
+      destination
     )
   }
   assert.deepEqual(

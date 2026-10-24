@@ -39,7 +39,7 @@ with localizable captions; the current integration uploads the five English and
 five Russian Firefox images into that shared gallery, not separate locale galleries.
 The five-caption JSON arrays are shared listing source data.
 
-The shared 128×128 icon has 96×96 artwork and 16 px transparent margins. Promotion images are 440×280 and 1400×560 opaque PNGs, without locale-specific text. They are generated from the SVGs in [MegaProxyIdentity](https://github.com/andre487/MegaProxyIdentity), under CC0-1.0 (`assets/shared/LICENSE`). Promotional artwork preserves its aspect ratio with opaque padding. Run `npm run renew-identity` to update the pinned source commit and regenerate branding PNGs; `node scripts/renew-toolbar-icons.mjs` regenerates them offline.
+The shared 128×128 icon is rendered from `shop-icon.svg`. Promotion images are 440×280 and 1400×560 opaque PNGs, without locale-specific text. They are generated from the SVGs in [MegaProxyIdentity](https://github.com/andre487/MegaProxyIdentity), under CC0-1.0 (`assets/shared/LICENSE`). Promotion images are rendered directly from `chrome-promo-little.svg` and `chrome-promo-big.svg` at their native dimensions. Run `npm run renew-identity` to update the pinned source commit and regenerate branding PNGs; `node scripts/renew-toolbar-icons.mjs` regenerates them offline.
 
 ## Regenerate
 

@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1400 560">
+  <defs>
+    <radialGradient id="radial-gradient" cx="788.07" cy="172.02" fx="788.07" fy="172.02" r="387.03" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset=".6" stop-color="#c5b1df"/>
+      <stop offset="1" stop-color="#a282cc"/>
+    </radialGradient>
+    <linearGradient id="linear-gradient" x1="696.96" y1="278.51" x2="823.53" y2="127.12" gradientUnits="userSpaceOnUse">
+      <stop offset=".24" stop-color="#fff"/>
+      <stop offset=".32" stop-color="#faf8fc"/>
+      <stop offset=".42" stop-color="#ece6f5"/>
+      <stop offset=".54" stop-color="#d5c9e8"/>
+      <stop offset=".67" stop-color="#b5a1d8"/>
+      <stop offset=".78" stop-color="#9578c7"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-2" x1="886.58" y1="55.64" x2="696.71" y2="280.41" gradientUnits="userSpaceOnUse">
+      <stop offset=".27" stop-color="#fff"/>
+      <stop offset=".31" stop-color="#f4f1f9"/>
+      <stop offset=".52" stop-color="#c6b5e0"/>
+      <stop offset=".68" stop-color="#a990d0"/>
+      <stop offset=".76" stop-color="#9f82cb"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-3" x1="719.32" y1="81.81" x2="896.5" y2="301.17" gradientUnits="userSpaceOnUse">
+      <stop offset=".19" stop-color="#fff"/>
+      <stop offset=".2" stop-color="#f8f6fb"/>
+      <stop offset=".23" stop-color="#e5ddf1"/>
+      <stop offset=".26" stop-color="#c7b6e1"/>
+      <stop offset=".29" stop-color="#a386cd"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-4" x1="858.32" y1="260.89" x2="750.58" y2="125.64" gradientUnits="userSpaceOnUse">
+      <stop offset=".26" stop-color="#fff"/>
+      <stop offset=".29" stop-color="#f6f3fa"/>
+      <stop offset=".35" stop-color="#dfd5ed"/>
+      <stop offset=".42" stop-color="#bba4d8"/>
+      <stop offset=".46" stop-color="#a688cd"/>
+    </linearGradient>
+    <radialGradient id="radial-gradient-2" cx="540.04" cy="110.09" fx="540.04" fy="110.09" r="71.14" gradientTransform="translate(-5.62 31.53)" gradientUnits="userSpaceOnUse">
+      <stop offset=".54" stop-color="#fff" stop-opacity=".1"/>
+      <stop offset=".69" stop-color="#787878" stop-opacity=".31"/>
+      <stop offset=".78" stop-color="#000" stop-opacity=".5"/>
+    </radialGradient>
+    <linearGradient id="linear-gradient-5" x1="473.71" y1="182.35" x2="377.84" y2="185.38" gradientUnits="userSpaceOnUse">
+      <stop offset=".1" stop-color="#fff"/>
+      <stop offset=".43" stop-color="#cbbce3"/>
+      <stop offset=".67" stop-color="#a990d0"/>
+      <stop offset=".79" stop-color="#9d80ca"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-6" x1="408.05" y1="269.22" x2="288" y2="46.67" gradientUnits="userSpaceOnUse">
+      <stop offset=".18" stop-color="#fff"/>
+      <stop offset=".26" stop-color="#fcfbfd"/>
+      <stop offset=".33" stop-color="#f3f0f9"/>
+      <stop offset=".4" stop-color="#e5ddf1"/>
+      <stop offset=".47" stop-color="#d2c3e7"/>
+      <stop offset=".54" stop-color="#b9a1da"/>
+      <stop offset=".59" stop-color="#9f7fcd"/>
+    </linearGradient>
+    <linearGradient id="linear-gradient-7" x1="31.23" y1="271.78" x2="144.1" y2="81.55" gradientUnits="userSpaceOnUse">
+      <stop offset=".21" stop-color="#fff"/>
+      <stop offset=".3" stop-color="#fcfbfd"/>
+      <stop offset=".39" stop-color="#f3f0f8"/>
+      <stop offset=".47" stop-color="#e5ddf0"/>
+      <stop offset=".55" stop-color="#d1c2e4"/>
+      <stop offset=".63" stop-color="#b7a1d6"/>
+      <stop offset=".67" stop-color="#a78ccd"/>
+    </linearGradient>
+    <symbol id="MPX" viewBox="0 0 922.07 360.17">
+      <g id="MPX-2" data-name="MPX">
+        <g id="X">
+          <path id="Contour" d="M791.2,106.24l60.14-71.59s11.89-10.97,28.73-10.97c19.14,0,40.67,14.2,40.02,37.96,1.6,19.69-16.89,36.57-16.89,36.57l-62.35,73.02,75.36,99.5s6.01,8.48,5.86,21.14c-.5,42.42-49.08,48.91-69.98,28.98-11.79-11.24-65.52-84.95-65.52-84.95l-68.31,80.5s-11.59,15.95-34.87,15.68c-27.13-.31-45.85-22.75-38.78-51.33.92-3.22,4.11-8.49,8.78-15.04,1.99-2.74,82.75-96.16,82.75-96.16l-67.15-87.82s-4.69-8.78-4.83-20.48c-.14-11.7,8.3-25.65,18.85-32.32,10.55-6.67,24.77-5.49,28.24-5.26s17.49,4.72,23.95,11.18,55.98,71.38,55.98,71.38Z" fill="#fefefe"/>
+          <polygon id="Center_Shadow" data-name="Center Shadow" points="736.16 169.56 791.25 108.13 839.98 171.48 786.58 235.9 736.16 169.56" fill="url(#radial-gradient)"/>
+          <polygon id="Shadow_Bottom_Left" data-name="Shadow Bottom Left" points="736.16 169.56 786.58 235.9 724.27 309.33 667.62 249.02 736.16 169.56" fill="url(#linear-gradient)"/>
+          <polygon id="Shadow_Top_RIght" data-name="Shadow Top RIght" points="791.25 108.13 839.98 171.48 908.99 91.81 846.74 40.13 791.25 108.13" fill="url(#linear-gradient-2)"/>
+          <polygon id="Shadow_Top_Left" data-name="Shadow Top Left" points="736.16 169.56 791.25 108.13 748.49 51.01 685.25 102.98 736.16 169.56" fill="url(#linear-gradient-3)"/>
+          <polygon id="Shadow_Bottom_Right" data-name="Shadow Bottom Right" points="840.97 170.33 786.58 235.9 844.22 311.96 904.75 255.6 840.97 170.33" fill="url(#linear-gradient-4)"/>
+        </g>
+        <g id="P">
+          <path id="Contour-2" data-name="Contour" d="M543.72,1.48s-53.27-1.45-81.79.35c-27.91,1.97-44.26,27.69-44.26,27.69,3.48,3.69,6.05,16.87,6.05,16.87,0,0,12.87,246.73,9.49,270.89-4.01,21.81-15.64,29.19-15.64,29.19,0,0,8.15,15.78,34.01,13.47,37.86-5.73,39.64-39.98,39.64-39.98l-.17-46.63s19.19,7.62,52.5,6.74c24.69-2.96,123.49-22.72,126.34-147.23C656.99,7.27,543.72,1.48,543.72,1.48ZM534.38,193.2c-29.53,0-53.47-23.37-53.47-52.2s23.94-52.2,53.47-52.2,53.47,23.37,53.47,52.2-23.94,52.2-53.47,52.2Z" fill="#fefefe"/>
+          <ellipse id="Internal_Shadow" data-name="Internal Shadow" cx="534.72" cy="141.2" rx="53.5" ry="52" fill="url(#radial-gradient-2)"/>
+          <path id="M_Shadow" data-name="M Shadow" d="M425.4,98.39s2.28-56.23-8.16-68.88c4.13-5.42,36.2-51.53,44.95,5.13,1.08,56.78,6.65,284.69,6.65,284.69,0,0-18.24,69.2-51.7,27.14,0,0,8.74-2.36,16.45-29.9.81-58.44-8.19-218.18-8.19-218.18Z" fill="url(#linear-gradient-5)"/>
+        </g>
+        <g id="M">
+          <path id="M-2" data-name="M" d="M0,307.25L30.5,46.26S39.12,2.25,86.74.07c4.6-.21,26.98-1.21,44.95,20.23,12.89,19.17,93.13,141.5,93.13,141.5L325.18,19.14S342.59-.04,369.26.13c0,0,38.6-4.56,54.09,44,2.24,50.96,10.25,266.55,10.25,266.55,0,0-.9,41.27-43.14,47.84-39.5,6.14-54.48-25.18-57.34-40.99-.42-13.48-5.14-136.27-5.14-136.27l-69.67,103.01s-16.07,16.41-35.54,16.41c-25.52-.91-36.85-17.42-36.85-17.42l-65.63-101.77-16.2,137.54s-9.37,36.59-49.23,40.93C-1.85,356.09,0,307.25,0,307.25Z" fill="#fdfefd"/>
+          <path id="Shadow_right" data-name="Shadow right" d="M427.08,137.86s-7.09-25.18-31.9-27.07c-21.79-1.23-33.17,18.77-33.17,18.77l-34.02,52.07,4.39,115.45,100.4-8.12-5.71-151.1Z" fill="url(#linear-gradient-6)"/>
+          <path id="Shadow_left" data-name="Shadow left" d="M20.19,136.96s12.1-24.36,34.17-25.98c23.53-1.53,32.82,19.63,32.82,19.63l33.11,50.87-13.71,116.89-104.36-9.82,17.98-151.58Z" fill="url(#linear-gradient-7)"/>
+        </g>
+      </g>
+    </symbol>
+    <radialGradient id="radial-gradient-3" cx="741.59" cy="752.64" fx="741.59" fy="752.64" r="309.88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#b3b3b3" stop-opacity=".05"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient-4" cx="741.59" cy="752.64" fx="741.59" fy="752.64" r="406.64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity=".6"/>
+      <stop offset=".95" stop-color="#971fb7" stop-opacity=".07"/>
+      <stop offset="1" stop-color="#ab23cf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient-5" cx="738.91" cy="757.04" fx="738.91" fy="757.04" r="471.65" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#b3b3b3" stop-opacity=".05"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient-6" cx="738.91" cy="757.04" fx="738.91" fy="757.04" r="555.57" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity=".6"/>
+      <stop offset=".95" stop-color="#971fb7" stop-opacity=".07"/>
+      <stop offset="1" stop-color="#ab23cf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient-7" cx="745.89" cy="748.46" fx="745.89" fy="748.46" r="616.43" xlink:href="#radial-gradient-5"/>
+    <radialGradient id="radial-gradient-8" cx="745.89" cy="748.46" fx="745.89" fy="748.46" r="747.18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000" stop-opacity=".6"/>
+      <stop offset=".95" stop-color="#971fb7" stop-opacity=".07"/>
+      <stop offset="1" stop-color="#ab23cf" stop-opacity="0"/>
+    </radialGradient>
+    <symbol id="Rings" viewBox="0 0 1491.77 1496.93">
+      <g>
+        <g id="Ring_1" data-name="Ring 1">
+          <path id="Inner" d="M741.59,440.35c-169.8,0-307.46,139.82-307.46,312.29s137.65,312.29,307.46,312.29,307.46-139.82,307.46-312.29-137.65-312.29-307.46-312.29ZM741.59,993.32c-130.87,0-236.96-107.76-236.96-240.68s106.09-240.68,236.96-240.68,236.96,107.76,236.96,240.68-106.09,240.68-236.96,240.68Z" fill="url(#radial-gradient-3)"/>
+          <path id="Outer" d="M741.59,342.84c-222.82,0-403.45,183.47-403.45,409.79s180.63,409.79,403.45,409.79,403.45-183.47,403.45-409.79-180.63-409.79-403.45-409.79ZM741.59,1064.93c-169.8,0-307.46-139.82-307.46-312.29s137.65-312.29,307.46-312.29,307.46,139.82,307.46,312.29-137.65,312.29-307.46,312.29Z" fill="url(#radial-gradient-4)"/>
+        </g>
+        <g id="Ring_2" data-name="Ring 2">
+          <path id="Inner-2" data-name="Inner" d="M738.91,283.2c-259.28,0-469.46,212.14-469.46,473.84s210.18,473.84,469.46,473.84,469.46-212.14,469.46-473.84-210.18-473.84-469.46-473.84ZM738.91,1140.58c-209.87,0-380-171.72-380-383.54s170.13-383.54,380-383.54,380,171.72,380,383.54-170.13,383.54-380,383.54Z" fill="url(#radial-gradient-5)"/>
+          <path id="Outer-2" data-name="Outer" d="M738.91,198.9c-305.41,0-552.99,249.89-552.99,558.14s247.58,558.14,552.99,558.14,552.99-249.89,552.99-558.14S1044.31,198.9,738.91,198.9ZM738.91,1230.88c-259.28,0-469.46-212.14-469.46-473.84s210.18-473.84,469.46-473.84,469.46,212.14,469.46,473.84-210.18,473.84-469.46,473.84Z" fill="url(#radial-gradient-6)"/>
+        </g>
+        <g id="Ring_3" data-name="Ring 3">
+          <path id="Inner-3" data-name="Inner" d="M756.99,130.97c-341.49,0-626.47,273.8-626.47,610.1s283.28,624.9,624.77,624.9,605.97-272.62,605.97-608.92S1098.48,130.97,756.99,130.97ZM754.22,1296.36c-302.99,0-554.34-256.07-554.34-554.46S452.74,200.57,755.74,200.57s536.16,257.11,536.16,555.5-234.67,540.28-537.67,540.28Z" fill="url(#radial-gradient-7)"/>
+          <path id="Outer-3" data-name="Outer" d="M759.34,0C345.43,0,0,331.87,0,739.5s343.36,757.43,757.28,757.43,734.5-330.44,734.5-738.07S1173.26,0,759.34,0ZM755.28,1365.96c-341.49,0-624.77-288.6-624.77-624.9S415.5,130.97,756.99,130.97s604.27,289.78,604.27,626.07-264.49,608.92-605.97,608.92Z" fill="url(#radial-gradient-8)"/>
+        </g>
+      </g>
+    </symbol>
+    <clipPath id="clippath">
+      <rect width="1400" height="560" fill="none"/>
+    </clipPath>
+    <linearGradient id="linear-gradient-8" x1="100.87" y1="-63.97" x2="1700.25" y2="854.27" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#006bea"/>
+      <stop offset=".96" stop-color="#d0009e"/>
+    </linearGradient>
+  </defs>
+  <g isolation="isolate">
+    <g id="chrome-promo-big">
+      <g clip-path="url(#clippath)">
+        <rect width="1400" height="560" fill="url(#linear-gradient-8)"/>
+        <use width="1491.77" height="1496.93" transform="translate(262 -178) scale(.61)" xlink:href="#Rings"/>
+        <g id="Right_Lines" data-name="Right Lines">
+          <g id="Sparkle_1" data-name="Sparkle 1">
+            <g id="Line">
+              <path d="M1409.25,450.95c-24.89-15.37-50.84-29.68-77.35-42.11-88.33-40.9-185.31-59.28-281.37-71.19-15.55-2.11-38.18-4.44-53.89-6.19,15.89,1.62,38.37,3.73,53.95,5.7,96.2,11.5,193.33,29.73,281.57,71.13,26.51,12.46,52.34,27.05,77.1,42.66h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+              <path d="M1409.25,450.95c-99.46-62.4-200.48-98.91-412.62-119.49" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+              <path d="M1409.25,450.95c-99.46-62.4-200.48-98.91-412.62-119.49" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+              <path d="M1409.25,450.95c-99.46-62.4-200.48-98.91-412.62-119.49" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+            </g>
+            <g id="Star">
+              <polygon points="1243.75 376.96 1241.1 377.45 1242.93 375.79 1241.61 373.89 1244.07 374.77 1245.9 373.11 1245.58 375.3 1248.04 376.18 1245.39 376.66 1245.07 378.86 1243.75 376.96" fill="#fff" opacity=".75"/>
+              <polygon points="1243.75 376.96 1241.1 377.45 1242.93 375.79 1241.61 373.89 1244.07 374.77 1245.9 373.11 1245.58 375.3 1248.04 376.18 1245.39 376.66 1245.07 378.86 1243.75 376.96" fill="none" opacity=".5" stroke="#fff"/>
+              <polygon points="1243.75 376.96 1241.1 377.45 1242.93 375.79 1241.61 373.89 1244.07 374.77 1245.9 373.11 1245.58 375.3 1248.04 376.18 1245.39 376.66 1245.07 378.86 1243.75 376.96" fill="none" opacity=".25" stroke="#fff" stroke-width="3"/>
+              <polygon points="1243.75 376.96 1241.1 377.45 1242.93 375.79 1241.61 373.89 1244.07 374.77 1245.9 373.11 1245.58 375.3 1248.04 376.18 1245.39 376.66 1245.07 378.86 1243.75 376.96" fill="none" opacity=".1" stroke="#fff" stroke-width="6"/>
+            </g>
+          </g>
+          <g id="Glowing_line_1" data-name="Glowing line 1">
+            <path d="M1414.3,351.19c-35.22,4.75-70.9,6.42-106.38,3.95-35.5-2.31-70.54-8.72-105.68-13.9-70.22-11.53-141.82-11.4-212.35-2.48,17.63-2.21,35.29-4.18,53.02-5.43,53.22-3.9,106.77-1.27,159.47,6.93,35.12,5.29,70.11,11.81,105.58,14.23,35.43,2.51,71.08,1.09,106.33-3.29h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+            <path d="M1414.3,351.19c-168.4,21.93-213.36-39.21-424.4-12.44" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+            <path d="M1414.3,351.19c-168.4,21.93-213.36-39.21-424.4-12.44" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+            <path d="M1414.3,351.19c-168.4,21.93-213.36-39.21-424.4-12.44" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+          </g>
+          <g id="Sparkle_2" data-name="Sparkle 2">
+            <g id="Line-2" data-name="Line">
+              <path d="M1414.3,305.64c-54.36,10.35-110.49,10.87-164.83.08-36.21-6.8-71.81-16.52-108.19-22.37-36.33-6.03-73.26-8.06-110.04-6.54-18.4.78-36.75,2.41-55.04,4.54,18.27-2.29,36.62-4.08,55.02-5.03,36.82-1.65,73.81.29,110.2,6.21,36.43,5.68,72.05,15.42,108.21,22.38,54.26,10.95,110.26,10.47,164.68.73h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+              <path d="M1414.3,305.64c-184.59,33.11-227.06-51.07-438.1-24.29" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+              <path d="M1414.3,305.64c-184.59,33.11-227.06-51.07-438.1-24.29" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+              <path d="M1414.3,305.64c-184.59,33.11-227.06-51.07-438.1-24.29" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+            </g>
+            <g id="Star-2" data-name="Star">
+              <polygon points="1171.02 290.58 1168.64 291.63 1169.83 289.64 1167.9 288.11 1170.56 288.41 1171.75 286.41 1172.21 288.59 1174.87 288.89 1172.49 289.94 1172.95 292.12 1171.02 290.58" fill="#fff" opacity=".75"/>
+              <polygon points="1171.02 290.58 1168.64 291.63 1169.83 289.64 1167.9 288.11 1170.56 288.41 1171.75 286.41 1172.21 288.59 1174.87 288.89 1172.49 289.94 1172.95 292.12 1171.02 290.58" fill="none" opacity=".5" stroke="#fff"/>
+              <polygon points="1171.02 290.58 1168.64 291.63 1169.83 289.64 1167.9 288.11 1170.56 288.41 1171.75 286.41 1172.21 288.59 1174.87 288.89 1172.49 289.94 1172.95 292.12 1171.02 290.58" fill="none" opacity=".25" stroke="#fff" stroke-width="3"/>
+              <polygon points="1171.02 290.58 1168.64 291.63 1169.83 289.64 1167.9 288.11 1170.56 288.41 1171.75 286.41 1172.21 288.59 1174.87 288.89 1172.49 289.94 1172.95 292.12 1171.02 290.58" fill="none" opacity=".1" stroke="#fff" stroke-width="6"/>
+            </g>
+          </g>
+          <g id="Glowing_line_1-2" data-name="Glowing line 1">
+            <path d="M1425.39,218.14c-35.42,14.12-72.42,24.17-110.12,29.95-37.67,5.95-75.78,8.21-113.66,12.24-75.94,7.11-150.59,24.26-222.81,48.62,4.91-1.63,15.68-5.26,20.33-6.81,4.01-1.28,16.2-5.1,20.45-6.44,59.24-18.13,120.3-30.23,181.93-36.36,37.9-3.92,75.99-6.06,113.66-11.9,37.67-5.72,74.68-15.54,110.22-29.3h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+            <path d="M1425.39,218.14c-150.67,58.75-223.82,15.09-446.59,90.81" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+            <path d="M1425.39,218.14c-150.67,58.75-223.82,15.09-446.59,90.81" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+            <path d="M1425.39,218.14c-150.67,58.75-223.82,15.09-446.59,90.81" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+          </g>
+          <g id="Glowing_line_1-3" data-name="Glowing line 1">
+            <path d="M1409.25,162.02c-16.55,2.6-40.2,6.06-56.36,9.26-2.99.53-14.97,2.73-17.56,3.2-2.01.43-8.32,1.81-10.46,2.27-41.83,8.59-83.26,21.09-122.26,38.55-30.43,13.34-60.34,28.44-90.71,41.98-25.96,11.56-52.64,22.65-79.27,32.54-15.47,5.99-38.08,13.6-53.83,19.13,15.87-5.72,38.25-13.47,53.65-19.59,26.58-9.98,53.22-21.12,79.14-32.76,30.36-13.6,60.15-28.91,90.64-42.18,39.09-17.37,80.62-29.76,122.52-38.24,0,0,6.99-1.49,6.99-1.49l3.49-.75c3.38-.62,14.23-2.54,17.58-3.14,16.17-3.07,40.04-6.35,56.45-8.79h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+            <path d="M1409.25,162.02c-224.3,31.15-207.68,71.21-430.45,146.93" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+            <path d="M1409.25,162.02c-224.3,31.15-207.68,71.21-430.45,146.93" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+            <path d="M1409.25,162.02c-224.3,31.15-207.68,71.21-430.45,146.93" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+          </g>
+          <g id="Sparkle_3" data-name="Sparkle 3">
+            <g id="Line-3" data-name="Line">
+              <path d="M1414.3,69.05c-61.05,10.69-117.04,39.79-166.24,76.76-33.13,24.29-64.92,50.5-99.59,72.67-34.52,22.33-72.11,40.15-111.83,50.96-19.83,5.43-40.06,9.28-60.44,11.91,40.7-5.52,80.79-16.28,118.04-33.65,117.98-55.47,180.67-155.33,320.06-178.65h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+              <path d="M1414.3,69.05c-184.59,33.11-227.06,185.52-438.1,212.3" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+              <path d="M1414.3,69.05c-184.59,33.11-227.06,185.52-438.1,212.3" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+              <path d="M1414.3,69.05c-184.59,33.11-227.06,185.52-438.1,212.3" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+            </g>
+            <g id="Star-3" data-name="Star">
+              <polygon points="1255.5 141.29 1253.12 142.34 1254.31 140.35 1252.38 138.81 1255.04 139.11 1256.22 137.12 1256.68 139.3 1259.35 139.6 1256.97 140.64 1257.43 142.82 1255.5 141.29" fill="#fff" opacity=".75"/>
+              <polygon points="1255.5 141.29 1253.12 142.34 1254.31 140.35 1252.38 138.81 1255.04 139.11 1256.22 137.12 1256.68 139.3 1259.35 139.6 1256.97 140.64 1257.43 142.82 1255.5 141.29" fill="none" opacity=".5" stroke="#fff"/>
+              <polygon points="1255.5 141.29 1253.12 142.34 1254.31 140.35 1252.38 138.81 1255.04 139.11 1256.22 137.12 1256.68 139.3 1259.35 139.6 1256.97 140.64 1257.43 142.82 1255.5 141.29" fill="none" opacity=".25" stroke="#fff" stroke-width="3"/>
+              <polygon points="1255.5 141.29 1253.12 142.34 1254.31 140.35 1252.38 138.81 1255.04 139.11 1256.22 137.12 1256.68 139.3 1259.35 139.6 1256.97 140.64 1257.43 142.82 1255.5 141.29" fill="none" opacity=".1" stroke="#fff" stroke-width="6"/>
+            </g>
+          </g>
+        </g>
+        <g id="Left_Lines" data-name="Left Lines">
+          <g id="Sparkle_1-2" data-name="Sparkle 1">
+            <g id="Line-4" data-name="Line">
+              <path d="M-6.69,450.95c24.75-15.6,50.59-30.19,77.1-42.66,88.24-41.4,185.37-59.63,281.57-71.13,15.57-1.97,38.22-4.09,53.95-5.7-15.87,1.76-38.33,4.08-53.89,6.19-96.07,11.91-193.04,30.29-281.37,71.19-26.51,12.43-52.46,26.74-77.35,42.11h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+              <path d="M-6.69,450.95c99.46-62.4,200.48-98.91,412.62-119.49" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+              <path d="M-6.69,450.95c99.46-62.4,200.48-98.91,412.62-119.49" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+              <path d="M-6.69,450.95c99.46-62.4,200.48-98.91,412.62-119.49" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+            </g>
+            <g id="Star-4" data-name="Star">
+              <polygon points="158.81 376.96 161.46 377.45 159.63 375.79 160.95 373.89 158.5 374.77 156.66 373.11 156.98 375.3 154.53 376.18 157.17 376.66 157.49 378.86 158.81 376.96" fill="#fff" opacity=".75"/>
+              <polygon points="158.81 376.96 161.46 377.45 159.63 375.79 160.95 373.89 158.5 374.77 156.66 373.11 156.98 375.3 154.53 376.18 157.17 376.66 157.49 378.86 158.81 376.96" fill="none" opacity=".5" stroke="#fff"/>
+              <polygon points="158.81 376.96 161.46 377.45 159.63 375.79 160.95 373.89 158.5 374.77 156.66 373.11 156.98 375.3 154.53 376.18 157.17 376.66 157.49 378.86 158.81 376.96" fill="none" opacity=".25" stroke="#fff" stroke-width="3"/>
+              <polygon points="158.81 376.96 161.46 377.45 159.63 375.79 160.95 373.89 158.5 374.77 156.66 373.11 156.98 375.3 154.53 376.18 157.17 376.66 157.49 378.86 158.81 376.96" fill="none" opacity=".1" stroke="#fff" stroke-width="6"/>
+            </g>
+          </g>
+          <g id="Glowing_line_1-4" data-name="Glowing line 1">
+            <path d="M-11.74,351.19c35.25,4.38,70.9,5.8,106.33,3.29,35.47-2.42,70.46-8.94,105.58-14.23,52.71-8.2,106.26-10.83,159.47-6.93,17.73,1.25,35.39,3.22,53.02,5.43-70.52-8.91-142.12-9.04-212.35,2.49-35.14,5.18-70.18,11.6-105.68,13.9-35.48,2.46-71.16.8-106.38-3.95h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+            <path d="M-11.74,351.19c168.4,21.93,213.36-39.21,424.4-12.44" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+            <path d="M-11.74,351.19c168.4,21.93,213.36-39.21,424.4-12.44" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+            <path d="M-11.74,351.19c168.4,21.93,213.36-39.21,424.4-12.44" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+          </g>
+          <g id="Sparkle_2-2" data-name="Sparkle 2">
+            <g id="Line-5" data-name="Line">
+              <path d="M-11.74,305.64c54.42,9.74,110.42,10.21,164.68-.73,36.16-6.96,71.78-16.69,108.21-22.38,36.39-5.92,73.38-7.86,110.2-6.21,18.4.95,36.75,2.74,55.02,5.03-18.29-2.13-36.65-3.76-55.04-4.54-36.79-1.52-73.71.51-110.04,6.55-36.38,5.85-71.98,15.58-108.19,22.37-54.34,10.78-110.47,10.27-164.83-.08h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+              <path d="M-11.74,305.64c184.59,33.11,227.06-51.07,438.1-24.29" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+              <path d="M-11.74,305.64c184.59,33.11,227.06-51.07,438.1-24.29" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+              <path d="M-11.74,305.64c184.59,33.11,227.06-51.07,438.1-24.29" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+            </g>
+            <g id="Star-5" data-name="Star">
+              <polygon points="231.54 290.58 233.92 291.63 232.73 289.64 234.66 288.11 232 288.41 230.82 286.41 230.36 288.59 227.7 288.89 230.07 289.94 229.61 292.12 231.54 290.58" fill="#fff" opacity=".75"/>
+              <polygon points="231.54 290.58 233.92 291.63 232.73 289.64 234.66 288.11 232 288.41 230.82 286.41 230.36 288.59 227.7 288.89 230.07 289.94 229.61 292.12 231.54 290.58" fill="none" opacity=".5" stroke="#fff"/>
+              <polygon points="231.54 290.58 233.92 291.63 232.73 289.64 234.66 288.11 232 288.41 230.82 286.41 230.36 288.59 227.7 288.89 230.07 289.94 229.61 292.12 231.54 290.58" fill="none" opacity=".25" stroke="#fff" stroke-width="3"/>
+              <polygon points="231.54 290.58 233.92 291.63 232.73 289.64 234.66 288.11 232 288.41 230.82 286.41 230.36 288.59 227.7 288.89 230.07 289.94 229.61 292.12 231.54 290.58" fill="none" opacity=".1" stroke="#fff" stroke-width="6"/>
+            </g>
+          </g>
+          <g id="Glowing_line_1-5" data-name="Glowing line 1">
+            <path d="M-22.83,218.14c35.54,13.76,72.55,23.57,110.22,29.3,37.67,5.84,75.77,7.98,113.66,11.9,61.63,6.13,122.7,18.24,181.93,36.36,3.75,1.19,16.64,5.22,20.45,6.44,4.99,1.66,15.38,5.16,20.33,6.81-72.22-24.35-146.87-41.51-222.81-48.62-37.88-4.03-75.99-6.28-113.66-12.24-37.69-5.78-74.7-15.84-110.12-29.95h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+            <path d="M-22.83,218.14c150.67,58.75,223.82,15.09,446.59,90.81" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+            <path d="M-22.83,218.14c150.67,58.75,223.82,15.09,446.59,90.81" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+            <path d="M-22.83,218.14c150.67,58.75,223.82,15.09,446.59,90.81" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+          </g>
+          <g id="Glowing_line_1-6" data-name="Glowing line 1">
+            <path d="M-6.69,162.02c16.57,2.45,40.25,5.72,56.45,8.79,2.99.52,14.98,2.68,17.58,3.14,2.01.42,8.33,1.79,10.48,2.24,41.9,8.48,83.43,20.87,122.52,38.24,30.49,13.27,60.29,28.58,90.64,42.18,25.91,11.64,52.55,22.78,79.14,32.76,15.41,6.12,37.96,13.93,53.65,19.59-15.92-5.58-38.37-13.15-53.83-19.13-26.62-9.89-53.31-20.97-79.27-32.54-30.38-13.55-60.28-28.64-90.71-41.98-38.99-17.46-80.43-29.95-122.26-38.55,0,0-6.98-1.51-6.98-1.51l-3.49-.76c-3.37-.63-14.22-2.59-17.56-3.2-16.14-3.21-39.98-6.69-56.36-9.26h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+            <path d="M-6.69,162.02c224.3,31.15,207.68,71.21,430.45,146.93" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+            <path d="M-6.69,162.02c224.3,31.15,207.68,71.21,430.45,146.93" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+            <path d="M-6.69,162.02c224.3,31.15,207.68,71.21,430.45,146.93" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+          </g>
+          <g id="Sparkle_3-2" data-name="Sparkle 3">
+            <g id="Line-6" data-name="Line">
+              <path d="M-11.74,69.05c139.47,23.35,202,123.13,320.06,178.65,37.25,17.37,77.35,28.14,118.05,33.65-20.38-2.63-40.61-6.48-60.44-11.91-82.92-21.75-144.61-73.38-211.42-123.63C105.31,108.83,49.31,79.74-11.74,69.05h0Z" fill="#fff" mix-blend-mode="hard-light" opacity=".3"/>
+              <path d="M-11.74,69.05c184.59,33.11,227.06,185.52,438.1,212.3" fill="none" opacity=".15" stroke="#fff" stroke-width="3"/>
+              <path d="M-11.74,69.05c184.59,33.11,227.06,185.52,438.1,212.3" fill="none" opacity=".05" stroke="#fff" stroke-width="6"/>
+              <path d="M-11.74,69.05c184.59,33.11,227.06,185.52,438.1,212.3" fill="none" opacity="0" stroke="#fff" stroke-width="12"/>
+            </g>
+            <g id="Star-6" data-name="Star">
+              <polygon points="147.06 141.29 149.44 142.34 148.26 140.35 150.19 138.81 147.52 139.11 146.34 137.12 145.88 139.3 143.22 139.6 145.6 140.64 145.14 142.82 147.06 141.29" fill="#fff" opacity=".75"/>
+              <polygon points="147.06 141.29 149.44 142.34 148.26 140.35 150.19 138.81 147.52 139.11 146.34 137.12 145.88 139.3 143.22 139.6 145.6 140.64 145.14 142.82 147.06 141.29" fill="none" opacity=".5" stroke="#fff"/>
+              <polygon points="147.06 141.29 149.44 142.34 148.26 140.35 150.19 138.81 147.52 139.11 146.34 137.12 145.88 139.3 143.22 139.6 145.6 140.64 145.14 142.82 147.06 141.29" fill="none" opacity=".25" stroke="#fff" stroke-width="3"/>
+              <polygon points="147.06 141.29 149.44 142.34 148.26 140.35 150.19 138.81 147.52 139.11 146.34 137.12 145.88 139.3 143.22 139.6 145.6 140.64 145.14 142.82 147.06 141.29" fill="none" opacity=".1" stroke="#fff" stroke-width="6"/>
+            </g>
+          </g>
+        </g>
+        <use width="922.07" height="360.17" transform="translate(399 156) scale(.69)" xlink:href="#MPX"/>
+      </g>
+    </g>
+  </g>
+</svg>

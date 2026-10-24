@@ -127,7 +127,7 @@
       </g>
     </symbol>
     <clipPath id="clippath">
-      <path id="Mask" d="M200,0h828.75c124.32,0,225.25,100.93,225.25,225.25v803.5c0,124.32-100.93,225.25-225.25,225.25H225.25c-124.32,0-225.25-100.93-225.25-225.25V200C0,89.62,89.62,0,200,0Z" fill="none"/>
+      <rect id="Mask" width="1254" height="1254" rx="225" ry="225" fill="none"/>
     </clipPath>
     <linearGradient id="linear-gradient-8" x1="48.19" y1="38.93" x2="1424.22" y2="1436.99" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#006bea"/>

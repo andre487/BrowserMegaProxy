@@ -25,7 +25,16 @@ const commit = /^[a-f0-9]{40}$/.test(ref)
 if (!/^[a-f0-9]{40}$/.test(commit)) {
   throw new Error('GitHub returned an invalid commit')
 }
-const files = ['SVG/icon-radius.svg', 'SVG/icon-toolbar.svg', 'SVG/feature-graphic.svg', 'LICENSE']
+const files = [
+  'SVG/icon-radius.svg',
+  'SVG/icon-toolbar.svg',
+  'SVG/feature-graphic.svg',
+  'SVG/shop-icon.svg',
+  'SVG/chrome-promo-little.svg',
+  'SVG/chrome-promo-big.svg',
+  'SVG/social-preview.svg',
+  'LICENSE'
+]
 const contents = await Promise.all(
   files.map(file => download(`https://raw.githubusercontent.com/${repository}/${commit}/${file}`))
 )
