@@ -38,8 +38,9 @@ for (const [source, width, height, destination] of [
   ['chrome-promo-big.svg', 1400, 560, 'store/assets/shared/promo-marquee.png'],
   ['social-preview.svg', 1280, 640, 'docs/assets/social-preview.png']
 ]) {
-  await sharp(`${directory}/${source}`, { density: 192 })
-    .resize(width, height)
-    .png()
-    .toFile(destination)
+  const image = sharp(`${directory}/${source}`, { density: 192 }).resize(width, height)
+  if (source.startsWith('chrome-promo-')) {
+    image.flatten({ background: '#10283f' })
+  }
+  await image.png().toFile(destination)
 }
