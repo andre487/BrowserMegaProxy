@@ -42,6 +42,7 @@ function harness(target = 'firefox', shared = {}, fetch = globalThis.fetch, init
     }
   }
   const api = {
+    history: initial.history,
     alarms: initial.alarms,
     notifications: initial.notifications,
     runtime: {
@@ -2899,5 +2900,38 @@ test('Firefox tab overrides survive background restarts and unchanged synced rou
     }
     assert.equal((await restarted.send({ command: 'toggleTab' })).ok, false)
     assert.equal((await restarted.send({ command: 'currentSite' })).currentSite.proxied, before)
+  }
+})
+
+test('service history cleanup requires permission and only removes recorded service URLs', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    let visited
+    let granted = false
+    const deleted = []
+    const h = harness(target, {}, globalThis.fetch, {
+      history: {
+        onVisited: {
+          removeListener: () => {},
+          addListener: fn => {
+            visited = fn
+          }
+        },
+        deleteUrl: async item => deleted.push(item.url)
+      }
+    })
+    await h.send({ command: 'get' })
+    h.api.permissions.contains = async () => granted
+    const url = 'https://knock.example/?r=123'
+    vm.runInContext(`rememberServiceURL(${JSON.stringify(url)})`, h.context)
+    await visited({ url })
+    assert.deepEqual(deleted, [])
+    granted = true
+    await visited({ url: 'https://example.com/user-page' })
+    assert.deepEqual(deleted, [])
+    vm.runInContext(`rememberServiceURL(${JSON.stringify(url)})`, h.context)
+    await visited({ url })
+    assert.deepEqual(deleted, [url])
+    await visited({ url })
+    assert.deepEqual(deleted, [url])
   }
 })
