@@ -437,6 +437,12 @@
   "statisticsTitle": {
     "message": "Запросы через прокси"
   },
+  "clearServiceHistory": {
+    "message": "Удалять служебные запросы из истории"
+  },
+  "clearServiceHistoryHint": {
+    "message": "Запрашивает доступ к истории. Удаляет URL служебных вкладок knock и проверки соединения, IP и страны, включая прежние посещения этих URL."
+  },
   "knockRefreshEnabled": {
     "message": "Обновлять затронутые вкладки после knock"
   },

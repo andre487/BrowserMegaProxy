@@ -51,6 +51,11 @@ async function refreshPrivateAccess() {
   renderPrivateAccess()
 }
 
+async function refreshServiceHistoryPermission() {
+  $('#clear-service-history').checked =
+    (await api.permissions?.contains?.({ permissions: ['history'] }).catch(() => false)) || false
+}
+
 async function refreshNotificationPermission() {
   $('#connection-notifications').checked =
     (await api.permissions?.contains?.({ permissions: ['notifications'] }).catch(() => false)) ||
@@ -1295,6 +1300,15 @@ if (isOptions) {
       placeNotice($('#open-url-import')).textContent = t('configSubscriptionCancelled')
       $('#open-url-import').focus()
     }, 'configSubscription')
+  $('#clear-service-history').onchange = () =>
+    action(async () => {
+      const method = $('#clear-service-history').checked ? 'request' : 'remove'
+      try {
+        await api.permissions[method]({ permissions: ['history'] })
+      } finally {
+        await refreshServiceHistoryPermission()
+      }
+    })
   $('#connection-notifications').onchange = () =>
     action(async () => {
       if ($('#connection-notifications').checked) {
@@ -1469,8 +1483,10 @@ action(async () => {
   if (isOptions) {
     await refreshPrivateAccess()
     await refreshNotificationPermission()
+    await refreshServiceHistoryPermission()
     window.addEventListener('focus', refreshPrivateAccess)
     window.addEventListener('focus', refreshNotificationPermission)
+    window.addEventListener('focus', refreshServiceHistoryPermission)
     openSettingsScenario()
     window.addEventListener('hashchange', openSettingsScenario)
   }

@@ -22,6 +22,37 @@ const authDialogs = new Map()
 const tabUrls = new Map()
 const tabOverrides = new Map()
 const forcedTabs = new Set()
+const serviceHistoryUrls = new Set()
+function rememberServiceURL(url) {
+  if (!/^https?:/.test(url)) {
+    return
+  }
+  // ponytail: keep at most 256 pending history entries; persist them if worker restarts prove relevant.
+  if (serviceHistoryUrls.size >= 256) {
+    serviceHistoryUrls.delete(serviceHistoryUrls.values().next().value)
+  }
+  serviceHistoryUrls.add(url)
+}
+async function clearServiceHistory(item) {
+  if (!serviceHistoryUrls.delete(item.url)) {
+    return
+  }
+  try {
+    if (await api.permissions.contains({ permissions: ['history'] })) {
+      await api.history.deleteUrl({ url: item.url })
+    }
+  } catch (error) {
+    diagnosticLog?.write('history_cleanup_failed', MegaErrors.details(error, 'history'))
+  }
+}
+function registerServiceHistory() {
+  if (api.history?.onVisited) {
+    api.history.onVisited.removeListener(clearServiceHistory)
+    api.history.onVisited.addListener(clearServiceHistory)
+  }
+}
+registerServiceHistory()
+api.permissions?.onAdded?.addListener(registerServiceHistory)
 let connectionCheck = null
 let statistics
 let statisticsGeneration = 0
@@ -234,9 +265,9 @@ async function knock() {
   lastKnockProfile = JSON.stringify(p)
   await api.storage.session?.set({ knockTabs })
   try {
-    await api.tabs.update(tab.id, {
-      url: `https://${p.knockHost.includes(':') ? `[${p.knockHost}]` : p.knockHost}/?r=${Math.random()}`
-    })
+    const url = `https://${p.knockHost.includes(':') ? `[${p.knockHost}]` : p.knockHost}/?r=${Math.random()}`
+    rememberServiceURL(url)
+    await api.tabs.update(tab.id, { url })
   } catch (error) {
     await updateKnockTab(tab.id, { failed: true })
     throw error
@@ -594,6 +625,7 @@ function testPage(tabId, url, signal) {
       return
     }
 
+    rememberServiceURL(url)
     api.tabs.update(tabId, { url }).catch(finish)
   })
 }
@@ -1983,6 +2015,18 @@ ready.then(configureStatistics)
 // tabs.onUpdated can report "loading" after a fast response has already completed.
 api.webRequest.onBeforeRequest?.addListener(
   details => {
+    if (
+      details.type === 'main_frame' &&
+      (connectionCheck?.tabId === details.tabId ||
+        knockTabs.some(
+          tab =>
+            tab.tabId === details.tabId &&
+            /^https?:/.test(details.url) &&
+            M.host(new URL(details.url).hostname) === tab.host
+        ))
+    ) {
+      rememberServiceURL(details.url)
+    }
     if (collectEarlyKnockRequests && details.tabId >= 0 && /^https?:/.test(details.url)) {
       const url = new URL(details.url)
       const key = `${details.tabId}:${url.hostname}`

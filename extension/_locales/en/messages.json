@@ -437,6 +437,12 @@
   "statisticsTitle": {
     "message": "Proxy requests"
   },
+  "clearServiceHistory": {
+    "message": "Delete service requests from history"
+  },
+  "clearServiceHistoryHint": {
+    "message": "Requests history access. Removes URLs opened in service tabs for knock and connection, IP and country checks, including earlier visits to those URLs."
+  },
   "knockRefreshEnabled": {
     "message": "Refresh affected tabs after knock"
   },
