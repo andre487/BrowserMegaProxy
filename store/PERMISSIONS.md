@@ -1,6 +1,6 @@
 # Permission justifications
 
-The following text explains every permission requested by the production manifests. Firefox additionally requests `webRequestBlocking`. The `privacy` and `notifications` permissions are optional in both packages.
+The following text explains every permission requested by the production manifests. Firefox additionally requests `webRequestBlocking`. The `privacy`, `notifications` and `history` permissions are optional in both packages.
 
 ## Single purpose
 
@@ -53,6 +53,19 @@ settings. It displays an update notice after effective active-proxy or routing c
 including configuration subscriptions and Podkop list updates. Notices contain no
 credentials or configuration body. Refusing this permission leaves the popup/settings
 warning and toolbar indicator available; notifications are not needed for proxy management.
+
+## `history` — optional
+
+Requested only when the user enables **Delete service requests from history**, which
+is disabled by default. It removes browser-history entries for URLs opened by the
+extension in knock-host and connection/IP/country-check tabs. The extension observes
+history visit events and deletes only URLs recorded for these service requests; it
+does not search or export browsing history. The browser's `history.deleteUrl` API
+removes all visits to a matching URL, including earlier visits, as explained beside
+the setting. Pending service URLs are kept only in background-process memory, with
+a limit of 256 entries. History data is not synchronized or sent to the developer.
+Disabling the setting revokes the permission. Refusing it leaves proxy management
+and connection checks available, with service visits remaining in browser history.
 
 ## Firefox data-collection declaration
 

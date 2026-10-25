@@ -1,6 +1,6 @@
 # MegaProxy privacy policy
 
-Last updated: 11 October 2026.
+Last updated: 26 October 2026.
 
 MegaProxy is an open-source browser extension that manages user-provided proxy settings. It has no developer-operated analytics, advertising, account service or telemetry endpoint. The developer does not receive your browsing history, proxy credentials, request counters or diagnostic logs from the extension.
 
@@ -52,6 +52,15 @@ exports or browser synchronization. Optional system notifications display only a
 general update/reload/restart message, without credentials or configuration contents.
 They require the separate optional notifications permission. Popup/settings notices
 remain available when system notifications are disabled.
+
+**Delete service requests from history** is disabled by default. Enabling it requests
+optional browser-history access. The extension observes history visit events to
+remove URLs opened in its knock-host and connection/IP/country-check tabs. It does
+not search or export browsing history. The browser API removes all visits to each
+matching URL, including earlier visits. Up to 256 pending service URLs, including
+paths and query parameters, are retained only in background-process memory and are
+not synchronized or sent to the developer. Disabling the setting revokes history
+access; refusing it does not prevent proxy management or connection checks.
 
 You can disable synchronization, password synchronization and request monitoring in settings; clear diagnostic logs; remove profiles; and uninstall the extension to remove its local storage. Browser-synchronized copies are subject to the browser’s sync settings. Previously exported files must be deleted separately. Firefox private-window access allows the selected proxy settings to apply there too.
 
