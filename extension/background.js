@@ -497,6 +497,12 @@ async function forgetKnockTab(tabId, changedURL) {
   }
 }
 
+function knockProfileChanged(previous, next) {
+  return ['id', 'host', 'port', 'type', 'username', 'password', 'knockHost'].some(
+    key => M.active(previous)?.[key] !== M.active(next)?.[key]
+  )
+}
+
 async function startKnock(once = false) {
   const p = M.active(state)
   if (
@@ -1506,9 +1512,7 @@ async function handle(message) {
     }
 
     // Authentication must restart when the active proxy or its credentials change.
-    const restarted = ['id', 'host', 'port', 'type', 'username', 'password', 'knockHost'].some(
-      key => M.active(old)?.[key] !== M.active(next)?.[key]
-    )
+    const restarted = knockProfileChanged(old, next)
     if (message.command === 'activate' || message.command === 'connectionMode' || restarted) {
       connectionCheck = null
       await storeConnectionCheck().catch(error => recordStartupError(error, message.command))
@@ -2679,10 +2683,7 @@ async function receiveSync() {
     }
     connectionCheck = null
     await storeConnectionCheck()
-    if (
-      old.activeId !== next.activeId ||
-      JSON.stringify(M.active(old)) !== JSON.stringify(M.active(next))
-    ) {
+    if (knockProfileChanged(old, next)) {
       await startKnock().catch(error => {
         recordStartupError(error)
       })

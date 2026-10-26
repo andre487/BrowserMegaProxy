@@ -2935,3 +2935,64 @@ test('service history cleanup requires permission and only removes recorded serv
     assert.deepEqual(deleted, [url])
   }
 })
+
+test('worker sync skips knock for imported metadata but restarts it for changed credentials', async () => {
+  const shared = {}
+  const original = harness('chromium', shared)
+  await original.flush()
+  const remote = {
+    schema: 'net.megaproxy487.config',
+    version: 8,
+    profiles: [
+      {
+        id: 'one',
+        name: 'Main',
+        proxy: {
+          type: 'HTTPS',
+          host: 'proxy.example',
+          port: 443,
+          username: 'user',
+          password: 'secret'
+        },
+        browser: { knockHost: 'knock.example' }
+      }
+    ]
+  }
+  assert.equal((await original.send({ command: 'import', data: remote })).ok, true)
+  assert.equal((await original.send({ command: 'activate', id: 'one' })).ok, true)
+  const state = (await original.send({ command: 'get' })).state
+  assert.ok(state.profiles[0].portable)
+
+  for (const changedCredentials of [false, true]) {
+    const pointer = shared.megaConfig
+    const payload = JSON.parse(
+      Array.from({ length: pointer.count }, (_, i) => shared[`mega:${pointer.revision}:${i}`]).join(
+        ''
+      )
+    )
+    assert.equal(payload.config.profiles[0].portable, undefined)
+    payload.config.profiles[0].name = 'Renamed'
+    if (changedCredentials) {
+      payload.config.profiles[0].password = 'new-secret'
+    }
+    const synced = {
+      megaConfig: { revision: 'test-revision', count: 1 },
+      'mega:test-revision:0': JSON.stringify(payload)
+    }
+    const resumed = harness('chromium', synced, globalThis.fetch, { state })
+    const opened = []
+    resumed.api.tabs.create = async options => {
+      opened.push(options)
+      return { id: 42 }
+    }
+    await resumed.flush()
+    const restored = (await resumed.send({ command: 'get' })).state
+    assert.equal(restored.profiles[0].portable, undefined)
+    assert.equal(restored.profiles[0].name, 'Renamed')
+    assert.equal(restored.profiles[0].password, changedCredentials ? 'new-secret' : 'secret')
+    assert.equal(opened.length, changedCredentials ? 1 : 0)
+    if (changedCredentials) {
+      assert.equal(opened[0].active, false)
+    }
+  }
+})
