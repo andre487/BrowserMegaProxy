@@ -68,6 +68,8 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          python-version: '3.12'
+          cache-python: true
           cache-dependency-glob: tests/megaproxy-server/versions.json
       - run: npm ci
       - run: npm run build
@@ -89,7 +91,7 @@ jobs:
             --workdir "$GITHUB_WORKSPACE" \
             --env CI=true --env TEST_BROWSER \
             --env npm_config_cache=/tmp/npm-cache --env XDG_CACHE_HOME=/tmp/cache \
-            --env UV_CACHE_DIR --env UV_PYTHON_INSTALL_DIR \
+            --env UV_CACHE_DIR --env UV_PYTHON_INSTALL_DIR --env UV_PYTHON \
             --env UV_PYTHON_PREFERENCE=only-managed \
             "mcr.microsoft.com/playwright:v${playwright_version}-noble" \
             bash -euc '
