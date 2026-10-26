@@ -681,11 +681,9 @@ async function runConnectionCheck() {
     const deadline = AbortSignal.any([networkController.signal, AbortSignal.timeout(45000)])
     deadline.throwIfAborted()
     if (p) {
+      downloadRouting = { hosts: urls.map(url => new URL(url).hostname), throughProxy: true }
       transient = true
-      await platform.applyTransient({
-        ...state,
-        routingExtraDomains: urls.map(url => new URL(url).hostname)
-      })
+      await platform.applyTransient({ ...state, downloadRouting })
     }
     await storeConnectionCheck()
     tab = await api.tabs.create({ url: 'about:blank', active: false })
@@ -700,18 +698,24 @@ async function runConnectionCheck() {
     async function lookup(endpoints, parse) {
       for (const url of endpoints) {
         try {
-          await testPage(tab.id, url, AbortSignal.any([deadline, AbortSignal.timeout(10000)]))
-          const results = await api.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: () => document.body.innerText.slice(0, 4096)
-          })
-          const value = parse(String(results[0]?.result || '').trim())
+          const text = await MegaSubscriptions.download(url, 4096, (url, options) =>
+            fetch(url, {
+              ...options,
+              signal: AbortSignal.any([deadline, AbortSignal.timeout(10000)])
+            })
+          )
+          const value = parse(text.trim())
           if (value) {
             return value
           }
         } catch (error) {
-          if (error.status >= 500 && error.status <= 599) {
-            diagnosticLog?.write('diagnostic_http_failed', MegaErrors.details(error, 'check'))
+          const details = MegaErrors.details(error, 'check')
+          if (details.status >= 500 && details.status <= 599) {
+            details.responseBody = MegaErrors.responseText(
+              details.responseBody,
+              state.profiles.flatMap(p => [p.username, p.password, p.host, p.knockHost])
+            )
+            diagnosticLog?.write('diagnostic_http_failed', details)
           }
         }
 
@@ -762,6 +766,7 @@ async function runConnectionCheck() {
       profileId: p?.id || null,
       exitIp,
       countryCode,
+      trace: trace || null,
       httpProtocol: /^http\/(?:1\.[01]|2|3)$/.test(trace.http || '') ? trace.http : '',
       tlsVersion: /^TLSv1(?:\.[0-3])?$/.test(trace.tls || '') ? trace.tls : '',
       latencyMs,
@@ -774,6 +779,7 @@ async function runConnectionCheck() {
       await api.tabs.remove(tab.id).catch(() => {})
     }
 
+    downloadRouting = undefined
     if (transient) {
       await platform.applyTransient(state)
     }

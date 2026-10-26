@@ -269,6 +269,9 @@
   "checkSuccess": {
     "message": "Выходной IP: $1\nСтрана: $2\nПротокол: HTTPS\nВремя загрузки: $3 мс"
   },
+  "checkDetails": {
+    "message": "Ответ Cloudflare trace"
+  },
   "checkStage_https": {
     "message": "Проверка HTTPS…"
   },

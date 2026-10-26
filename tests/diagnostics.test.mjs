@@ -138,6 +138,17 @@ function harness(
     crypto,
     URL,
     TextEncoder,
+    TextDecoder,
+    fetch: async url => {
+      urls.push(url)
+      if (
+        url.includes('ifconfig.me') ||
+        (!countrySucceeds && (url.includes('country') || url.includes('ifconfig.co')))
+      ) {
+        throw new Error('network failure')
+      }
+      return new Response(url.includes('api.ipify.org') ? 'invalid IP' : '203.0.113.9')
+    },
     btoa,
     structuredClone,
     AbortSignal,
@@ -149,6 +160,7 @@ function harness(
     new Promise(resolve => [...listeners.get('message')][0](message, { id: 'test' }, resolve))
   return {
     command,
+    context,
     urls,
     removed,
     native,
@@ -349,17 +361,20 @@ test('disconnect interrupts a diagnostic navigation and releases its temporary r
   assert.equal(h.session.transientProxyLease, false)
 })
 
-test('Cloudflare supplies exit IP, country, HTTP and TLS before fallback services', async () => {
+test('Cloudflare supplies IP, country and protocols via fetch while retaining raw fields', async () => {
   const h = harness()
-  h.api.scripting.executeScript = async () => [
-    { result: 'fl=abc\nip=2001:db8::1\nloc=de\nhttp=http/2\ntls=TLSv1.3\n' }
-  ]
+  h.context.fetch = async url => {
+    h.urls.push(url)
+    return new Response('fl=abc\nip=2001:db8::1\nloc=de\nhttp=http/2\ntls=TLSv1.3\n')
+  }
   const result = await h.command({ command: 'check' })
   assert.equal(result.ok, true)
   assert.equal(result.connectionCheck.exitIp, '2001:db8::1')
   assert.equal(result.connectionCheck.countryCode, 'DE')
   assert.equal(result.connectionCheck.httpProtocol, 'http/2')
   assert.equal(result.connectionCheck.tlsVersion, 'TLSv1.3')
+  assert.equal(result.connectionCheck.trace.fl, 'abc')
+  assert.equal(h.session.connectionCheck.trace.fl, 'abc')
   assert.deepEqual(h.urls, [
     'https://example.com/',
     'https://h3.speed.cloudflare.com/cdn-cgi/trace'
@@ -369,13 +384,12 @@ test('Cloudflare supplies exit IP, country, HTTP and TLS before fallback service
 
 test('Cloudflare missing country uses country fallbacks and rejects unrecognized protocol values', async () => {
   const h = harness([], false, 'firefox', 'proxy', true)
-  h.api.scripting.executeScript = async () => [
-    {
-      result: h.urls.at(-1).includes('cloudflare')
-        ? 'ip=203.0.113.8\nloc=unknown\nhttp=invalid\ntls=invalid'
-        : 'US'
-    }
-  ]
+  h.context.fetch = async url => {
+    h.urls.push(url)
+    return new Response(
+      url.includes('cloudflare') ? 'ip=203.0.113.8\nloc=unknown\nhttp=invalid\ntls=invalid' : 'US'
+    )
+  }
   const result = await h.command({ command: 'check' })
   assert.equal(result.connectionCheck.exitIp, '203.0.113.8')
   assert.equal(result.connectionCheck.countryCode, 'US')
@@ -385,4 +399,32 @@ test('Cloudflare missing country uses country fallbacks and rejects unrecognized
     h.urls.some(url => url.includes('ifconfig.me')),
     false
   )
+})
+
+test('background lookups force the selected proxy and release that override afterwards', async () => {
+  for (const target of ['chromium', 'firefox']) {
+    const h = harness([], false, target)
+    await h.flush()
+    vm.runInContext(
+      "state.browserRouting = M.routing({enabled: true, mode: 'domains', domains: ['selected.example']})",
+      h.context
+    )
+    const request = {
+      url: 'https://h3.speed.cloudflare.com/cdn-cgi/trace',
+      tabId: -1,
+      originUrl: 'moz-extension://test/background.js'
+    }
+    assert.equal(await h.context.requestProfile(request), undefined)
+    h.context.fetch = async (url, options) => {
+      h.urls.push(url)
+      assert.equal((await h.context.requestProfile({ ...request, url })).id, 'proxy')
+      assert.equal(options.credentials, 'omit')
+      assert.equal(options.redirect, 'error')
+      return new Response('ip=203.0.113.8\nloc=US')
+    }
+    const result = await h.command({ command: 'check' })
+    assert.equal(result.ok, true)
+    assert.equal(await h.context.requestProfile(request), undefined)
+    assert.deepEqual(h.removed, [7])
+  }
 })

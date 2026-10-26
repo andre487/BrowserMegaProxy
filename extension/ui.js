@@ -1070,6 +1070,11 @@ function renderCheck() {
     const index = text.lastIndexOf(flag.textContent)
     result.replaceChildren(text.slice(0, index), flag, text.slice(index + flag.textContent.length))
   }
+  if (isOptions) {
+    $('#check-details').hidden = check?.stage !== 'complete' || !check.trace
+    $('#check-cloudflare').textContent =
+      check?.stage === 'complete' ? JSON.stringify(check.trace || null, null, 2) : ''
+  }
   const result = $('#check-result')
   const attention = check?.errorDetails?.hint ? `${check.profileId}:${check.errorDetails.hint}` : ''
   if (attention && result.dataset.attention !== attention) {

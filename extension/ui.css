@@ -757,6 +757,10 @@ dialog h2 {
 #network-add {
   margin-top: 16px;
 }
+#check-cloudflare {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 #check-result:not(:empty) {
   white-space: pre-line;
   color: var(--text);
