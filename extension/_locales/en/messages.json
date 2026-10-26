@@ -1199,6 +1199,9 @@
   "connectionNotifications": {
     "message": "System notifications when connection settings change"
   },
+  "connectionNotificationsHint": {
+    "message": "Requests permission to show notifications. Reports changes to the active proxy or routing rules, including subscription updates. Without permission, notices remain available in the extension."
+  },
   "understood": {
     "message": "Understood"
   },
