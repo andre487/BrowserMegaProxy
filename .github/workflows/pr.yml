@@ -79,12 +79,15 @@ jobs:
         run: |
           playwright_version=$(node -p 'require("@playwright/test/package.json").version')
           # Keep host paths and networking: server fixtures bind-mount files and publish localhost ports.
+          # Native launcher checks also exercise the runner's installed Google Chrome and its sandbox.
           docker run --rm --init --ipc=host --network=host \
+            --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
             --user "$(id -u):$(id -g)" \
             --group-add "$(stat -c '%g' /var/run/docker.sock)" \
             --volume "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
             --volume "$RUNNER_TEMP:$RUNNER_TEMP" \
             --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume /opt/google/chrome:/opt/google/chrome:ro \
             --volume "$(command -v docker):/usr/local/bin/docker:ro" \
             --volume "$(command -v uv):/usr/local/bin/uv:ro" \
             --volume "$(command -v node):/usr/local/bin/node:ro" \
