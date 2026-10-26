@@ -766,7 +766,6 @@ async function runConnectionCheck() {
       profileId: p?.id || null,
       exitIp,
       countryCode,
-      trace: trace || null,
       httpProtocol: /^http\/(?:1\.[01]|2|3)$/.test(trace.http || '') ? trace.http : '',
       tlsVersion: /^TLSv1(?:\.[0-3])?$/.test(trace.tls || '') ? trace.tls : '',
       latencyMs,

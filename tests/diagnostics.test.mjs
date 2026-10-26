@@ -361,7 +361,7 @@ test('disconnect interrupts a diagnostic navigation and releases its temporary r
   assert.equal(h.session.transientProxyLease, false)
 })
 
-test('Cloudflare supplies IP, country and protocols via fetch while retaining raw fields', async () => {
+test('Cloudflare supplies exit IP, country, HTTP and TLS via fetch before fallback services', async () => {
   const h = harness()
   h.context.fetch = async url => {
     h.urls.push(url)
@@ -373,8 +373,6 @@ test('Cloudflare supplies IP, country and protocols via fetch while retaining ra
   assert.equal(result.connectionCheck.countryCode, 'DE')
   assert.equal(result.connectionCheck.httpProtocol, 'http/2')
   assert.equal(result.connectionCheck.tlsVersion, 'TLSv1.3')
-  assert.equal(result.connectionCheck.trace.fl, 'abc')
-  assert.equal(h.session.connectionCheck.trace.fl, 'abc')
   assert.deepEqual(h.urls, [
     'https://example.com/',
     'https://h3.speed.cloudflare.com/cdn-cgi/trace'

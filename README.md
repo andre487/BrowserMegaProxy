@@ -506,8 +506,8 @@ to 4 KiB. Redirects are rejected. In Proxy mode, bypassed diagnostic hosts preve
 the test so a direct request cannot be presented as a proxy check. Checks are also
 available in Direct and System modes without a profile. Results show the profile
 or connection mode, protocol, HTTPS page loading time, exit IP and, when available,
-a country flag, code and localized country name. Settings also offer a collapsed
-view of the parsed Cloudflare trace fields. Loading time is not a ping measurement.
+a country flag, code and localized country name. Loading time is not a ping
+measurement.
 
 ## WebRTC, sync and routing tools
 

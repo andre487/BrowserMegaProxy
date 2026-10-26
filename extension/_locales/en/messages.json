@@ -269,9 +269,6 @@
   "checkSuccess": {
     "message": "Exit IP: $1\nCountry: $2\nProtocol: HTTPS\nLoad time: $3 ms"
   },
-  "checkDetails": {
-    "message": "Cloudflare trace response"
-  },
   "checkStage_https": {
     "message": "Checking HTTPS…"
   },

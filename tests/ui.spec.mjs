@@ -1,4 +1,4 @@
-/* global chrome, state, render, connectionCheck, renderCheck */
+/* global chrome, state, render */
 import { expect, test } from '@playwright/test'
 import { gzipSync } from 'node:zlib'
 
@@ -3241,30 +3241,4 @@ test('expired authentication clears the candidate password and disables revealin
   await expect(page.locator('#auth-password')).toHaveValue('')
   await expect(page.locator('.password-toggle')).toBeDisabled()
   await expect(page.locator('#auth-submit')).toBeDisabled()
-})
-
-test('expandable Cloudflare trace fields render as text in settings', async ({ page }) => {
-  await page.locator('#check').click()
-  await expect(page.locator('#check-details')).toBeHidden()
-  await page.evaluate(() => {
-    connectionCheck.trace = {
-      ip: '203.0.113.19',
-      colo: 'FRA',
-      extra: '<img src=x onerror=alert(1)>'
-    }
-    renderCheck()
-  })
-  await expect(page.locator('#check-details')).toBeVisible()
-  await expect(page.locator('#check-details')).toHaveJSProperty('open', false)
-  await page.locator('#check-details > summary').click()
-  await expect(page.locator('#check-cloudflare')).toContainText('"colo": "FRA"')
-  await expect(page.locator('#check-cloudflare')).toContainText('<img src=x onerror=alert(1)>')
-  await expect(page.locator('#check-cloudflare img')).toHaveCount(0)
-  await page.locator('#settings > summary').click()
-  await page.locator('#language').selectOption('en')
-  await expect(page.locator('#check-details > summary')).toHaveText('Cloudflare trace response')
-  await expect(page.locator('#check-details')).toHaveJSProperty('open', true)
-  await page.evaluate('connectionCheck = null; renderCheck()')
-  await expect(page.locator('#check-details')).toBeHidden()
-  await expect(page.locator('#check-cloudflare')).toHaveText('')
 })
