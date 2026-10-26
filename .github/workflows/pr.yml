@@ -49,7 +49,7 @@ jobs:
           retention-days: 7
   browser:
     name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -68,17 +68,39 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
+          python-version: '3.12'
+          cache-python: true
           cache-dependency-glob: tests/megaproxy-server/versions.json
       - run: npm ci
       - run: npm run build
-      - run: npx playwright install --with-deps ${{ matrix.browser }}
-      - name: Generate store assets with both browsers
-        if: matrix.browser == 'chromium'
+      - name: Store assets, Playwright and real MegaProxyServer
+        env:
+          TEST_BROWSER: ${{ matrix.browser }}
         run: |
-          npx playwright install --with-deps firefox
-          npm run store:assets
-      - name: Playwright and real MegaProxyServer
-        run: npm run test:e2e -- --project=${{ matrix.browser }}
+          playwright_version=$(node -p 'require("@playwright/test/package.json").version')
+          # Keep host paths and networking: server fixtures bind-mount files and publish localhost ports.
+          # Native launcher checks also exercise the runner's installed Google Chrome and its sandbox.
+          docker run --rm --init --ipc=host --network=host \
+            --security-opt seccomp=unconfined --security-opt apparmor=unconfined \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --volume "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+            --volume "$RUNNER_TEMP:$RUNNER_TEMP" \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume /opt/google/chrome:/opt/google/chrome:ro \
+            --volume "$(command -v docker):/usr/local/bin/docker:ro" \
+            --volume "$(command -v uv):/usr/local/bin/uv:ro" \
+            --volume "$(command -v node):/usr/local/bin/node:ro" \
+            --workdir "$GITHUB_WORKSPACE" \
+            --env CI=true --env TEST_BROWSER \
+            --env npm_config_cache=/tmp/npm-cache --env XDG_CACHE_HOME=/tmp/cache \
+            --env UV_CACHE_DIR --env UV_PYTHON_INSTALL_DIR --env UV_PYTHON \
+            --env UV_PYTHON_PREFERENCE=only-managed \
+            "mcr.microsoft.com/playwright:v${playwright_version}-noble" \
+            bash -euc '
+              if [ "$TEST_BROWSER" = chromium ]; then npm run store:assets; fi
+              npm run test:e2e -- --project="$TEST_BROWSER"
+            '
       - name: Browser test summary
         if: always()
         uses: test-summary/action@v2

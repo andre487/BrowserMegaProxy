@@ -29,7 +29,7 @@ jobs:
   release:
     name: Build and publish extension archives
     if: ${{ !inputs.dry_run }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
@@ -50,9 +50,18 @@ jobs:
           expected="v$(node -p 'require("./package.json").version')"
           test "$RELEASE_TAG" = "$expected" || { echo 'Release tag must match package.json'; exit 1; }
           test -s "releases/$RELEASE_TAG.md" || { echo 'Committed EN/RU release notes are required'; exit 1; }
-      - run: npx playwright install --with-deps chromium firefox
       - name: Build extension and fresh store assets
-        run: npm run store:assets
+        run: |
+          playwright_version=$(node -p 'require("@playwright/test/package.json").version')
+          docker run --rm --init --ipc=host \
+            --user "$(id -u):$(id -g)" \
+            --volume "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+            --volume "$(command -v node):/usr/local/bin/node:ro" \
+            --workdir "$GITHUB_WORKSPACE" \
+            --env CI=true --env npm_config_cache=/tmp/npm-cache \
+            --env XDG_CACHE_HOME=/tmp/cache \
+            "mcr.microsoft.com/playwright:v${playwright_version}-noble" \
+            npm run store:assets
       - name: Package archives and checksums
         run: npm run release:assets
       - name: Publish GitHub Release
