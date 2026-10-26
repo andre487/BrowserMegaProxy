@@ -16,7 +16,7 @@ Required to persist proxy profiles, saved usernames and passwords, routing rules
 
 ## `scripting`
 
-Required for a user-triggered connection check to read plain-text IP and country results from the temporary diagnostic tab created by the extension, limited to 256 characters per result. For HTTP 5xx diagnostics, the packaged script may also read up to 16,384 characters of visible error-page text in that tab. Known credentials, authorization fields and URLs are redacted, and the excerpt is limited to 4,096 characters before display or logging. This permission is not used to inject scripts into ordinary browsing pages or download executable code.
+Required to inspect HTTP 5xx response pages in the temporary diagnostic tab created during a user-triggered connection check. The packaged script may read up to 16,384 characters of visible error-page text in that tab. Known credentials, authorization fields and URLs are redacted, and the excerpt is limited to 4,096 characters before display or logging. This permission is not used to inject scripts into ordinary browsing pages or download executable code.
 
 ## `alarms`
 

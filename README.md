@@ -495,16 +495,19 @@ the complete settings JSON uses [MegaProxy's configuration subscription](#config
 
 ## Connection checks
 
-Checks use the active connection and a normal background browser tab, closing it
-when complete. Stages follow Android: an HTTPS request to `example.com`, exit IP
-(`ifconfig.me`, `api.ipify.org`, `icanhazip.com`) and country (`ifconfig.co`,
-`ipapi.co`, `api.country.is`), with fallback between providers. Country is optional.
-The total timeout is 45 seconds; each attempt has a 10-second timeout. In Proxy
-mode, bypassed diagnostic hosts prevent the test so a direct request cannot be
-presented as a proxy check. Checks are also available in Direct and System modes
-without a profile. Results show the profile or connection mode, protocol, HTTPS
-page loading time, exit IP and, when available, a country flag, code and localized
-country name. Loading time is not a ping measurement.
+Checks use the active connection. An HTTPS request to `example.com` runs in a
+background browser tab to support interactive proxy authentication; the tab closes
+when the check finishes. IP/country lookups use background `fetch` requests through
+the same connection, starting with Cloudflare trace, then falling back to IP
+services (`ifconfig.me`, `api.ipify.org`, `icanhazip.com`) and country services
+(`ifconfig.co`, `ipapi.co`, `api.country.is`). Country is optional. The total timeout
+is 45 seconds; each attempt has a 10-second timeout and lookup responses are limited
+to 4 KiB. Redirects are rejected. In Proxy mode, bypassed diagnostic hosts prevent
+the test so a direct request cannot be presented as a proxy check. Checks are also
+available in Direct and System modes without a profile. Results show the profile
+or connection mode, protocol, HTTPS page loading time, exit IP and, when available,
+a country flag, code and localized country name. Loading time is not a ping
+measurement.
 
 ## WebRTC, sync and routing tools
 
