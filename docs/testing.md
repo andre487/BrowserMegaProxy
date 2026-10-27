@@ -2,6 +2,20 @@
 
 See [development setup](development.md) for installation and linting.
 
+## Coverage
+
+| Suite                        | Main checks                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Unit                         | Profile validation, routing, import/export, authentication retries, credential redaction, sync quotas and rollback             |
+| Installed desktop extensions | Real proxy traffic, knock, authentication correction, no origin credential leaks, WebRTC controls and connection diagnostics   |
+| Desktop UI                   | Profile editing, import review, subscriptions, optional permissions, themes, keyboard access and mobile-width layouts          |
+| MegaProxyServer              | TLS/SNI routes and chains, masked/unmasked authentication, exit failure without direct fallback, routing and proxied downloads |
+| Native Chrome launcher       | Development reload and persisted language when regular Chrome is installed                                                     |
+| Android                      | Real Firefox/Vivaldi proxy traffic and native popup/settings; browser-specific coverage is listed below                        |
+
+Browser-account cloud transport and native operating-system notification delivery
+are not automated. Sync tests exercise the browser storage API contract locally.
+
 ## Test runners and reports
 
 `npm test` runs unit tests with Node's built-in test runner. Android suites use
@@ -79,8 +93,8 @@ and browser API mocks to cover Basic Auth, source failover, replacement of a rem
 profile, Direct/System preservation, rollback and changed active-profile/Podkop rules.
 UI tests cover **Update now** while paused, notice acknowledgment and notification
 permission refusal. Installed-extension feature tests check the toolbar notice and
-its dismissal in both desktop browsers. Native operating-system notification delivery
-and the complete mobile subscription flow are not automated.
+its dismissal in both desktop browsers. Android suites cover URL import and subscription smoke flows; they do not cover
+every update/failover scenario.
 
 ## Server integration tests
 
@@ -111,6 +125,24 @@ all routing tables and policy rules; `ss` reports TCP sockets and a socket summa
 Linux runners also inspect each test container's network namespace through
 `sudo -n nsenter`, using host tools without modifying container images.
 Missing tools or permissions are recorded and do not replace the original test failure.
+
+## MASQUE integration tests
+
+Run the standalone real Firefox/GOST test without Docker:
+
+```sh
+npm run build
+npm run prepare:gost-e2e
+npx playwright test tests/masque.spec.mjs --project=firefox
+```
+
+The preparation command downloads GOST 3.3.0 with a pinned SHA-256 checksum; the
+test generates temporary TLS certificates. HTTP/HTTPS CONNECT-TCP and failure
+without a direct fallback pass.
+
+Certificate exceptions are confined to temporary browser profiles. Automated tests
+cover CONNECT-TCP; successful CONNECT-UDP page loading is not confirmed. See
+[MASQUE limitations](reference.md#experimental-masque-in-firefox).
 
 ## Firefox Android integration tests
 
