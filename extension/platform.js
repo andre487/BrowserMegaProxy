@@ -35,12 +35,8 @@
       return false
     }
 
-    needsKnock(profile, manual = false) {
-      return Boolean(
-        profile &&
-        !['socks5', 'masque'].includes(profile.type) &&
-        (manual || !this.core.hasCredentials(profile))
-      )
+    needsKnock(profile) {
+      return Boolean(profile && !['socks5', 'masque'].includes(profile.type))
     }
 
     supportsWebRTC() {
@@ -131,10 +127,6 @@
 
     get domainHint() {
       return 'routingDomainsChromiumHint'
-    }
-
-    needsKnock(profile) {
-      return Boolean(profile && !['socks5', 'masque'].includes(profile.type))
     }
 
     validateProfile(profile) {

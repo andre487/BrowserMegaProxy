@@ -19,6 +19,6 @@ Switch profiles from the toolbar or choose a direct connection or the browser’
 
 MegaProxy is a proxy manager, not a proxy service. You need your own compatible proxy; no proxy servers, VPN subscription or account are included. Unsupported configuration fields are reported during import. SOCKS4, proxy chains, custom PAC scripts and automatic proxy failover are not supported.
 
-With saved credentials, Firefox supplies preemptive authentication where its proxy API supports it and skips automatic knock. The Knock button can still open the configured host manually through the active proxy. Without saved credentials, a configured knock host opens for the browser’s authentication prompt. Firefox requires private-window access for its proxy settings API.
+Firefox supplies saved credentials preemptively where its proxy API supports it. A configured knock host opens on connection and browser startup, in the background with saved credentials, so a masked proxy can request authentication even when the saved password is incorrect. Without saved credentials it opens for the browser’s authentication prompt. Firefox requires private-window access for its proxy settings API.
 
 Firefox uses updated settings for subsequent requests; existing connections may need a page reload. If a subscription removes the selected profile, it chooses a replacement while preserving Direct/System mode.

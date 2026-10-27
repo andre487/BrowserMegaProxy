@@ -169,19 +169,14 @@ test('startup and activation knock matrix supplies saved credentials and leaves 
       await h.send({ command: 'get' })
       h.events.startup()
       await h.flush()
-      const expected = target === 'chromium' || !credentials.password
-      assert.equal(h.tabs.length, expected ? 1 : 0, `${target} startup`)
-      if (expected) {
-        assert.equal(h.tabs[0].active, !credentials.password)
-        h.tabs[0].active = false
-      }
+      assert.equal(h.tabs.length, 1, `${target} startup`)
+      assert.equal(h.tabs[0].active, !credentials.password)
+      h.tabs[0].active = false
       await h.send({ command: 'activate', id: null })
       const response = await h.send({ command: 'activate', id: 'one' })
       assert.equal(response.ok, true)
-      assert.equal(h.tabs.length, expected ? 1 : 0, `${target} activation reuses pending knock`)
-      if (expected) {
-        assert.equal(h.tabs[0].active, !credentials.password)
-      }
+      assert.equal(h.tabs.length, 1, `${target} activation reuses pending knock`)
+      assert.equal(h.tabs[0].active, !credentials.password)
       const pendingAuth = new Promise(resolve =>
         h.events.onAuthRequired(
           { isProxy: true, requestId: 'auth', challenger: { host: 'proxy.example', port: 443 } },
@@ -205,27 +200,22 @@ test('startup and activation knock matrix supplies saved credentials and leaves 
       }
       const auth = await pendingAuth
       assert.equal(Boolean(auth.authCredentials), Boolean(credentials.password))
-      if (!expected) {
-        assert.equal((await h.send({ command: 'knock' })).ok, true)
-        assert.equal(h.tabs.length, 1, 'Firefox permits a manual knock with saved credentials')
-        assert.equal(h.tabs[0].active, false)
-      }
     }
   }
 })
 
-test('manual Firefox knock with saved credentials uses the proxy under selective routing', async () => {
+test('automatic Firefox knock with saved credentials uses the proxy under selective routing', async () => {
   const h = harness('firefox', { username: 'user', password: 'secret' })
   await h.send({ command: 'routing', routing: { enabled: true, domains: ['included.example'] } })
   h.events.startup()
   await h.flush()
-  assert.equal(h.tabs.length, 0, 'saved credentials still skip automatic knock')
-  assert.equal((await h.send({ command: 'knock' })).ok, true)
+  assert.equal(h.tabs.length, 1, 'saved credentials still require knock for masked auth failures')
+  assert.equal(h.tabs[0].active, false)
   const request = { tabId: h.tabs[0].id, type: 'main_frame', url: h.tabs[0].url }
   const route = await h.events.proxyRequest(request)
   assert.equal(route[0].host, 'proxy.example')
   assert.equal(route[0].proxyAuthorizationHeader, `Basic ${btoa('user:secret')}`)
-  assert.equal((await h.events.proxyRequest({ ...request, tabId: 999 })).type, 'direct')
+  assert.equal((await h.events.proxyRequest({ ...request, tabId: 999 }))[0].host, 'proxy.example')
   assert.equal(
     (await h.events.proxyRequest({ ...request, url: 'https://other.example/' })).type,
     'direct'
@@ -303,4 +293,30 @@ test('cloning and ordering retain the selected profile', async () => {
   assert.equal(invalid.ok, false)
   assert.equal((await h.send({ command: 'get' })).state.profiles[1].id, id)
   assert.equal((await h.send({ command: 'get' })).state.activeId, 'one')
+})
+
+test('Firefox masked proxy knock exposes rejected saved credentials to the authentication dialog', async () => {
+  const h = harness('firefox', { username: 'user', password: 'wrong-password' })
+  h.events.startup()
+  await h.flush()
+  const tab = h.tabs[0]
+  assert.equal(new URL(tab.url).hostname, 'knock.example')
+  assert.equal(tab.active, false)
+  const details = {
+    requestId: 'masked-knock',
+    tabId: tab.id,
+    url: tab.url,
+    type: 'main_frame',
+    isProxy: true,
+    challenger: { host: 'proxy.example', port: 443 }
+  }
+  const challenge = () => new Promise(resolve => h.events.onAuthRequired(details, resolve))
+  assert.equal((await challenge()).authCredentials.password, 'wrong-password')
+  const rejected = challenge()
+  await new Promise(setImmediate)
+  const dialog = h.tabs.find(tab => tab.url.includes('auth.html'))
+  assert.ok(dialog, 'knock challenge must open the existing credential correction dialog')
+  const token = new URL(dialog.url).searchParams.get('id')
+  await h.send({ command: 'authCancel', token })
+  assert.equal((await rejected).cancel, true)
 })

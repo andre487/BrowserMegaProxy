@@ -492,6 +492,11 @@ for (const authentication of ['saved', 'native']) {
         client.on('error', () => {})
         proxyAttempts.push(req.headers['proxy-authorization'] === credential)
         if (req.headers['proxy-authorization'] !== credential) {
+          // A masked proxy only exposes authentication failures for its knock host.
+          if (req.url !== 'knock.invalid:443') {
+            client.end('HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+            return
+          }
           client.end(
             'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="MegaProxy"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n'
           )
@@ -552,14 +557,6 @@ for (const authentication of ['saved', 'native']) {
         expect(browser.context.pages().some(page => page.url().includes('/auth.html'))).toBe(false)
         expect((await browser.command({ command: 'get' })).state.profiles[0].password).toBe('')
         return
-      }
-      let navigation
-      if (testInfo.project.name === 'firefox') {
-        const page = await browser.context.newPage()
-        navigation = page.goto('https://knock.invalid/').then(
-          () => true,
-          () => false
-        )
       }
       let authTab
       await expect
@@ -627,9 +624,6 @@ for (const authentication of ['saved', 'native']) {
           return tabs.some(tab => tab.id === authTab.id)
         })
         .toBe(false)
-      if (navigation) {
-        expect(await navigation).toBe(true)
-      }
     } finally {
       await browser?.close()
       for (const socket of sockets) {

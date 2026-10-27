@@ -66,7 +66,7 @@
     "message": "Knock host"
   },
   "knockHint": {
-    "message": "Required when credentials are not saved. Opens at connection and browser startup for proxy authentication."
+    "message": "For HTTP and HTTPS proxies with camouflage. Opens on connection and browser startup, in the background with saved credentials. Allows an authentication challenge even with an incorrect password."
   },
   "bypass": {
     "message": "Connect directly for domains"
@@ -238,9 +238,6 @@
   },
   "bypassLocalHint": {
     "message": "Local IP ranges, localhost and local names connect directly. Disable to send them through the proxy."
-  },
-  "knockFirefoxCredentialsHint": {
-    "message": "Firefox sends saved credentials immediately, so automatic knock is not needed. Use the Knock button to open the knock host manually."
   },
   "exportConfig": {
     "message": "Export settings"

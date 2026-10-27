@@ -609,7 +609,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
   await page.locator('.profile-advanced > summary').click()
   await page.getByLabel('Knock host').fill('knock.example.com')
   if (browserName === 'firefox') {
-    await expect(page.locator('#knock-hint')).toContainText('автоматический knock не нужен')
+    await expect(page.locator('#knock-hint')).toContainText('даже при неверном пароле')
   }
   await page.getByLabel('Название', { exact: true }).fill('Test')
   await page.getByLabel('Хост прокси').fill('proxy.example.com')
@@ -661,7 +661,7 @@ test('knock host stays editable and is saved with or without Firefox credentials
   if (browserName === 'firefox') {
     await page.getByLabel('Пароль', { exact: true }).fill('')
     await expect(page.getByLabel('Knock host')).toBeEnabled()
-    await expect(page.locator('#knock-hint')).not.toContainText('автоматический knock не нужен')
+    await expect(page.locator('#knock-hint')).toContainText('даже при неверном пароле')
     await page.locator('.profile-advanced').evaluate(element => {
       element.open = true
     })
