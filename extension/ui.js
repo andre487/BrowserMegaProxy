@@ -968,21 +968,14 @@ function syncKnock() {
   form.elements.password.disabled = socksWithoutAuth || masque
   form.querySelector('.password-toggle').disabled = form.elements.password.disabled
   $('#socks-auth-hint').hidden = !socksWithoutAuth
-  const needed = platform.needsKnock({
-    type: form.elements.type.value,
-    username: form.elements.username.value,
-    password: form.elements.password.value
-  })
   $('#knock-hint').textContent = t(
     masque
       ? 'knockMasqueHint'
       : form.elements.type.value === 'socks5'
         ? 'knockSocksHint'
-        : needed
-          ? platform.id === 'chromium'
-            ? 'knockChromiumHint'
-            : 'knockHint'
-          : 'knockFirefoxCredentialsHint'
+        : platform.id === 'chromium'
+          ? 'knockChromiumHint'
+          : 'knockHint'
   )
 }
 

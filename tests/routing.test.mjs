@@ -66,7 +66,7 @@ test('Firefox IPv6 knock hosts bypass selective inclusion rules but still honor 
         ...config,
         profiles: [{ ...profile, username: 'user', password: 'secret' }]
       }),
-      false
+      true
     )
   }
 })

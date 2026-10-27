@@ -252,6 +252,19 @@ for (const scenario of ['challenge', 'knock', 'masked', 'override', 'chain-only'
         profile: { ...entry, password: 'wrong-password', knockHost: 'knock.invalid' }
       })
       await browser.command({ command: 'activate', id: saved.state.profiles[0].id })
+      if (target === 'firefox' && ['knock', 'override'].includes(scenario)) {
+        // Masking must not hide bad saved credentials: automatic knock exposes a 407.
+        let authTab
+        await expect
+          .poll(async () => {
+            const { tabs } = await browser.command({ command: 'testTabState' })
+            authTab = tabs.find(tab => tab.url?.includes('/auth.html?id='))
+            return Boolean(authTab)
+          })
+          .toBe(true)
+        const token = new URL(authTab.url).searchParams.get('id')
+        await browser.command({ command: 'authCancel', token })
+      }
       const badPage = await browser.context.newPage()
       const requestsBeforeBad = (await server.requests()).length
       await expect(badPage.goto('https://wrong.invalid/', { timeout: 5000 })).rejects.toThrow()

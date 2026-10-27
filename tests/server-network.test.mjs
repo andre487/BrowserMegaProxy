@@ -2,15 +2,16 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { networkDiagnostics, waitForIPv6Ready } from './megaproxy-server/fixture.mjs'
 
-test('browser startup waits for IPv6 DAD, fails on persistent tentative addresses and tolerates missing ip', async () => {
+test('browser startup waits for IPv6 DAD without iproute2 and fails on persistent tentative addresses', async () => {
   let attempts = 0
   let waits = 0
-  const command = async (file, args) => {
-    assert.equal(file, 'ip')
-    assert.deepEqual(args, ['-6', 'address', 'show', 'tentative'])
-    return { stdout: ++attempts < 3 ? 'inet6 fe80::1 scope link tentative' : '' }
+  const address = flags => `fe800000000000000000000000000001 02 40 20 ${flags} veth0\n`
+  const read = async (file, encoding) => {
+    assert.equal(file, '/proc/net/if_inet6')
+    assert.equal(encoding, 'utf8')
+    return address(++attempts < 3 ? 'c0' : '80')
   }
-  await waitForIPv6Ready(command, 'linux', async ms => {
+  await waitForIPv6Ready(read, 'linux', async ms => {
     assert.equal(ms, 100)
     waits++
   })
@@ -18,17 +19,23 @@ test('browser startup waits for IPv6 DAD, fails on persistent tentative addresse
   assert.equal(waits, 2)
   await assert.rejects(
     waitForIPv6Ready(
-      async () => ({ stdout: 'inet6 fe80::1 tentative' }),
+      async () => address('40'),
       'linux',
       async () => {}
     ),
     /duplicate address detection did not finish/
   )
-  const missing = async () => {
-    throw Object.assign(new Error('not installed'), { code: 'ENOENT' })
-  }
-  await waitForIPv6Ready(missing, 'linux')
-  await waitForIPv6Ready(() => assert.fail('ip must not run on macOS'), 'darwin')
+  await waitForIPv6Ready(async () => '', 'linux')
+  await waitForIPv6Ready(async () => {
+    throw Object.assign(new Error('IPv6 disabled'), { code: 'ENOENT' })
+  }, 'linux')
+  await assert.rejects(
+    waitForIPv6Ready(async () => {
+      throw new Error('read failed')
+    }, 'linux'),
+    /read failed/
+  )
+  await waitForIPv6Ready(() => assert.fail('proc must not be read on macOS'), 'darwin')
 })
 
 test('failure diagnostics include IPv6/DAD, routing and sockets before container cleanup and tolerate missing tools', async () => {
