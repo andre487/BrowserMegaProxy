@@ -24,7 +24,7 @@ There is no remote executable code. UI scripts and schema validation are package
 
 Firefox 146+ experimental MASQUE requires trusted TLS and a reachable UDP port, with
 no username/password authentication. CONNECT-TCP scenarios are tested; HTTP/3 over
-CONNECT-UDP is not confirmed. See the [MASQUE limitations](../README.md#experimental-masque-in-firefox).
+CONNECT-UDP is not confirmed. See the [MASQUE limitations](../docs/reference.md#experimental-masque-in-firefox).
 
 A manual URL import offers a direct retry only after a proxied transport failure and
 explicit confirmation. HTTP errors such as 403 do not trigger that prompt. Successful

@@ -1,6 +1,6 @@
 # MegaProxy privacy policy
 
-Last updated: 26 October 2026.
+Last updated: 28 October 2026.
 
 MegaProxy is an open-source browser extension that manages user-provided proxy settings. It has no developer-operated analytics, advertising, account service or telemetry endpoint. The developer does not receive your browsing history, proxy credentials, request counters or diagnostic logs from the extension.
 
@@ -27,7 +27,7 @@ then are saved to that profile and synchronized according to your
 password-sync preference. Cancellation, network failures and repeated proxy-authentication
 challenges do not replace saved credentials.
 
-When you run a connection check, the extension contacts example.com and public IP/country lookup services: ifconfig.me, api.ipify.org, icanhazip.com, ifconfig.co, ipapi.co and api.country.is. Some are fallback endpoints. They receive the IP address of the connection used for the check and ordinary HTTP request metadata. Results are displayed locally.
+When you run a connection check, the extension opens example.com in a background tab and uses background requests for public IP/country lookups, starting with Cloudflare trace at h3.speed.cloudflare.com. Fallback services are ifconfig.me, api.ipify.org, icanhazip.com, ifconfig.co, ipapi.co and api.country.is. They receive the IP address of the connection used for the check and ordinary HTTP request metadata. Results are displayed locally.
 
 Automatic list features fetch catalog metadata and selected domain lists from GitHub (api.github.com and raw.githubusercontent.com, including itdoginfo/allow-domains). If selected lists exceed the rule limit, a public popularity ranking may be fetched from the wangmm001/tranco-top1m-cache GitHub mirror or tranco-list.eu to prioritize domains. These providers receive ordinary request metadata, including the source IP. The extension does not send your browsing history to rank domains. Updates can be sent through the active proxy. Unused lists are not downloaded in other routing modes; opening routing settings can refresh stale catalog metadata.
 
@@ -55,8 +55,9 @@ remain available when system notifications are disabled.
 
 **Delete service requests from history** is disabled by default. Enabling it requests
 optional browser-history access. The extension observes history visit events to
-remove URLs opened in its knock-host and connection/IP/country-check tabs. It does
-not search or export browsing history. The browser API removes all visits to each
+remove URLs opened in its knock-host and connection-check tabs. Background
+IP/country lookups do not create browser-history visits. It does not search or
+export browsing history. The browser API removes all visits to each
 matching URL, including earlier visits. Up to 256 pending service URLs, including
 paths and query parameters, are retained only in background-process memory and are
 not synchronized or sent to the developer. Disabling the setting revokes history

@@ -2,6 +2,20 @@
 
 See [development setup](development.md) for installation and linting.
 
+## Coverage
+
+| Suite                        | Main checks                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Unit                         | Profile validation, routing, import/export, authentication retries, credential redaction, sync quotas and rollback             |
+| Installed desktop extensions | Real proxy traffic, knock, authentication correction, no origin credential leaks, WebRTC controls and connection diagnostics   |
+| Desktop UI                   | Profile editing, import review, subscriptions, optional permissions, themes, keyboard access and mobile-width layouts          |
+| MegaProxyServer              | TLS/SNI routes and chains, masked/unmasked authentication, exit failure without direct fallback, routing and proxied downloads |
+| Native Chrome launcher       | Development reload and persisted language when regular Chrome is installed                                                     |
+| Android                      | Real Firefox/Vivaldi proxy traffic and native popup/settings; browser-specific coverage is listed below                        |
+
+Browser-account cloud transport and native operating-system notification delivery
+are not automated. Sync tests exercise the browser storage API contract locally.
+
 ## Test runners and reports
 
 `npm test` runs unit tests with Node's built-in test runner. Android suites use
@@ -63,9 +77,14 @@ setup described below.
 | `npm test`                               | Unit tests                                                     |
 | `npm run test:e2e -- --project=chromium` | Desktop Chromium and real-server scenarios                     |
 | `npm run test:e2e -- --project=firefox`  | Desktop Firefox and real-server scenarios                      |
-| `npm run test:android`                   | Seven Firefox Android smoke scenarios                          |
-| `npm run test:android:chromium`          | Nine Vivaldi Android smoke scenarios                           |
+| `npm run test:android`                   | Firefox Android smoke scenarios                                |
+| `npm run test:android:chromium`          | Vivaldi Android smoke scenarios                                |
 | `npm run check`                          | Lint, build, units and both desktop projects; excludes Android |
+
+Desktop CI uses the official Playwright image matching the installed
+`@playwright/test` version, with browsers already installed. The runner's Docker
+socket and workspace are mounted into it for real-server fixtures. Local commands
+above use locally installed Playwright browsers instead.
 
 ## Configuration subscriptions and notices
 
@@ -74,8 +93,8 @@ and browser API mocks to cover Basic Auth, source failover, replacement of a rem
 profile, Direct/System preservation, rollback and changed active-profile/Podkop rules.
 UI tests cover **Update now** while paused, notice acknowledgment and notification
 permission refusal. Installed-extension feature tests check the toolbar notice and
-its dismissal in both desktop browsers. Native operating-system notification delivery
-and the complete mobile subscription flow are not automated.
+its dismissal in both desktop browsers. Android suites cover URL import and subscription smoke flows; they do not cover
+every update/failover scenario.
 
 ## Server integration tests
 
@@ -93,6 +112,11 @@ The fixture renders the server's actual GOST and HAProxy templates and invokes i
 
 The native proxy credential dialog is outside Playwright’s page API: tests verify that the browser opens a knock tab and the real server challenges it, but do not automate typing into that dialog.
 
+Before launching a browser on Linux, the fixture waits for IPv6 duplicate-address
+detection on newly created Docker interfaces by reading `/proc/net/if_inet6`.
+This works without `iproute2` and prevents early Chromium `ERR_NETWORK_CHANGED`
+failures. Persistent tentative addresses fail setup after five seconds.
+
 Server tests record `network-start` before browser requests and `network-end` before
 removing their containers, on success or failure. Both timestamped snapshots appear
 in the CI log and as separate Playwright attachments for comparison.
@@ -101,6 +125,24 @@ all routing tables and policy rules; `ss` reports TCP sockets and a socket summa
 Linux runners also inspect each test container's network namespace through
 `sudo -n nsenter`, using host tools without modifying container images.
 Missing tools or permissions are recorded and do not replace the original test failure.
+
+## MASQUE integration tests
+
+Run the standalone real Firefox/GOST test without Docker:
+
+```sh
+npm run build
+npm run prepare:gost-e2e
+npx playwright test tests/masque.spec.mjs --project=firefox
+```
+
+The preparation command downloads GOST 3.3.0 with a pinned SHA-256 checksum; the
+test generates temporary TLS certificates. HTTP/HTTPS CONNECT-TCP and failure
+without a direct fallback pass.
+
+Certificate exceptions are confined to temporary browser profiles. Automated tests
+cover CONNECT-TCP; successful CONNECT-UDP page loading is not confirmed. See
+[MASQUE limitations](reference.md#experimental-masque-in-firefox).
 
 ## Firefox Android integration tests
 
