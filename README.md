@@ -306,8 +306,6 @@ response other than 407; then they are saved to that profile, the dialog closes 
 according to the existing sync preferences. Network failures, cancellation, profile
 changes, and failed local storage writes do not replace the saved credentials.
 If a request expires while the dialog is open, reload its original page to retry.
-Firefox allows manual knock even when both username and password are saved.
-The knock host remains editable with or without saved credentials.
 After a successful HTTP response and completed load, the knock tab closes automatically.
 Load errors, cancellation or unsuccessful authentication leave it open; a successful
 retry still closes it after the page finishes loading. Chromium
@@ -318,10 +316,10 @@ Repeated requests reuse an existing pending tab. Its state is retained in `stora
 so closing still works after the background process restarts.
 
 Tests confirm credentials in Firefox's first CONNECT for HTTPS proxies.
-For HTTP proxies, Firefox may wait for 407. This logic does not support HTTP proxies
-with probe resistance and no challenge at the destination; use an HTTPS proxy for
-such servers. `browser.authMode` remains for legacy imports, but Firefox always
-requests immediate submission of saved credentials.
+For HTTP proxies, Firefox may wait for 407. A probe-resistant server must expose
+that challenge at its configured knock host; otherwise incorrect or missing
+credentials can appear as a network failure. `browser.authMode` remains for legacy
+imports, but Firefox always requests immediate submission of saved credentials.
 
 The `onAuthRequired` handler responds only to the active proxy, matching host/port
 and `isProxy`. It first supplies saved credentials, then holds a repeated challenge
@@ -475,6 +473,13 @@ The shared configuration accepts `SOCKS5`; importing it into another client requ
 that client's explicit support. Unsupported profiles must be reported instead of
 changing the protocol.
 
+Shared JSON uses `profiles[].proxy.knockHost`. Legacy
+`profiles[].browser.knockHost` is accepted when the shared field is absent. An
+explicit empty shared value disables knock, including during configuration merges.
+Exports include both fields with the same value for older browser clients. The
+[portable field reference](https://github.com/andre487/MegaProxyConfig/blob/main/docs/field-reference.md)
+distinguishes transferable fields from local permissions and preferences.
+
 ## ZeroOmega import compatibility
 
 Import accepts ZeroOmega/SwitchyOmega settings JSON (`schemaVersion` 1 or 2,
@@ -508,6 +513,11 @@ available in Direct and System modes without a profile. Results show the profile
 or connection mode, protocol, HTTPS page loading time, exit IP and, when available,
 a country flag, code and localized country name. Loading time is not a ping
 measurement.
+
+**Delete service requests from history** in Settings is off by default and requests
+optional history access. It removes URLs opened in knock and connection-check tabs,
+including earlier visits to the same URLs. IP/country lookups use background fetch
+and do not create browser-history visits. Disabling the setting revokes the permission.
 
 ## WebRTC, sync and routing tools
 
@@ -625,7 +635,7 @@ English and Russian listings, screenshots, icons and promotional materials for C
 and Firefox Add-ons are available in [store/](store/README.md).
 Regenerate images with `npm run store:assets`.
 
-### Experimental MASQUE in Firefox
+## Experimental MASQUE in Firefox
 
 Firefox 146+ can use a MASQUE proxy over HTTP/3 (QUIC). Enable experimental
 MASQUE support in General preferences first (disabled by default). Imports skip
@@ -680,10 +690,3 @@ Successful HTTP/3 page loading via CONNECT-UDP through GOST is not confirmed:
 our manual test encountered `DATAGRAM frame too large`. Automated browser tests
 cover working CONNECT-TCP scenarios only. Test-specific certificate exceptions
 stay in the temporary Firefox profile.
-
-Shared JSON uses `profiles[].proxy.knockHost`. Legacy
-`profiles[].browser.knockHost` is accepted when the shared field is absent. An
-explicit empty shared value disables knock, including during configuration merges.
-Exports include both fields with the same value for older browser clients. The
-[portable field reference](https://github.com/andre487/MegaProxyConfig/blob/main/docs/field-reference.md)
-distinguishes transferable fields from local permissions and preferences.

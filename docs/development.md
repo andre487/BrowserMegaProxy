@@ -154,9 +154,11 @@ npm run renew-identity -- --ref=<commit>   # use a specific upstream revision
 
 `SVG/icon-radius.svg` supplies UI logos and large extension icons;
 `SVG/icon-toolbar.svg` supplies toolbar icons and the 16/32 px extension icons;
-`SVG/feature-graphic.svg` supplies both store promotional images. The shared store
-icon has the required 16 px transparent margins. Promo images preserve the full
-SVG aspect ratio with opaque padding to fit the store dimensions.
+`SVG/shop-icon.svg` supplies the shared store icon;
+`SVG/chrome-promo-little.svg` and `SVG/chrome-promo-big.svg` supply the store
+promotional images; `SVG/social-preview.svg` supplies the repository social preview.
+`SVG/feature-graphic.svg` is retained in the upstream snapshot but is not rendered
+by the current branding generator.
 `npm run build` uses the checked-in assets without network access.
 `node scripts/renew-toolbar-icons.mjs` verifies source checksums and regenerates
 all branding PNGs offline using the installed Sharp dependency.

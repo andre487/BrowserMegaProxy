@@ -63,9 +63,14 @@ setup described below.
 | `npm test`                               | Unit tests                                                     |
 | `npm run test:e2e -- --project=chromium` | Desktop Chromium and real-server scenarios                     |
 | `npm run test:e2e -- --project=firefox`  | Desktop Firefox and real-server scenarios                      |
-| `npm run test:android`                   | Seven Firefox Android smoke scenarios                          |
-| `npm run test:android:chromium`          | Nine Vivaldi Android smoke scenarios                           |
+| `npm run test:android`                   | Firefox Android smoke scenarios                                |
+| `npm run test:android:chromium`          | Vivaldi Android smoke scenarios                                |
 | `npm run check`                          | Lint, build, units and both desktop projects; excludes Android |
+
+Desktop CI uses the official Playwright image matching the installed
+`@playwright/test` version, with browsers already installed. The runner's Docker
+socket and workspace are mounted into it for real-server fixtures. Local commands
+above use locally installed Playwright browsers instead.
 
 ## Configuration subscriptions and notices
 
@@ -92,6 +97,11 @@ npx playwright test tests/server.spec.mjs
 The fixture renders the server's actual GOST and HAProxy templates and invokes its exporter for MegaProxy JSON, FoxyProxy JSON, ProxyList and SuperProxy. A test CA replaces ACME issuance; browser certificate exceptions are confined to isolated test profiles. The GOST chain validates the exit certificate against that CA. These are client interoperability tests, not Ansible provisioning or ACME renewal tests. SSH/SSH_JUMP profiles and unsafe self-signed-certificate flags are checked for rejection because the extension cannot implement SSH forwarding.
 
 The native proxy credential dialog is outside Playwright’s page API: tests verify that the browser opens a knock tab and the real server challenges it, but do not automate typing into that dialog.
+
+Before launching a browser on Linux, the fixture waits for IPv6 duplicate-address
+detection on newly created Docker interfaces by reading `/proc/net/if_inet6`.
+This works without `iproute2` and prevents early Chromium `ERR_NETWORK_CHANGED`
+failures. Persistent tentative addresses fail setup after five seconds.
 
 Server tests record `network-start` before browser requests and `network-end` before
 removing their containers, on success or failure. Both timestamped snapshots appear
