@@ -58,9 +58,10 @@ warning and toolbar indicator available; notifications are not needed for proxy 
 
 Requested only when the user enables **Delete service requests from history**, which
 is disabled by default. It removes browser-history entries for URLs opened by the
-extension in knock-host and connection/IP/country-check tabs. The extension observes
-history visit events and deletes only URLs recorded for these service requests; it
-does not search or export browsing history. The browser's `history.deleteUrl` API
+extension in knock-host and connection-check tabs. Background IP/country lookups
+do not create browser-history visits. The extension observes history visit events
+and deletes only URLs recorded for these service requests; it does not search or
+export browsing history. The browser's `history.deleteUrl` API
 removes all visits to a matching URL, including earlier visits, as explained beside
 the setting. Pending service URLs are kept only in background-process memory, with
 a limit of 256 entries. History data is not synchronized or sent to the developer.

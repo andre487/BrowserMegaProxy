@@ -3,6 +3,35 @@
 Build requirements and contributor commands for this repository.
 See [test runners, reports and emulator checks](testing.md) for test setup.
 
+## Build and install locally
+
+Requires Node.js 22+ and npm.
+
+```sh
+npm ci
+npm run build
+```
+
+- **Chromium 120+**: `chrome://extensions` → Developer mode → Load unpacked → `dist/chromium`.
+- **Firefox desktop 140+**: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `dist/firefox/manifest.json`. Allow private-window access in `about:addons`: Firefox requires it for `proxy.settings`. Permanent installation requires Mozilla signing.
+
+On Android, Firefox requires **142+** and a signed package installed through Mozilla's
+add-on distribution; `about:debugging` is a desktop installation method. For development,
+see [Mozilla's Android extension guide](https://extensionworkshop.com/documentation/develop/developing-extensions-for-firefox-for-android/).
+The Chromium build is also tested in Vivaldi Android; ordinary Chrome Android cannot
+load it ([Google's installation guide](https://support.google.com/chrome_webstore/answer/2664769?hl=en)
+offers only Add to Desktop from a phone).
+See [mobile test coverage and limitations](testing.md).
+
+Each PR's separate **Installation archives** workflow publishes two ZIP artifacts:
+**MegaProxy-chromium** and **MegaProxy-firefox**. Open the run from the PR checks,
+download the archive from **Artifacts**, and extract it. Its `manifest.json` is at the
+archive root; install the extracted directory as described above.
+Artifacts are retained for 14 days. The archive workflow and PR-description update
+finish independently of browser tests.
+The latest archive links are maintained at the bottom of the PR description,
+including release PRs that merge before the publication job starts.
+
 ## Development launcher
 
 Install a current regular Google Chrome and/or Firefox. macOS, Linux and Windows
@@ -102,27 +131,20 @@ npm run check
 macOS or Linux; the GOST test-binary preparation does not support Windows.
 Android checks need an emulator and run separately; see [testing](testing.md).
 
-[.github/workflows/pr.yml](../.github/workflows/pr.yml) runs checks on every PR
-and push to `main`. Separate workflows run the two required Android suites.
-Together they cover:
-
-- ESLint: code quality rules for all JS/MJS files; errors and warnings block the PR.
-- Prettier: consistent JS/MJS, HTML/CSS/JSON, Markdown and YAML formatting; differences block the PR.
-- Node: validation, Unicode Basic, routing, imports, retry limits and credential protection; configuration-subscription source failover, profile replacement, rollback and connection-update notices.
-- Playwright Chromium: installed MV3 extension, a real proxy challenge, knock, subsequent CONNECT and no credentials reaching the origin.
-- Playwright Firefox: temporary add-on installation through Mozilla DevTools Protocol; a test-only sidecar in a temporary copy invokes the normal background handler and is excluded from builds. Playwright checks real network requests; controlling `moz-extension` pages is unsupported.
-- MegaProxyServer: real GOST 3.3.0 and HAProxy in Docker, templates and exports from a pinned server commit; HTTPS/407, camouflage with and without knock, separate chain camouflage settings, direct and SNI-chain routes (including a server with no direct route), IP endpoints, invalid/empty credentials, no origin credential leaks, exit failure without direct fallback, split proxy, proxied subscriptions, diagnostics and request-statistics preferences.
-- Chrome development launcher: current code after relaunch and language persistence in a separate profile, when regular Chrome is installed.
-- Chromium and Firefox UI: create/edit/delete, imports, themes, keyboard access and mobile widths; automatic browser-language selection, persisted manual choices, translated errors and form preservation on language changes; manual subscription refresh while paused, connection notices and optional notification consent/refusal.
+The six required checks are lint, unit tests, Chromium, Firefox, Firefox Android
+and Vivaldi Android. See [test commands, coverage and reports](testing.md) for setup
+and failure diagnostics. Desktop checks run on every PR and push to `main`.
 
 ## Code organization
+
+UI translations live in `extension/_locales/{en,ru}/messages.json`; runtime language
+selection is separate from the browser's localized extension description.
 
 `extension/platform.js` contains the shared `BrowserPlatform` class and its
 `ChromiumPlatform` and `FirefoxPlatform` implementations. They handle native proxy
 settings, authentication and knock, tab routing, available UI capabilities and
 import compatibility. The concrete implementation is selected at startup; shared
-handlers and UI call its methods. Browser APIs and core functions are constructor
-arguments; operation-specific dependencies are method arguments, without a DI container.
+handlers and UI call its methods.
 
 Run `npm run check` before changing adapter behavior: unit tests cover edge cases
 and settings restoration; Playwright checks real Chromium and Firefox, including
@@ -154,12 +176,48 @@ npm run renew-identity -- --ref=<commit>   # use a specific upstream revision
 
 `SVG/icon-radius.svg` supplies UI logos and large extension icons;
 `SVG/icon-toolbar.svg` supplies toolbar icons and the 16/32 px extension icons;
-`SVG/feature-graphic.svg` supplies both store promotional images. The shared store
-icon has the required 16 px transparent margins. Promo images preserve the full
-SVG aspect ratio with opaque padding to fit the store dimensions.
+`SVG/shop-icon.svg` supplies the shared store icon;
+`SVG/chrome-promo-little.svg` and `SVG/chrome-promo-big.svg` supply the store
+promotional images; `SVG/social-preview.svg` supplies the repository social preview.
+`SVG/feature-graphic.svg` is retained in the upstream snapshot but is not rendered
+by the current branding generator.
 `npm run build` uses the checked-in assets without network access.
 `node scripts/renew-toolbar-icons.mjs` verifies source checksums and regenerates
 all branding PNGs offline using the installed Sharp dependency.
 Screenshots remain generated from the real UI by `npm run store:assets`.
 The official Google/Mozilla installation badges in `docs/assets` are third-party
 marks, not MegaProxy identity assets.
+
+## Configuration schema maintenance
+
+The build generates a CSP-compatible validator from the local schema: version 8
+imports and exports use the same schema as the tests. Builds and tests never fetch schemas.
+
+```sh
+npm run renew-config-schema
+npm run renew-config-schema -- --ref=<full-commit>
+```
+
+This command updates `config-schema/`: both schemas, the license, commit and SHA-256
+values in the lock file. Review and commit schema copies and the lock file together.
+The formatter excludes this directory to preserve original bytes and checksums.
+Both schemas are vendored unchanged from MegaProxyConfig; the lock file records
+their upstream checksums. Browser additions are defined in that shared contract.
+
+## HTTP failure diagnostics
+
+Release APIs, schema/catalog renewal and extension downloads share bounded HTTP
+5xx diagnostics. The handler reads at most 16 KiB and emits at most 4,096 characters,
+redacting known credentials, authorization fields, URLs and control characters.
+Empty or unreadable bodies are marked; HTTP 4xx bodies are not logged. Server text
+can still contain other data, so review exported diagnostics before sharing them.
+
+Release and maintenance API calls and extension configuration downloads retry 5xx
+up to three total attempts, with 1 and 2 second delays, logging each excerpt.
+Connection checks do not retry a failed endpoint, but can try fallback lookup services.
+HTTP 4xx and transport failures are not retried by this shared handler.
+
+Extension response excerpts survive error wrapping and can appear in the UI and
+local diagnostic log. Checks read diagnostic error-page text when accessible;
+background downloads read their responses directly. The network monitor gets status
+codes from webRequest events and does not replay requests to obtain response bodies.

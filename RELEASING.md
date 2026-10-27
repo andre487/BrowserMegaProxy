@@ -287,23 +287,13 @@ All store integration scripts print developer-dashboard links in logs and job su
 
 ## HTTP failure diagnostics
 
-Release API calls (Chrome, Firefox and release-note generation), schema/catalog
-renewal and extension downloads include response excerpts for HTTP 500–599 errors.
-The shared handler reads at most 16 KiB and outputs at most 4,096 characters, with
-known credentials, authorization fields, URLs and control characters redacted.
-Errors identify the method and endpoint in release logs. By default, release and maintenance
-API calls and extension configuration downloads retry HTTP 5xx up to three total
-attempts with 1 and 2 second delays.
-Each retry logs its response excerpt. Connection checks do not retry requests.
-HTTP 4xx and transport failures are not retried by this handler.
-Empty or unreadable bodies
-are marked explicitly; HTTP 4xx response bodies are not logged.
+Release API calls include redacted response excerpts for HTTP 500–599 errors and
+retry up to three total attempts with 1 and 2 second delays. HTTP 4xx and transport
+failures are not retried by this handler. Logs identify the method and endpoint;
+inspect the failed job before retrying a publication.
 
-Extension 5xx diagnostics are also retained across error wrapping and displayed in
-the UI and local diagnostic log. Connection checks read the error page's visible
-text when accessible. The network monitor uses browser webRequest events, which
-provide status codes rather than arbitrary response bodies; it does not replay
-requests to collect bodies.
+See [shared HTTP diagnostics](docs/development.md#http-failure-diagnostics) for
+body limits, redaction and extension-download behavior.
 
 ## Recovery after failure
 

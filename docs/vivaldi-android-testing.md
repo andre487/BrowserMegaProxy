@@ -1,105 +1,59 @@
 # Chromium extension tests on Android (Vivaldi)
 
-Reviewed on 2026-10-06 for Vivaldi 8.2.4147.130, Chromium 152 and Android 15 / API 35.
-This check uses an installed Android APK, not desktop viewport emulation.
-
-The sequential Node test suite is `tests/android/vivaldi.test.mjs`. See
-[test runners and reports](testing.md) for scenario counts and report navigation.
-
-## Automation approach
-
-Vivaldi documents Android extension installation through the Chrome Web Store or
-Developer Mode / Load unpacked. Store installation requires Desktop Site mode;
-our local build does not use the store. Tests preserve the complete production
-Chromium build, including its Manifest V3 service worker and locale directories.
-
-We use the already-installed Playwright client over Chromium's Chrome DevTools
-Protocol (CDP), forwarded through ADB. ChromeDriver documents Android package and
-serial selection, but Vivaldi's CDP version reports the Vivaldi release number,
-while its user agent identifies the Chromium engine. Direct CDP avoids needing a
-ChromeDriver matched to the fork's engine version. This does not imply identical
-API support across all Chromium Android browsers.
-
-Sources: [Vivaldi Android extensions](https://help.vivaldi.com/android/android-tools/extensions-on-android/),
-[ChromeDriver Android](https://developer.chrome.com/docs/chromedriver/get-started/android),
-[Chrome Android remote debugging](https://developer.chrome.com/docs/devtools/remote-debugging/),
-[Chromium Android command-line switches](https://www.chromium.org/developers/how-tos/run-chromium-with-flags/).
-
-## Startup and pitfalls
-
-- Select the ADB serial and resolve the installed package's launcher Activity.
-  Use the package's VIEW intent for subsequent web navigation, rather than forcing
-  a launcher Activity that might show an internal screen.
-- Refuse physical devices. Root is used only to prepare this disposable emulator's
-  app-private extension directory. Restore the app's UID/GID and SELinux labels:
-  ADB-pushed directories can be unreadable to the browser, producing a misleading
-  "Default locale is defined but default data couldn't be loaded" error.
-- Write `/data/local/tmp/chrome-command-line` with `_` as the first argument.
-  Mark Vivaldi as the Android debug app, force-stop before changing flags, and
-  verify the effective arguments on `chrome://version`. `chrome://flags` alone
-  does not prove the command line was read.
-- `--disable-fre`, `--no-first-run` and `--no-default-browser-check` suppress the
-  Chromium first-run flow for this pinned APK. Grant notification permission
-  before launch so an Android permission dialog does not cover the native UI.
-- Wait for the actual CDP socket and extension worker. Do not rely on a fixed
-  startup delay or mistake a WebView debug socket for the browser socket.
-- Host loopback is not Android loopback: reverse each local fixture port through
-  ADB. Remove forwards, reverse mappings, debug-app selection and flags afterward.
-- Keep synthetic credentials only. The HTTPS fixture has a generated one-day
-  test certificate; `--ignore-certificate-errors` applies to the disposable test
-  browser, not the extension's production configuration.
-- Use a Google APIs image, which supports `adb root`, rather than a production
-  Google Play image. CI checks KVM and uses an x86_64 APK; Apple Silicon local
-  testing uses the arm64-v8a APK.
-- Cache the clean AVD before installing Vivaldi or extensions. Include emulator
-  and system-image revisions in the cache key and use `-no-snapshot-save` for tests.
-  Software-rendered snapshots still need diagnostics; a cache hit is not proof
-  that the emulator is healthy.
-- Reuse the Firefox workaround for the unused Pixel Launcher ANR. Browser ANRs
-  and failed assertions remain failures; no blind dismissal or assertion retries.
-
-Primary references: [Chromium emulator setup](https://chromium.googlesource.com/chromium/src/+/main/docs/android_emulator.md),
-[Android emulator snapshots](https://developer.android.com/studio/run/emulator-snapshots),
-[Android emulator runner](https://github.com/ReactiveCircus/android-emulator-runner).
-See also [Firefox lessons](android-testing.md).
-
-## Community reports
-
-[Stack Overflow: skipping Chrome's welcome page](https://stackoverflow.com/questions/33408138/how-to-skip-welcome-page-in-chrome-using-adb)
-describes command-line files, debug-app selection and a full restart. These
-instructions are cross-checked against Chromium's current documentation; desktop
-flags are not assumed to work on Android without checking the effective command.
-
-[Stack Overflow: Vivaldi and Selenium](https://stackoverflow.com/questions/59644818/how-to-initiate-a-chromium-based-vivaldi-browser-session-using-selenium-and-pyth)
-describes desktop binary/driver setup. It does not document Android installation
-or extension APIs. Historical claims that Vivaldi Android cannot load extensions
-must be checked against the current Vivaldi documentation.
+The suite is `tests/android/vivaldi.test.mjs`. CI pins Vivaldi 8.2.4147.130 on a
+disposable Android 15 / API 35 emulator. See [test coverage](testing.md#chromium-android-integration-tests-vivaldi)
+and [CI reports](testing.md#where-to-find-reports-in-github).
 
 ## Running locally
 
 Build with `npm ci && npm run build`, start a root-capable disposable API 35
-Google APIs emulator, then run:
+Google APIs emulator, then run with an APK matching its ABI:
 
 ```sh
 ADB="$ANDROID_HOME/platform-tools/adb" \
 ANDROID_SERIAL=emulator-5554 \
-VIVALDI_ANDROID_APK=/path/to/Vivaldi.8.2.4147.130_arm64-v8a.apk \
+VIVALDI_ANDROID_APK=/path/to/vivaldi.apk \
 npm run test:android:chromium
 ```
 
-Download the matching ABI from the [official Vivaldi archive](https://vivaldi.com/download/archive/?platform=android).
-If the shell has HTTP(S)/ALL proxy environment variables, configure loopback
-exclusions or clear those variables before connecting to the local CDP endpoint.
+Download from the [official Vivaldi archive](https://vivaldi.com/download/archive/?platform=android).
+CI uses x86_64; Apple Silicon emulators use arm64-v8a. Physical devices are refused:
+the test clears app data and prepares app-private extension files as root.
 
-The separate **Vivaldi Android tests** CI job uses a pinned release and cached
-clean API 35 emulator. Evidence is uploaded as `vivaldi-android-results`.
-Coverage is a focused smoke test: authenticated HTTP proxying, HTTPS knock
-success/closure and HTTP 500 remaining open, domain/subdomain rules, Direct/System
-and mobile extension UI. Knock tests verify that tabs open inactive and identify
-them by creation ID rather than relying on an immediately updated URL. The fixture
-disables HTTP caching; cache-busting alone does not explain every tab-event failure.
-`browser-events.json` retains tab creation/update/removal and request-completion
-events for comparison after a failure. Native popup geometry is measured through
-its CDP target: Android API metadata alone does not reliably identify its surface.
-Popup content must not use its initially tiny viewport as a maximum height.
-It does not prove all Vivaldi/Android releases, SOCKS or every extension feature.
+## How automation works
+
+The test loads the complete production Chromium build, including its Manifest V3
+worker and locales. Playwright connects over CDP forwarded through ADB; no matched
+ChromeDriver is needed. Android UI automation opens the native popup and settings.
+Local HTTP/HTTPS fixtures verify proxy requests and knock-tab behavior.
+
+## Startup and failure diagnosis
+
+| Symptom                                        | Check                                                                                                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vivaldi does not launch or navigate            | Select the ADB serial, resolve the installed launcher Activity, and use VIEW intents for later navigation.                                              |
+| Extension reports missing locale data          | Restore the app's UID/GID and SELinux labels after pushing files. Preserve the packaged `_locales` directory.                                           |
+| Startup flags have no effect                   | Write `/data/local/tmp/chrome-command-line` with `_` first, select Vivaldi as the Android debug app and restart it. Verify flags on `chrome://version`. |
+| CDP connection fails                           | Wait for the browser's actual socket and extension worker. Exclude loopback from shell proxy variables; do not attach to a WebView socket.              |
+| Fixtures cannot reach the host                 | Check ADB reverse mappings for every fixture port.                                                                                                      |
+| Popup or a permission dialog obscures settings | Inspect screenshots and the native hierarchy. Opening Settings must close the action popup; the test does not press Back to hide it.                    |
+| Knock events appear inconsistent               | Inspect `browser-events.json` by tab creation ID. A new tab's URL may not yet be updated. The fixture disables caching.                                 |
+| Snapshot restore hangs                         | Compare a cold boot, KVM and software-rendering logs. Cache only a clean pre-install AVD and run with `-no-snapshot-save`.                              |
+
+Test certificates and `--ignore-certificate-errors` are confined to the disposable
+browser. They do not change production certificate validation. Cleanup removes ADB
+mappings, debug-app selection and command-line flags. Browser ANRs and failed
+assertions remain failures; the unused Pixel Launcher ANR has the same limited
+workaround as [Firefox Android](android-testing.md).
+
+Evidence includes screenshots, requests, network snapshots, browser events and
+logcat. Popup geometry is measured through its CDP target: Android metadata alone
+does not reliably identify the surface. This smoke suite does not establish support
+for every Chromium Android fork; see the [coverage limits](testing.md#chromium-android-integration-tests-vivaldi).
+
+## References
+
+- [Vivaldi Android extensions](https://help.vivaldi.com/android/android-tools/extensions-on-android/): supported installation methods.
+- [Chromium Android command-line switches](https://www.chromium.org/developers/how-tos/run-chromium-with-flags/): debug-app selection and flags.
+- [Chrome Android remote debugging](https://developer.chrome.com/docs/devtools/remote-debugging/): ADB/CDP access.
+- [Android emulator snapshots](https://developer.android.com/studio/run/emulator-snapshots): restore limitations.
