@@ -14,7 +14,11 @@ const docker = async (...args) => {
   return (result.stdout + (args[0] === 'logs' ? result.stderr : '')).trim()
 }
 
-export async function waitForIPv6Ready(command = exec, platform = process.platform, sleep = delay) {
+export async function waitForIPv6Ready(
+  read = readFile,
+  platform = process.platform,
+  sleep = delay
+) {
   if (platform !== 'linux') {
     return
   }
@@ -22,7 +26,7 @@ export async function waitForIPv6Ready(command = exec, platform = process.platfo
   for (let attempt = 0; attempt < 50; attempt++) {
     let stdout
     try {
-      ;({ stdout } = await command('ip', ['-6', 'address', 'show', 'tentative'], { timeout: 5000 }))
+      stdout = await read('/proc/net/if_inet6', 'utf8')
     } catch (error) {
       if (error.code === 'ENOENT') {
         return
@@ -30,7 +34,13 @@ export async function waitForIPv6Ready(command = exec, platform = process.platfo
       throw error
     }
 
-    if (!/\btentative\b/.test(stdout)) {
+    // The fifth column contains IFA_F_* flags; 0x40 is IFA_F_TENTATIVE.
+    if (
+      !stdout
+        .trim()
+        .split('\n')
+        .some(line => Number.parseInt(line.trim().split(/\s+/)[4], 16) & 0x40)
+    ) {
       return
     }
     await sleep(100)

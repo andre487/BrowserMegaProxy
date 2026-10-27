@@ -169,6 +169,9 @@ for (const scenario of ['auto', 'challenge']) {
           }
         })
         await firefoxCommand({ command: 'activate', id: saved.state.profiles[0].id })
+        await expect
+          .poll(() => requests.some(r => r.target === 'knock.invalid:443' && r.auth === credential))
+          .toBe(true)
       } else {
         popup = await context.newPage()
         await popup.goto(popupURL, { waitUntil: 'commit', timeout: 5000 })
@@ -255,14 +258,8 @@ for (const scenario of ['auto', 'challenge']) {
       })
       await expect(page.locator('body')).toContainText('Reached target')
       const first = requests.find(r => r.target === 'target.invalid:443')
-      if (target === 'firefox' && scenario === 'challenge') {
-        expect(first?.auth).toBeUndefined()
-        expect(requests.some(r => r.target === 'target.invalid:443' && r.auth === credential)).toBe(
-          true
-        )
-      } else {
-        expect(first?.auth).toBe(credential)
-      }
+      expect(first?.auth).toBe(credential)
+
       expect(
         originHeaders.every(headers => !headers['proxy-authorization'] && !headers.authorization)
       ).toBe(true)
