@@ -3,7 +3,7 @@
     "message": "MegaProxy"
   },
   "extensionDescription": {
-    "message": "Proxy authentication and knock hosts, config subscriptions with backup URLs, Podkop lists and selective routing."
+    "message": "Manage your own proxies: profiles, config subscriptions, domain lists and selective routing. No proxy service included."
   },
   "tagline": {
     "message": "Your route to the internet"

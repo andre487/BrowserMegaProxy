@@ -1,5 +1,5 @@
-Profiles and quick actions in the dark theme.
-Configuration subscription: primary and backup URLs, authentication and update controls.
-Firefox tab routing and the rule tester.
-Automatic domain lists with optional updates through the proxy.
-Local network monitor and failed request domains.
+Connect your own proxy and switch profiles from the toolbar.
+Automatic configuration updates with backup URLs and optional authentication.
+Firefox tab routing and a tested rule result.
+Selected Podkop lists with daily updates through the active proxy.
+Failed requests selected for adding their domains to proxy rules.

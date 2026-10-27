@@ -6,9 +6,13 @@ import { chromium, firefox } from '@playwright/test'
 const logo = `data:image/svg+xml;base64,${(await readFile('extension/icons/icon-radius.svg')).toString('base64')}`
 const copy = {
   en: [
-    ['Your proxy. Your choice.', 'Switch profiles from the toolbar.', 'Profiles and quick actions'],
     [
-      'Keep your proxy settings up to date.',
+      'Your proxy, one click away.',
+      'Connect your own proxy from the toolbar.',
+      'Profiles and quick actions'
+    ],
+    [
+      'Your configuration, up to date.',
       'Configuration subscriptions with backup URLs and authentication.',
       'Configuration subscription'
     ],
@@ -26,12 +30,12 @@ const copy = {
   ],
   ru: [
     [
-      'Ваш прокси. Ваш выбор.',
-      'Переключайте профили прямо из панели браузера.',
+      'Ваши прокси под рукой.',
+      'Подключайтесь к своему прокси из панели браузера.',
       'Профили и быстрые действия'
     ],
     [
-      'Настройки, которые обновляются.',
+      'Конфигурация по подписке.',
       'Подписка на конфигурацию с резервными URL и авторизацией.',
       'Подписка на конфигурацию'
     ],
@@ -94,7 +98,7 @@ async function demo(page, target, language, theme, strategy, subscribed) {
         storage: { onChanged: { addListener() {} } },
         runtime: {
           getURL: path => new URL(path, location.href).href,
-          sendMessage: async ({ command }) => {
+          sendMessage: async ({ command, url, tabUrl }) => {
             const M = globalThis.MegaProxy
             state ||= {
               ...M.defaults(),
@@ -147,6 +151,15 @@ async function demo(page, target, language, theme, strategy, subscribed) {
                   throughProxy: true
                 }
               })
+            }
+            if (command === 'testRule') {
+              const proxied = M.routed(url, state, tabUrl || url)
+              const profile = proxied && M.routeProfile(url, state, tabUrl || url)
+              return {
+                ok: true,
+                proxied,
+                profile: profile ? { id: profile.id, name: profile.name } : null
+              }
             }
             if (command === 'currentSite') {
               return {
@@ -340,16 +353,31 @@ try {
                 window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 24)
               )
           }
+          if (i === 2) {
+            await page.locator('#rule-url').fill('https://example.com/resource')
+            if (target === 'firefox') {
+              await page.locator('#rule-tab-url').fill('https://example.com/')
+            }
+            await page.locator('#rule-test-form button').click()
+            await page
+              .locator('#rule-result')
+              .filter({ hasText: /Work|Работа/ })
+              .waitFor()
+            await page.locator('#rule-test-form button:enabled').waitFor()
+          }
           if (i === 4) {
             await page.locator('#network-panel > summary').click()
             await page.locator('.network-row').first().waitFor()
-            await page.locator('#network-failed').uncheck()
+            await page.locator('#network-failed').check()
+            await page.locator('.network-row input').first().check()
+            assert.equal(await page.locator('#network-add').isEnabled(), true)
             await page
               .locator('#network-panel')
               .evaluate(element =>
                 window.scrollTo(0, element.getBoundingClientRect().top + window.scrollY - 24)
               )
           }
+          await page.mouse.move(0, 0)
           await page.evaluate(() => document.fonts.ready)
           assert.deepEqual(errors, [], `${target}/${language} screenshot ${i + 1}`)
           assert.equal(await page.locator('#notice').textContent(), '')
