@@ -627,7 +627,7 @@ function FindProxyForURL(url, host) {
         'throughProxy'
       ],
       '/profiles/*': ['id', 'name', 'color', 'countryCode', 'proxy', 'browser'],
-      '/profiles/*/proxy': ['type', 'host', 'port', 'username', 'password'],
+      '/profiles/*/proxy': ['type', 'host', 'port', 'username', 'password', 'knockHost'],
       '/profiles/*/browser': ['knockHost', 'bypass', 'authMode', 'masqueTemplate']
     }
     let unknownFields = false
@@ -991,7 +991,7 @@ function FindProxyForURL(url, host) {
           port:
             p.port || (type === 'socks5' ? 1080 : ['https', 'masque'].includes(type) ? 443 : 80),
           host: p.host || p.hostname || p.address,
-          knockHost: browserOptions.knockHost ?? p.knockHost ?? entry.knockHost,
+          knockHost: p.knockHost ?? browserOptions.knockHost ?? entry.knockHost,
           bypass: browserOptions.bypass ?? p.bypass ?? [],
           authMode: browserOptions.authMode || p.authMode,
           masqueTemplate: browserOptions.masqueTemplate ?? p.masqueTemplate,
@@ -1361,7 +1361,10 @@ function FindProxyForURL(url, host) {
         const next = { ...p }
         if (old && p.portable) {
           for (const key of ['knockHost', 'bypass', 'authMode', 'masqueTemplate']) {
-            if (!Object.hasOwn(p.portable.browser || {}, key)) {
+            if (
+              !Object.hasOwn(p.portable.browser || {}, key) &&
+              !(key === 'knockHost' && Object.hasOwn(p.portable.proxy || {}, key))
+            ) {
               next[key] = old[key]
             }
           }
@@ -1486,6 +1489,7 @@ function FindProxyForURL(url, host) {
           host: p.host,
           port: p.port,
           username: p.username,
+          ...(p.type === 'https' ? { knockHost: p.knockHost } : {}),
           ...(includePasswords ? { password: p.password } : {})
         },
         browser: {

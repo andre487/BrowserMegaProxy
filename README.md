@@ -680,3 +680,10 @@ Successful HTTP/3 page loading via CONNECT-UDP through GOST is not confirmed:
 our manual test encountered `DATAGRAM frame too large`. Automated browser tests
 cover working CONNECT-TCP scenarios only. Test-specific certificate exceptions
 stay in the temporary Firefox profile.
+
+Shared JSON uses `profiles[].proxy.knockHost`. Legacy
+`profiles[].browser.knockHost` is accepted when the shared field is absent. An
+explicit empty shared value disables knock, including during configuration merges.
+Exports include both fields with the same value for older browser clients. The
+[portable field reference](https://github.com/andre487/MegaProxyConfig/blob/main/docs/field-reference.md)
+distinguishes transferable fields from local permissions and preferences.
