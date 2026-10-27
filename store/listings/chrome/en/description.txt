@@ -1,23 +1,22 @@
-Manage your own HTTP, HTTPS and SOCKS5 proxies with configuration subscriptions, backup URLs, Podkop domain lists and selective routing. For HTTPS proxies that hide authentication behind camouflage, configure a knock host to start authentication before opening other sites.
+MegaProxy manages proxies you provide. Connect your own HTTP, HTTPS or SOCKS5 proxy, keep its configuration up to date and choose which sites use it. No proxy servers, VPN service or MegaProxy account are included.
 
-Switch profiles from the toolbar or choose a direct connection or the browser’s system proxy settings.
+For Chromium
+Routing follows destination domains. HTTP/HTTPS username/password authentication responds to proxy challenges (407); SOCKS5 is anonymous with proxy-side DNS. Tab-based routing is unavailable. Light and dark themes are supported.
 
-• Configuration subscriptions with backup URLs and optional Basic Auth over HTTPS. Edit source URLs, credentials and the interval in one panel; pause automatic checks, refresh from settings or the toolbar popup, or unsubscribe while keeping profiles. Failed updates preserve the last working configuration. The source can update subscription URLs while local credentials and update preferences are retained.
-• Knock hosts for authenticating with camouflage proxies in Chromium. A configured host opens on connection and browser startup, in the background when credentials are saved. Tunnel failures or timeouts without a knock host show a possible-camouflage hint alongside the original error.
-• Automatic domain lists from the sources used by Podkop, with optional updates through your proxy. Unneeded lists are not downloaded.
-• Proxy all sites or use a manual domain list with wildcard support. Local networks are bypassed by default; this can be disabled.
-• HTTP and HTTPS CONNECT proxies, including username/password authentication and an optional knock host.
-• SOCKS5 with proxy-side DNS. Chromium does not support SOCKS5 username/password authentication.
-• One selected profile with names, colors and country flags. Reorder profiles by dragging, including on touch screens.
-• Test routing rules and check the connection: exit IP, country and HTTPS load time.
-• Import MegaProxy, FoxyProxy, ZeroOmega, ProxyList and SuperProxy from a file or URL. Export MegaProxy configurations: HTTP profiles and HTTPS proxies with IPv6 addresses cannot be exported; SOCKS5 needs a compatible client.
-• Notices when active proxy settings or routing rules change, including Podkop lists. System notifications are optional and require separate permission.
-• Optional WebRTC restrictions, page context menus, English and Russian interfaces, and light and dark themes.
-• Settings sync through your browser. Sync and password sync are enabled by default and can be disabled independently.
-• Request counters and a bounded network monitor are enabled by default and can be disabled. Their data stays local. A separate local diagnostic log can be viewed and exported, with a configurable 1–10 MiB limit.
+For a masked HTTP/HTTPS proxy, configure the knock host supplied by its operator. It opens on connection and browser startup, in the background with saved credentials or actively without them, and closes after a successful load. Rejected saved credentials can open a correction dialog. SOCKS5 and MASQUE do not use knock.
 
-MegaProxy is a proxy manager, not a proxy service. You need your own compatible proxy; no proxy servers, VPN subscription or account are included. Unsupported configuration fields are reported during import. SOCKS4, proxy chains, custom PAC scripts and automatic proxy failover are not supported.
+• Switch profiles from the toolbar. Use Proxy, Direct or the browser’s System settings.
+• Subscribe to a configuration URL with backup sources and optional Basic Auth over HTTPS. Pause automatic updates or refresh manually; failed updates keep the working configuration. Use only trusted sources: backup URLs receive the same configured credentials.
+• Proxy all sites, choose domains with wildcard rules or use automatic Podkop domain lists. Lists can update through your proxy. Local networks are bypassed by default.
+• Check the exit IP, optional country and HTTPS loading time. Test routing rules without making a network request.
+• Import MegaProxy, FoxyProxy, ZeroOmega, ProxyList or SuperProxy from a file or URL. Export MegaProxy version 8; HTTP profiles and HTTPS proxies with IPv6 host literals cannot be exported.
+• Get connection-update notices and optionally enable system notifications. WebRTC restrictions require optional permission and may affect calls.
+• Use English or Russian, profile colors and country flags, and drag to reorder profiles.
 
-In Chromium-based browsers, routing uses request domains. Saved credentials are provided when the proxy requests authentication (407). If a knock host is configured, it opens when the profile connects and when the browser starts: in the background with saved credentials, or in the foreground for the browser’s authentication prompt when credentials are missing. It closes after a successful load.
+Privacy and control
+Settings sync and password sync are enabled by default and can be disabled separately. Passwords are not separately encrypted by MegaProxy and are included in exports by default; you can exclude them. Request counters and the network monitor are local, enabled by default and can be disabled together. A local diagnostic log can be viewed, cleared and exported.
 
-New connections use updated settings immediately. When active proxy settings or rules change, MegaProxy recommends restarting the browser to ensure all previously open connections use the updated configuration. If a subscription removes the selected profile, it chooses a replacement while preserving Direct/System mode.
+Optional service-history cleanup removes URLs opened in knock and connection-check tabs, including earlier visits to those URLs. It is off by default and requires history access.
+
+Limits
+One profile is active at a time. SOCKS4, client-side proxy chains, custom PAC scripts and automatic proxy failover are not supported. Unsupported imports show warnings. New connections use changed settings; existing connections may need a page reload or browser restart.

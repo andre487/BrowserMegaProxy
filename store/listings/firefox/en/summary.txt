@@ -1,1 +1,1 @@
-Proxy authentication and knock hosts, config subscriptions with backup URLs, Podkop lists and selective routing.
+Manage your own proxies: profiles, config subscriptions, domain lists and selective routing. No proxy service included.
