@@ -699,3 +699,24 @@ test('SOCKS5 usernames with colons round-trip without relaxing HTTP Basic valida
     /errorCredentials/
   )
 })
+
+test('shared knock host wins legacy alias, survives export and explicitly clears merges', () => {
+  const config = structuredClone(portable)
+  delete config.profiles[0].dns
+  delete config.profiles[0].tls
+  config.profiles[0].proxy.knockHost = 'shared.example'
+  const imported = M.importProfiles(config, 'firefox')
+  const state = M.mergeImport(M.defaults(), imported)
+  assert.equal(state.profiles[0].knockHost, 'shared.example')
+  const exported = M.exportConfig(state, true)
+  assert.ok(validate(exported), JSON.stringify(validate.errors))
+  assert.equal(exported.profiles[0].proxy.knockHost, 'shared.example')
+  assert.equal(exported.profiles[0].browser.knockHost, 'shared.example')
+  config.profiles[0].proxy.knockHost = ''
+  const cleared = M.mergeImport(state, M.importProfiles(config, 'firefox'))
+  assert.equal(cleared.profiles[0].knockHost, '')
+  delete config.profiles[0].proxy.knockHost
+  delete config.profiles[0].browser
+  const preserved = M.mergeImport(state, M.importProfiles(config, 'firefox'))
+  assert.equal(preserved.profiles[0].knockHost, 'shared.example')
+})
