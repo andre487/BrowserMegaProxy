@@ -1,14 +1,14 @@
 {
   "repository": "https://github.com/andre487/MegaProxyIdentity",
-  "commit": "8958f0f6b74b03fcfc874e2ac4367ecfddeaace5",
+  "commit": "65898348e43b94a8831180f8aa2b00cabd520fe4",
   "files": {
-    "SVG/icon-radius.svg": "a7b233505adddcc3f5814dbfa33f0e875ae26a5cdb6caae792395ef9dc3e2782",
-    "SVG/icon-toolbar.svg": "eb6c52c115dfc9b01be4bc7dae75d8e4dd6525d4065609e1bb65a6530e12be76",
-    "SVG/feature-graphic.svg": "cb76a52ba46da5e0ee63821325d5481731f17436059c9c026111d41c37a412a0",
-    "SVG/shop-icon.svg": "8729843768587042c61ee042b9041a7c415c7e4fed02ef3c6d907cfab9d344da",
-    "SVG/chrome-promo-little.svg": "5e825cf453f6373c778337f267caccc63bf44e57702b426c658654c90feb7188",
-    "SVG/chrome-promo-big.svg": "4ad5197427b48147eb9defd0c6d02806bcd3f296a17a064f2e65034baf9f2859",
-    "SVG/social-preview.svg": "7edb6fa286e896cba12c8080fa4147f20fc3abd84713edf252520cdccce6e107",
+    "SVG/icon-radius.svg": "c1765e20535898b327d7f6f0153ac127dd949277c2fb377288fa418cf652516b",
+    "SVG/icon-toolbar.svg": "58d4df20951d93840fea8b662f703aeb3a0038d1327c0589883c3bf31c8fcc3c",
+    "SVG/feature-graphic.svg": "ba7e6d86360a74350820a72e4ec958be7cd3e5062ebcf6e41c4f22a336dca534",
+    "SVG/shop-icon.svg": "adaa8622a169dacd666f25088a8cce9d74423cecc42f3eafaf758bf734325f86",
+    "SVG/chrome-promo-little.svg": "f1bc5a4542ede9cdb477230d3fed81ce13f2ab80452f37b305d04c07e44651b8",
+    "SVG/chrome-promo-big.svg": "7ed9be98122b8c0da338c8464955e00e2857ad22c6da7a3790f3ebc01dd0f29c",
+    "SVG/social-preview.svg": "986f2bfab9b0c06bee6beeca7a2d51ee8adba471363af0633d7e49b1e329189d",
     "LICENSE": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
   }
 }
